@@ -185,3 +185,33 @@ agent_communication:
       1. Testar navegação do visitor na aba "Projeto"
       2. Testar página "Meu Plano" do paciente para confirmar se userType error ainda existe
       3. Testar salvamento da anamnese
+  
+  - agent: "testing"
+    message: |
+      ✅ BUGS TESTADOS - RESULTADOS:
+      
+      **BUG 1 (ProtectedRoute Visitor) - ✅ PASSOU**
+      - Acessei /visitor/projeto com localStorage limpo
+      - NÃO houve redirecionamento para "/"
+      - localStorage setado corretamente como 'visitor'
+      - Página "Projeto Biquíni Branco" carregada com sucesso
+      - Status: CORRIGIDO
+      
+      **BUG 2 (userType is not defined) - ✅ PASSOU**
+      - Login paciente (kelly@com) funcionou
+      - Navegou para /patient/meal-plan sem erros
+      - NENHUM erro 'userType is not defined' detectado
+      - Botões 'Duplicar' ocultos corretamente (patient view)
+      - Status: CORRIGIDO
+      
+      **BUG 3 (Salvar Anamnese) - ❌ FALHOU**
+      - Login profissional OK
+      - Acessou perfil paciente e aba Anamnese
+      - Preencheu 3 campos: Peso 78.5kg, Altura 175cm, Peso Meta 70kg
+      - Clicou em Concluir e Salvar
+      - ERRO: 2x HTTP 400 na API Supabase /rest/v1/anamnesis
+      - Mensagem: "TypeError: Failed to execute 'text' on 'Response': body stream already read"
+      - Progresso mudou de 0% → 12% mas salvamento FALHOU
+      - Root Cause: Tentativa de ler body da Response múltiplas vezes
+      - Arquivo: /app/frontend/src/lib/supabase.js (createAnamnesis ou updateAnamnesis)
+      - Status: NÃO RESOLVIDO - NECESSITA CORREÇÃO URGENTE
