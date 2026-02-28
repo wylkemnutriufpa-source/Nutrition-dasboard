@@ -169,8 +169,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Fix ProtectedRoute para visitor"
-    - "Meu Plano - userType prop"
     - "Salvar Anamnese"
   stuck_tasks: []
   test_all: false
