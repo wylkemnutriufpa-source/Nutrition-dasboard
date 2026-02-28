@@ -973,6 +973,15 @@ const PatientProfile = () => {
         setDraftPlan(draftResult.value.data?.draft_data || null);
       }
 
+      // Sincronizar templates globais para o paciente
+      try {
+        await syncTemplatesForPatient(id);
+        console.log('✅ Templates sincronizados para o paciente');
+      } catch (syncError) {
+        console.warn('⚠️ Erro ao sincronizar templates:', syncError);
+        // Não bloquear o carregamento se a sincronização falhar
+      }
+
     } catch (error) {
       console.error('Error loading patient:', error);
       toast.error('Erro ao carregar paciente');
