@@ -111,11 +111,11 @@ user_problem_statement: |
 backend:
   - task: "Salvar Anamnese"
     implemented: true
-    working: false
+    working: "unknown"
     file: "/app/frontend/src/lib/supabase.js"
     stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "unknown"
         agent: "user"
@@ -123,6 +123,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "TESTADO E FALHOU ❌ - Login profissional OK. Acessou perfil do paciente 'joao teste'. Preencheu 3 campos (Peso: 78.5kg, Altura: 175cm, Peso Meta: 70kg). Clicou em 'Concluir' e 'Salvar'. ERRO DETECTADO: 2x HTTP 400 na API Supabase /rest/v1/anamnesis. Mensagem de erro na tela: 'Erro ao salvar: TypeError: Failed to execute text on Response: body stream already read'. Progresso mudou de 0% para 12% mas salvamento falhou. Root Cause: Erro de tratamento de response do Supabase - tentativa de ler body da response múltiplas vezes (body stream already read). Localização provável: createAnamnesis ou updateAnamnesis em supabase.js."
+      - working: "unknown"
+        agent: "main"
+        comment: "Adicionado tratamento de erro mais robusto em createAnamnesis e updateAnamnesis com try-catch. Melhorado retorno de erros para evitar leitura múltipla do body. Precisa re-testar."
 
 frontend:
   - task: "Fix ProtectedRoute para visitor"
