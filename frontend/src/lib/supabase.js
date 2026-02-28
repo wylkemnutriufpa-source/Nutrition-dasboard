@@ -491,13 +491,8 @@ export const createAnamnesis = async (data) => {
       }, {});
     
     // LOG COMPLETO DO PAYLOAD
-    console.log('📤 PAYLOAD COMPLETO ANTES DE ENVIAR:', cleanPayload);
-    console.log('📋 CAMPOS:', Object.keys(cleanPayload));
-    console.log('🔍 IDs:', {
-      patient_id: cleanPayload.patient_id,
-      professional_id: cleanPayload.professional_id,
-      sao_iguais: cleanPayload.patient_id === cleanPayload.professional_id
-    });
+    console.log('📤 PAYLOAD COMPLETO:', cleanPayload);
+    console.log('🔍 IDs diferentes?', cleanPayload.patient_id !== cleanPayload.professional_id);
     
     // Primeiro verificar se já existe anamnese para esse paciente
     const { data: existing, error: selectError } = await supabase
@@ -507,56 +502,68 @@ export const createAnamnesis = async (data) => {
       .maybeSingle();
     
     if (selectError) {
-      console.error('❌ Erro SELECT:', selectError.message, selectError.code);
+      console.error('❌ Erro SELECT:', String(selectError.message || selectError));
       return { data: null, error: selectError };
     }
     
     if (existing) {
-      // Se já existe, atualizar
       console.log('📝 Já existe anamnese, atualizando:', existing.id);
       return await updateAnamnesis(existing.id, data);
     }
     
     // Se não existe, criar nova
-    console.log('✨ Criando nova anamnese - CHAMANDO SUPABASE INSERT');
+    console.log('✨ INSERINDO NO SUPABASE...');
     
     const finalPayload = {
       ...cleanPayload,
       created_at: new Date().toISOString()
     };
     
-    console.log('🚀 FINAL PAYLOAD:', finalPayload);
-    
-    const { data: result, error } = await supabase
-      .from('anamnesis')
-      .insert(finalPayload)
-      .select()
-      .maybeSingle();
-    
-    if (error) {
-      // NÃO fazer JSON.stringify - apenas logar propriedades diretas
-      console.error('❌ ERRO SUPABASE:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
-        status: error.status
-      });
+    // CAPTURAR ERRO SEM TOCAR NO RESPONSE
+    let result, error;
+    try {
+      const response = await supabase
+        .from('anamnesis')
+        .insert(finalPayload)
+        .select()
+        .maybeSingle();
       
-      // Tentar extrair mais informações
-      if (error.message) console.error('📝 Message:', error.message);
-      if (error.details) console.error('📋 Details:', error.details);
-      if (error.hint) console.error('💡 Hint:', error.hint);
-      if (error.code) console.error('🔢 Code:', error.code);
-      
-      return { data: null, error };
+      result = response.data;
+      error = response.error;
+    } catch (insertError) {
+      console.error('🔴 EXCEÇÃO NO INSERT:', insertError);
+      error = insertError;
     }
     
-    console.log('✅ Anamnese criada com sucesso:', result);
+    if (error) {
+      // Logar SEM acessar propriedades que podem ter Response
+      console.error('🔴 HTTP 400 - ERRO DETECTADO!');
+      console.error('🔴 Tipo:', typeof error);
+      console.error('🔴 Constructor:', error?.constructor?.name);
+      
+      // Tentar extrair info de forma segura
+      const safeError = {
+        message: '',
+        code: '',
+        details: '',
+        hint: ''
+      };
+      
+      try { safeError.message = String(error.message || ''); } catch (e) { }
+      try { safeError.code = String(error.code || ''); } catch (e) { }
+      try { safeError.details = String(error.details || ''); } catch (e) { }
+      try { safeError.hint = String(error.hint || ''); } catch (e) { }
+      
+      console.error('🔴 Safe Error:', safeError);
+      
+      return { data: null, error: safeError };
+    }
+    
+    console.log('✅ Anamnese criada com sucesso!');
     return { data: result, error: null };
   } catch (err) {
-    console.error('❌ EXCEÇÃO JAVASCRIPT:', err.message, err.stack);
-    return { data: null, error: { message: err.message || 'Erro desconhecido' } };
+    console.error('❌ EXCEÇÃO GERAL:', String(err.message || err));
+    return { data: null, error: { message: String(err.message || 'Erro desconhecido') } };
   }
 };
 
