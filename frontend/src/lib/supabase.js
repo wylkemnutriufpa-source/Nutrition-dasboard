@@ -2640,32 +2640,39 @@ export const compareAssessments = (current, previous) => {
  */
 export const getProfessionalDashboardData = async (professionalId) => {
   try {
-    // 1. Buscar todos os pacientes
-    const { data: patients, error: patientsError } = await supabase
-      .from('profiles')
+    // 1. Buscar todos os pacientes vinculados via patient_profiles
+    const { data: patientProfiles, error: patientsError } = await supabase
+      .from('patient_profiles')
       .select(`
-        id,
-        name,
-        email,
-        last_login,
-        created_at,
-        current_weight,
-        goal_weight,
-        professional_id
+        patient_id,
+        professional_id,
+        patient:profiles!patient_id(
+          id,
+          name,
+          email,
+          last_login,
+          created_at,
+          current_weight,
+          goal_weight
+        )
       `)
-      .eq('professional_id', professionalId) // Remove filtro de role - não existe
-      .order('name');
+      .eq('professional_id', professionalId);
 
     if (patientsError) {
-      console.error('❌ Erro na query profiles:', patientsError);
+      console.error('❌ Erro na query patient_profiles:', patientsError);
       throw patientsError;
     }
 
-    console.log('✅ Pacientes encontrados:', patients?.length || 0);
+    // Extrair dados dos pacientes
+    const patients = (patientProfiles || [])
+      .map(pp => pp.patient)
+      .filter(p => p !== null); // Remover possíveis nulls
+
+    console.log('✅ Pacientes encontrados:', patients.length);
 
     // 2. Para cada paciente, buscar estatísticas agregadas
     const enrichedPatients = await Promise.all(
-      (patients || []).map(async (patient) => {
+      patients.map(async (patient) => {
         const stats = await getPatientDashboardStats(patient.id);
         return {
           ...patient,
