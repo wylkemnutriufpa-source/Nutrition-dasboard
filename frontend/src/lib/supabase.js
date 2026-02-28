@@ -530,19 +530,39 @@ export const createAnamnesis = async (data) => {
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
   try {
+    // Whitelist de campos válidos da tabela anamnesis
+    const VALID_ANAMNESIS_FIELDS = [
+      'patient_id', 'professional_id', 'medical_conditions', 'allergies',
+      'food_intolerances', 'current_weight', 'height', 'goal_weight',
+      'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
+      'meals_per_day', 'food_preference', 'favorite_foods',
+      'exercises_regularly', 'physical_activity_level', 'sports_goal',
+      'status', 'last_edited_by', 'updated_at', 'created_at',
+      'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
+      'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
+      'family_history', 'eating_habits', 'dietary_restrictions',
+      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency'
+    ];
+    
+    // Filtrar apenas campos válidos
+    const cleanUpdates = Object.keys(updates)
+      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key))
+      .reduce((obj, key) => { 
+        obj[key] = updates[key]; 
+        return obj; 
+      }, {});
+    
     console.log('🔄 Atualizando anamnese:', anamnesisId);
     console.log('📤 DADOS DE UPDATE:', {
       anamnesis_id: anamnesisId,
-      has_medical_conditions: Boolean(updates.medical_conditions),
-      has_allergies: Boolean(updates.allergies),
-      status: updates.status,
-      updateKeys: Object.keys(updates)
+      status: cleanUpdates.status,
+      validFields: Object.keys(cleanUpdates).length
     });
     
     const { data, error } = await supabase
       .from('anamnesis')
       .update({
-        ...updates,
+        ...cleanUpdates,
         updated_at: new Date().toISOString()
       })
       .eq('id', anamnesisId)
@@ -550,7 +570,12 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
       .maybeSingle();
     
     if (error) {
-      console.error('❌ Erro completo ao atualizar:', JSON.stringify(error, null, 2));
+      console.error('❌ Erro completo ao atualizar:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       return { data: null, error };
     }
     
