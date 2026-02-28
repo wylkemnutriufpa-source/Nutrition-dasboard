@@ -111,11 +111,11 @@ user_problem_statement: |
 backend:
   - task: "Salvar Anamnese"
     implemented: true
-    working: "unknown"
+    working: false
     file: "/app/frontend/src/lib/supabase.js"
-    stuck_count: 1
+    stuck_count: 2
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "unknown"
         agent: "user"
@@ -126,6 +126,9 @@ backend:
       - working: "unknown"
         agent: "main"
         comment: "Adicionado tratamento de erro mais robusto em createAnamnesis e updateAnamnesis com try-catch. Melhorado retorno de erros para evitar leitura múltipla do body. Precisa re-testar."
+      - working: false
+        agent: "testing"
+        comment: "RE-TESTADO E AINDA FALHA ❌ - Teste completo executado: Login OK, navegou para joao teste, abriu aba Anamnese, preencheu Peso:78.5, Altura:175, Meta:70, clicou em Concluir. ERRO PERSISTE: HTTP 400 POST /anamnesis, erro 'TypeError: Failed to execute text on Response: body stream already read' detectado 3x no console. Progresso mudou 0%→12% mas salvamento falhou. Nenhum toast de sucesso. Mensagem 'Alterações não salvas' visível. Root Cause: createAnamnesis() ainda tenta ler response.text() após erro. As correções aplicadas NÃO resolveram o problema. Problema está em como o erro do Supabase client é tratado - o body já foi consumido internamente pelo client mas o código tenta ler novamente."
 
 frontend:
   - task: "Fix ProtectedRoute para visitor"
