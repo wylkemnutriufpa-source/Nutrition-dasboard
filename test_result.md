@@ -176,7 +176,8 @@ metadata:
 test_plan:
   current_focus:
     - "Salvar Anamnese"
-  stuck_tasks: []
+  stuck_tasks:
+    - "Salvar Anamnese"
   test_all: false
   test_priority: "high_first"
 
