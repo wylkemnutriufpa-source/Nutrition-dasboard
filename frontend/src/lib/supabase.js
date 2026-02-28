@@ -434,35 +434,46 @@ export const getAnamnesis = async (patientId) => {
 };
 
 export const createAnamnesis = async (data) => {
-  // Primeiro verificar se já existe anamnese para esse paciente
-  const { data: existing } = await supabase
-    .from('anamnesis')
-    .select('id')
-    .eq('patient_id', data.patient_id)
-    .maybeSingle();
-  
-  if (existing) {
-    // Se já existe, atualizar
-    console.log('📝 Já existe anamnese, atualizando:', existing.id);
-    return await updateAnamnesis(existing.id, data);
+  try {
+    // Primeiro verificar se já existe anamnese para esse paciente
+    const { data: existing, error: selectError } = await supabase
+      .from('anamnesis')
+      .select('id')
+      .eq('patient_id', data.patient_id)
+      .maybeSingle();
+    
+    if (selectError) {
+      console.error('❌ Erro ao verificar anamnese existente:', selectError);
+      return { data: null, error: selectError };
+    }
+    
+    if (existing) {
+      // Se já existe, atualizar
+      console.log('📝 Já existe anamnese, atualizando:', existing.id);
+      return await updateAnamnesis(existing.id, data);
+    }
+    
+    // Se não existe, criar nova
+    console.log('✨ Criando nova anamnese');
+    const { data: result, error } = await supabase
+      .from('anamnesis')
+      .insert({
+        ...data,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .maybeSingle();
+    
+    if (error) {
+      console.error('❌ Erro ao criar anamnese:', error);
+      return { data: null, error };
+    }
+    
+    return { data: result, error: null };
+  } catch (err) {
+    console.error('❌ Exceção ao criar anamnese:', err);
+    return { data: null, error: { message: err.message || 'Erro desconhecido' } };
   }
-  
-  // Se não existe, criar nova
-  console.log('✨ Criando nova anamnese');
-  const { data: result, error } = await supabase
-    .from('anamnesis')
-    .insert({
-      ...data,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .maybeSingle();
-  
-  if (error) {
-    console.error('❌ Erro ao criar anamnese:', error);
-  }
-  
-  return { data: result, error };
 };
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
