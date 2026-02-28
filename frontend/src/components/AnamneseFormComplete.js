@@ -98,17 +98,24 @@ const AnamneseFormComplete = ({
         console.log('✅ Atualizada com sucesso:', result);
       } else {
         console.log('✨ Criando nova anamnese');
-        const { data: result, error } = await createAnamnesis({
-          ...cleanData,
-          patient_id: patientId,
-          professional_id: professionalId
-        });
-        if (error) {
-          console.error('❌ Erro ao criar:', String(error.message || error));
-          const errorMsg = String(error.message || error.hint || error.details || 'Erro desconhecido ao criar');
-          throw new Error(errorMsg);
+        try {
+          const response = await createAnamnesis({
+            ...cleanData,
+            patient_id: patientId,
+            professional_id: professionalId
+          });
+          
+          if (response.error) {
+            // NÃO TOCAR NO ERRO - apenas retornar mensagem genérica
+            console.error('❌ Falha ao criar anamnese - erro 400');
+            throw new Error('Erro ao salvar anamnese. Verifique a aba Network para detalhes.');
+          }
+          
+          console.log('✅ Criada com sucesso');
+        } catch (err) {
+          console.error('❌ Exceção:', err);
+          throw new Error('Erro ao salvar anamnese. Verifique a aba Network para detalhes.');
         }
-        console.log('✅ Criada com sucesso:', result);
       }
       
       // Atualizar perfil do paciente com dados antropométricos
