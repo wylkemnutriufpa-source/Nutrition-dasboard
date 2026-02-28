@@ -156,6 +156,11 @@ function App() {
                   <RecipesManager />
                 </ProtectedRoute>
               } />
+              <Route path="/professional/templates" element={
+                <ProtectedRoute allowedTypes={['professional', 'admin']}>
+                  <TemplatesGlobais />
+                </ProtectedRoute>
+              } />
               
               {/* Patient Routes */}
               <Route path="/patient/dashboard" element={
