@@ -91,13 +91,8 @@ const AnamneseFormComplete = ({
         console.log('📝 Atualizando anamnese existente:', anamnesis.id);
         const { data: result, error } = await updateAnamnesis(anamnesis.id, cleanData);
         if (error) {
-          console.error('❌ Erro completo:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-          });
-          const errorMsg = error.message || error.hint || error.details || 'Erro desconhecido ao atualizar';
+          console.error('❌ Erro ao atualizar:', String(error.message || error));
+          const errorMsg = String(error.message || error.hint || error.details || 'Erro desconhecido ao atualizar');
           throw new Error(errorMsg);
         }
         console.log('✅ Atualizada com sucesso:', result);
@@ -109,13 +104,8 @@ const AnamneseFormComplete = ({
           professional_id: professionalId
         });
         if (error) {
-          console.error('❌ Erro completo:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-          });
-          const errorMsg = error.message || error.hint || error.details || 'Erro desconhecido ao criar';
+          console.error('❌ Erro ao criar:', String(error.message || error));
+          const errorMsg = String(error.message || error.hint || error.details || 'Erro desconhecido ao criar');
           throw new Error(errorMsg);
         }
         console.log('✅ Criada com sucesso:', result);
