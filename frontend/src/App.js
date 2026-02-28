@@ -38,6 +38,7 @@ import AgendaPage from '@/pages/AgendaPage';
 import FinanceiroPage from '@/pages/FinanceiroPage';
 import FeedbacksList from '@/pages/FeedbacksList';
 import RecipesManager from '@/pages/RecipesManager';
+import TemplatesGlobais from '@/pages/TemplatesGlobais';
 
 // Rota protegida com suporte a admin override
 const ProtectedRoute = ({ children, allowedTypes }) => {
