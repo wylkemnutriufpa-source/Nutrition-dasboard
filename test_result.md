@@ -101,3 +101,80 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  O usuário reportou 3 bugs críticos:
+  1. Erro ao salvar anamnese
+  2. Aba "Projeto" (visitor) voltando para tela inicial
+  3. Erro "userType is not defined" na página "Meu Plano" do paciente
+
+backend:
+  - task: "Salvar Anamnese"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/lib/supabase.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "user"
+        comment: "Usuário reportou: 'erro O SALVAR ANAMINESE'"
+
+frontend:
+  - task: "Fix ProtectedRoute para visitor"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Usuário reportou: 'ABA PROJETO VOLTANDO PARA TELA INICIAL'"
+      - working: true
+        agent: "main"
+        comment: "Corrigido ProtectedRoute para setar automaticamente userType='visitor' quando não existe no localStorage"
+  
+  - task: "Meu Plano - userType prop"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/MealPlanEditor.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "Usuário reportou: 'agora falta o erro do meu plano no paciente' - ReferenceError: userType is not defined"
+      - working: "unknown"
+        agent: "main"
+        comment: "Verificado código: prop userType está sendo passada corretamente na linha 1078. Precisa testar para confirmar se o bug ainda existe."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Fix ProtectedRoute para visitor"
+    - "Meu Plano - userType prop"
+    - "Salvar Anamnese"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Corrigi o bug do ProtectedRoute. Agora quando não há userType no localStorage 
+      e a rota permite visitor, o sistema seta automaticamente como visitor ao invés 
+      de redirecionar para "/".
+      
+      Próximos passos:
+      1. Testar navegação do visitor na aba "Projeto"
+      2. Testar página "Meu Plano" do paciente para confirmar se userType error ainda existe
+      3. Testar salvamento da anamnese
