@@ -1221,7 +1221,7 @@ const PatientProfile = () => {
             <AnamneseFormComplete
               anamnesis={anamnesis} 
               patientId={id} 
-              professionalId={profile?.id}
+              professionalId={patient?.professional_id || profile?.id}
               patient={patient}
               professionalInfo={{ name: profile?.name, email: profile?.email }}
               isPatientView={false}
