@@ -477,24 +477,29 @@ export const createAnamnesis = async (data) => {
 };
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
-  console.log('🔄 Atualizando anamnese:', anamnesisId, updates);
-  const { data, error } = await supabase
-    .from('anamnesis')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', anamnesisId)
-    .select()
-    .maybeSingle();
-  
-  if (error) {
-    console.error('❌ Erro ao atualizar:', error);
-  } else {
+  try {
+    console.log('🔄 Atualizando anamnese:', anamnesisId, updates);
+    const { data, error } = await supabase
+      .from('anamnesis')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', anamnesisId)
+      .select()
+      .maybeSingle();
+    
+    if (error) {
+      console.error('❌ Erro ao atualizar:', error);
+      return { data: null, error };
+    }
+    
     console.log('✅ Anamnese atualizada:', data);
+    return { data, error: null };
+  } catch (err) {
+    console.error('❌ Exceção ao atualizar anamnese:', err);
+    return { data: null, error: { message: err.message || 'Erro desconhecido' } };
   }
-  
-  return { data, error };
 };
 
 export const saveAnamnesisDraft = async (patientId, professionalId, updates) => {
