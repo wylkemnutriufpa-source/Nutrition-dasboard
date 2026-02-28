@@ -128,7 +128,7 @@ frontend:
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "user"
@@ -136,14 +136,17 @@ frontend:
       - working: true
         agent: "main"
         comment: "Corrigido ProtectedRoute para setar automaticamente userType='visitor' quando não existe no localStorage"
+      - working: true
+        agent: "testing"
+        comment: "TESTADO E PASSOU ✅ - Acessei /visitor/projeto com localStorage limpo. Não houve redirecionamento para '/'. O localStorage foi setado corretamente como 'visitor'. Página 'Projeto Biquíni Branco' carregada com sucesso. Bug CORRIGIDO!"
   
   - task: "Meu Plano - userType prop"
     implemented: true
-    working: "unknown"
+    working: true
     file: "/app/frontend/src/pages/MealPlanEditor.js"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "user"
@@ -151,6 +154,9 @@ frontend:
       - working: "unknown"
         agent: "main"
         comment: "Verificado código: prop userType está sendo passada corretamente na linha 1078. Precisa testar para confirmar se o bug ainda existe."
+      - working: true
+        agent: "testing"
+        comment: "TESTADO E PASSOU ✅ - Login como paciente (kelly@com) funcionou. Navegou para /patient/meal-plan sem NENHUM erro 'userType is not defined'. Página carregou corretamente. Botões 'Duplicar' estão ocultos conforme esperado no patient view. Bug CORRIGIDO!"
 
 metadata:
   created_by: "main_agent"
