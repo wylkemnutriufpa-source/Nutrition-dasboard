@@ -447,13 +447,33 @@ export const createAnamnesis = async (data) => {
       };
     }
     
+    // Whitelist de campos válidos da tabela anamnesis
+    const VALID_ANAMNESIS_FIELDS = [
+      'patient_id', 'professional_id', 'medical_conditions', 'allergies',
+      'food_intolerances', 'current_weight', 'height', 'goal_weight',
+      'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
+      'meals_per_day', 'food_preference', 'favorite_foods',
+      'exercises_regularly', 'physical_activity_level', 'sports_goal',
+      'status', 'last_edited_by', 'updated_at', 'created_at',
+      'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
+      'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
+      'family_history', 'eating_habits', 'dietary_restrictions',
+      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency'
+    ];
+    
+    // Filtrar apenas campos válidos
+    const cleanPayload = Object.keys(data)
+      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key))
+      .reduce((obj, key) => { 
+        obj[key] = data[key]; 
+        return obj; 
+      }, {});
+    
     console.log('📤 SENDING TO SUPABASE:', {
-      patient_id: data.patient_id,
-      professional_id: data.professional_id,
-      has_medical_conditions: Boolean(data.medical_conditions),
-      has_allergies: Boolean(data.allergies),
-      status: data.status,
-      dataKeys: Object.keys(data)
+      patient_id: cleanPayload.patient_id,
+      professional_id: cleanPayload.professional_id,
+      status: cleanPayload.status,
+      validFields: Object.keys(cleanPayload).length
     });
     
     // Primeiro verificar se já existe anamnese para esse paciente
@@ -464,7 +484,12 @@ export const createAnamnesis = async (data) => {
       .maybeSingle();
     
     if (selectError) {
-      console.error('❌ Erro ao verificar anamnese existente:', JSON.stringify(selectError, null, 2));
+      console.error('❌ Erro ao verificar anamnese existente:', {
+        message: selectError.message,
+        code: selectError.code,
+        details: selectError.details,
+        hint: selectError.hint
+      });
       return { data: null, error: selectError };
     }
     
@@ -479,14 +504,19 @@ export const createAnamnesis = async (data) => {
     const { data: result, error } = await supabase
       .from('anamnesis')
       .insert({
-        ...data,
+        ...cleanPayload,
         created_at: new Date().toISOString()
       })
       .select()
       .maybeSingle();
     
     if (error) {
-      console.error('❌ Erro completo ao criar anamnese:', JSON.stringify(error, null, 2));
+      console.error('❌ Erro completo ao criar anamnese:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       return { data: null, error };
     }
     
