@@ -43,6 +43,12 @@ import RecipesManager from '@/pages/RecipesManager';
 const ProtectedRoute = ({ children, allowedTypes }) => {
   const userType = localStorage.getItem('fitjourney_user_type');
   
+  // Se não tem userType e a rota permite visitor, setar como visitor
+  if (!userType && allowedTypes && allowedTypes.includes('visitor')) {
+    localStorage.setItem('fitjourney_user_type', 'visitor');
+    return children;
+  }
+  
   if (!userType) {
     return <Navigate to="/" replace />;
   }
