@@ -490,11 +490,13 @@ export const createAnamnesis = async (data) => {
         return obj; 
       }, {});
     
-    console.log('📤 SENDING TO SUPABASE:', {
+    // LOG COMPLETO DO PAYLOAD
+    console.log('📤 PAYLOAD COMPLETO ANTES DE ENVIAR:', cleanPayload);
+    console.log('📋 CAMPOS:', Object.keys(cleanPayload));
+    console.log('🔍 IDs:', {
       patient_id: cleanPayload.patient_id,
       professional_id: cleanPayload.professional_id,
-      status: cleanPayload.status,
-      validFields: Object.keys(cleanPayload).length
+      sao_iguais: cleanPayload.patient_id === cleanPayload.professional_id
     });
     
     // Primeiro verificar se já existe anamnese para esse paciente
@@ -505,12 +507,7 @@ export const createAnamnesis = async (data) => {
       .maybeSingle();
     
     if (selectError) {
-      console.error('❌ Erro ao verificar anamnese existente:', {
-        message: selectError.message,
-        code: selectError.code,
-        details: selectError.details,
-        hint: selectError.hint
-      });
+      console.error('❌ Erro SELECT:', selectError.message, selectError.code);
       return { data: null, error: selectError };
     }
     
@@ -521,30 +518,44 @@ export const createAnamnesis = async (data) => {
     }
     
     // Se não existe, criar nova
-    console.log('✨ Criando nova anamnese');
+    console.log('✨ Criando nova anamnese - CHAMANDO SUPABASE INSERT');
+    
+    const finalPayload = {
+      ...cleanPayload,
+      created_at: new Date().toISOString()
+    };
+    
+    console.log('🚀 FINAL PAYLOAD:', finalPayload);
+    
     const { data: result, error } = await supabase
       .from('anamnesis')
-      .insert({
-        ...cleanPayload,
-        created_at: new Date().toISOString()
-      })
+      .insert(finalPayload)
       .select()
       .maybeSingle();
     
     if (error) {
-      console.error('❌ Erro completo ao criar anamnese:', {
+      // NÃO fazer JSON.stringify - apenas logar propriedades diretas
+      console.error('❌ ERRO SUPABASE:', {
         message: error.message,
         code: error.code,
         details: error.details,
-        hint: error.hint
+        hint: error.hint,
+        status: error.status
       });
+      
+      // Tentar extrair mais informações
+      if (error.message) console.error('📝 Message:', error.message);
+      if (error.details) console.error('📋 Details:', error.details);
+      if (error.hint) console.error('💡 Hint:', error.hint);
+      if (error.code) console.error('🔢 Code:', error.code);
+      
       return { data: null, error };
     }
     
-    console.log('✅ Anamnese criada:', result);
+    console.log('✅ Anamnese criada com sucesso:', result);
     return { data: result, error: null };
   } catch (err) {
-    console.error('❌ Exceção ao criar anamnese:', err);
+    console.error('❌ EXCEÇÃO JAVASCRIPT:', err.message, err.stack);
     return { data: null, error: { message: err.message || 'Erro desconhecido' } };
   }
 };
