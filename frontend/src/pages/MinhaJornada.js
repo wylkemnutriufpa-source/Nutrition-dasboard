@@ -787,6 +787,12 @@ const MinhaJornada = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Botão SOS Emergência */}
+      <EmergencyButton 
+        patientId={profile?.id}
+        professionalId={profile?.professional_id}
+      />
     </Layout>
   );
 };
