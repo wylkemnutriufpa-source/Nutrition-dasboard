@@ -265,14 +265,35 @@ export const getProfessionalPatients = async (professionalId, isAdmin = false, f
 };
 
 export const getPatientById = async (patientId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', patientId)
-    .eq('role', 'patient')
-    .is('deleted_at', null)
-    .single();
-  return { data, error };
+  try {
+    // Buscar dados do paciente
+    const { data: patientData, error: patientError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', patientId)
+      .eq('role', 'patient')
+      .is('deleted_at', null)
+      .single();
+    
+    if (patientError) return { data: null, error: patientError };
+    
+    // Buscar professional_id via patient_profiles
+    const { data: linkData } = await supabase
+      .from('patient_profiles')
+      .select('professional_id')
+      .eq('patient_id', patientId)
+      .maybeSingle();
+    
+    // Combinar dados
+    const data = {
+      ...patientData,
+      professional_id: linkData?.professional_id || null
+    };
+    
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
 };
 
 export const createPatientByProfessional = async (professionalId, patientData) => {
