@@ -500,7 +500,15 @@ export const createAnamnesis = async (data) => {
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
   try {
-    console.log('🔄 Atualizando anamnese:', anamnesisId, updates);
+    console.log('🔄 Atualizando anamnese:', anamnesisId);
+    console.log('📤 DADOS DE UPDATE:', {
+      anamnesis_id: anamnesisId,
+      has_medical_conditions: Boolean(updates.medical_conditions),
+      has_allergies: Boolean(updates.allergies),
+      status: updates.status,
+      updateKeys: Object.keys(updates)
+    });
+    
     const { data, error } = await supabase
       .from('anamnesis')
       .update({
@@ -512,7 +520,7 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
       .maybeSingle();
     
     if (error) {
-      console.error('❌ Erro ao atualizar:', error);
+      console.error('❌ Erro completo ao atualizar:', JSON.stringify(error, null, 2));
       return { data: null, error };
     }
     
