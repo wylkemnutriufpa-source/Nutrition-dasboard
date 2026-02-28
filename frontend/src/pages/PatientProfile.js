@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
-  getPatientById, updatePatient, getPatientMealPlan, getAnamnesis, updateAnamnesis,
+  getPatientById, updatePatient, getPatientMealPlan, getAnamnesis, updateAnamnesis, createAnamnesis,
   getMealPlans, getPatientMessages, createPatientMessage, deletePatientMessage, updatePatientMessage,
   getChecklistAdherence, upsertPatientJourney, getPatientJourney, getPatientPlan, upsertPatientPlan,
   getCurrentUser, getDraftMealPlan, saveDraftMealPlan, updateDraftMealPlan, createAutomaticTips,
@@ -158,12 +158,22 @@ const AnamneseTab = ({ anamnesis, patientId, professionalId, onUpdate, patient, 
     try {
       const updates = {
         ...data,
+        patient_id: patientId,
+        professional_id: professionalId,
         status: markComplete ? 'complete' : 'draft',
         last_edited_by: 'professional'
       };
       
-      const { error } = await updateAnamnesis(anamnesis.id, updates);
-      if (error) throw error;
+      let result;
+      if (anamnesis && anamnesis.id) {
+        // UPDATE existente
+        result = await updateAnamnesis(anamnesis.id, updates);
+      } else {
+        // CREATE nova anamnesis
+        result = await createAnamnesis(updates);
+      }
+      
+      if (result.error) throw result.error;
       
       toast.success(markComplete ? 'Anamnese concluída!' : 'Rascunho salvo!');
       setHasChanges(false);
@@ -175,7 +185,7 @@ const AnamneseTab = ({ anamnesis, patientId, professionalId, onUpdate, patient, 
       }
     } catch (error) {
       console.error('Error saving anamnesis:', error);
-      toast.error('Erro ao salvar');
+      toast.error('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);
     }
