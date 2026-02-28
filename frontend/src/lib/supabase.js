@@ -435,6 +435,27 @@ export const getAnamnesis = async (patientId) => {
 
 export const createAnamnesis = async (data) => {
   try {
+    // VALIDATE BEFORE SENDING
+    if (!data.patient_id || !data.professional_id) {
+      console.error('❌ MISSING IDS:', { 
+        patient_id: data.patient_id, 
+        professional_id: data.professional_id 
+      });
+      return { 
+        data: null, 
+        error: { message: 'patient_id e professional_id são obrigatórios' } 
+      };
+    }
+    
+    console.log('📤 SENDING TO SUPABASE:', {
+      patient_id: data.patient_id,
+      professional_id: data.professional_id,
+      has_medical_conditions: Boolean(data.medical_conditions),
+      has_allergies: Boolean(data.allergies),
+      status: data.status,
+      dataKeys: Object.keys(data)
+    });
+    
     // Primeiro verificar se já existe anamnese para esse paciente
     const { data: existing, error: selectError } = await supabase
       .from('anamnesis')
@@ -443,7 +464,7 @@ export const createAnamnesis = async (data) => {
       .maybeSingle();
     
     if (selectError) {
-      console.error('❌ Erro ao verificar anamnese existente:', selectError);
+      console.error('❌ Erro ao verificar anamnese existente:', JSON.stringify(selectError, null, 2));
       return { data: null, error: selectError };
     }
     
@@ -465,10 +486,11 @@ export const createAnamnesis = async (data) => {
       .maybeSingle();
     
     if (error) {
-      console.error('❌ Erro ao criar anamnese:', error);
+      console.error('❌ Erro completo ao criar anamnese:', JSON.stringify(error, null, 2));
       return { data: null, error };
     }
     
+    console.log('✅ Anamnese criada:', result);
     return { data: result, error: null };
   } catch (err) {
     console.error('❌ Exceção ao criar anamnese:', err);
