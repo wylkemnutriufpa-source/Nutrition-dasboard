@@ -21,7 +21,7 @@ import {
   getMealPlans, getPatientMessages, createPatientMessage, deletePatientMessage, updatePatientMessage,
   getChecklistAdherence, upsertPatientJourney, getPatientJourney, getPatientPlan, upsertPatientPlan,
   getCurrentUser, getDraftMealPlan, saveDraftMealPlan, updateDraftMealPlan, createAutomaticTips,
-  createPersonalizedTip, createFeedbackReminder, createPlanExpirationReminder
+  createPersonalizedTip, createFeedbackReminder, createPlanExpirationReminder, syncTemplatesForPatient
 } from '@/lib/supabase';
 import { toast } from 'sonner';
 import ChecklistSimple from '@/components/ChecklistSimple';
