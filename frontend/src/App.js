@@ -26,6 +26,7 @@ import MinhaJornada from '@/pages/MinhaJornada';
 import Biblioteca from '@/pages/Biblioteca';
 import PatientAgenda from '@/pages/PatientAgenda';
 import PatientAvaliacaoFisica from '@/pages/PatientAvaliacaoFisica';
+import MealPhotoAnalysis from '@/pages/MealPhotoAnalysis';
 import CalculatorsList from '@/pages/CalculatorsList';
 import WeightCalculator from '@/pages/WeightCalculator';
 import WaterCalculator from '@/pages/WaterCalculator';
