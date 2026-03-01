@@ -235,13 +235,18 @@ const ProfessionalDashboard = () => {
           />
         </AnimatedSection>
 
-        {/* ========== 4) RANKING DE RISCO ========== */}
-        <AnimatedSection delay={500}>
-          <RiskRankingList 
-            patients={riskRanking}
-            onViewAll={() => navigate('/professional/patients')}
-          />
-        </AnimatedSection>
+        {/* ========== 4) RANKING DE RISCO + ANÁLISES DE PRATOS ========== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection delay={500}>
+            <RiskRankingList 
+              patients={riskRanking}
+              onViewAll={() => navigate('/professional/patients')}
+            />
+          </AnimatedSection>
+          <AnimatedSection delay={550}>
+            <MealAnalysisSection professionalId={profile?.id} />
+          </AnimatedSection>
+        </div>
 
         {/* ========== 5) GRÁFICO + RECOMENDAÇÕES ========== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
