@@ -58,11 +58,12 @@ export const useProfessionalDashboard = (professionalId) => {
     setError(null);
 
     try {
-      // === FASE 1: Dados paralelos (pacientes + emergências) ===
-      const [patientsResult, sosResult, emergenciesResult] = await Promise.all([
+      // === FASE 1: Dados paralelos (pacientes + emergências + análises de refeição) ===
+      const [patientsResult, sosResult, emergenciesResult, mealAnalysesResult] = await Promise.all([
         getProfessionalDashboardData(professionalId),
         countOpenEmergencies(professionalId),
-        getRecentEmergencies(professionalId)
+        getRecentEmergencies(professionalId),
+        listProfessionalRecentMealAnalyses(professionalId, 30)
       ]);
 
       if (patientsResult.error) throw patientsResult.error;
@@ -70,6 +71,7 @@ export const useProfessionalDashboard = (professionalId) => {
       const patients = patientsResult.data || [];
       const openSos = sosResult.data || 0;
       const emergencies = emergenciesResult.data || [];
+      const mealAnalyses = mealAnalysesResult.data || [];
 
       setRawPatients(patients);
       setSosCount(openSos);
