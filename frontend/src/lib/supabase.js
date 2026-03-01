@@ -570,9 +570,9 @@ export const createAnamnesis = async (data) => {
 export const updateAnamnesis = async (anamnesisId, updates) => {
   try {
     // Whitelist de campos válidos da tabela anamnesis
-    // NOTA: current_weight, height, goal_weight são da tabela profiles, não anamnesis
+    // NOTA: current_weight, height, goal_weight, professional_id são de outras tabelas
     const VALID_ANAMNESIS_FIELDS = [
-      'patient_id', 'professional_id', 'medical_conditions', 'allergies',
+      'patient_id', 'medical_conditions', 'allergies',
       'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 
       'stress_level', 'water_intake', 'meals_per_day', 'food_preference', 
       'favorite_foods', 'exercises_regularly', 'physical_activity_level', 
