@@ -869,8 +869,8 @@ const analyzeConditions = (anamnesis) => {
   
   // Se for array, usar diretamente
   const conditionsToCheck = Array.isArray(medicalConditions) 
-    ? medicalConditions.map(c => c.toLowerCase()).join(' ')
-    : medicalConditionsText.toLowerCase();
+    ? medicalConditions.map(c => typeof c === 'string' ? c.toLowerCase() : String(c || '').toLowerCase()).join(' ')
+    : (typeof medicalConditionsText === 'string' ? medicalConditionsText : String(medicalConditionsText || '')).toLowerCase();
   
   // Diabetes
   if (conditionsToCheck.includes('diabetes')) {
