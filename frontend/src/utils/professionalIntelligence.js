@@ -306,6 +306,92 @@ export const detectAttentionNeeded = (patients = [], emergencies = [], mealAnaly
     }
   });
 
+  // ===== P2: ALERTAS DE ANÁLISE DE REFEIÇÃO =====
+  // Agrupar análises por paciente
+  const analysesByPatient = {};
+  (mealAnalyses || []).forEach((analysis) => {
+    const pId = analysis.patient_id;
+    if (!analysesByPatient[pId]) {
+      analysesByPatient[pId] = [];
+    }
+    analysesByPatient[pId].push(analysis);
+  });
+
+  // Verificar padrões problemáticos
+  Object.entries(analysesByPatient).forEach(([patientId, analyses]) => {
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+
+    // Ordenar por data
+    const sortedAnalyses = analyses.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const last3 = sortedAnalyses.slice(0, 3);
+
+    // P2 - 3 refeições seguidas com quality_score < 50
+    const low3 = last3.filter(a => a.quality_score && a.quality_score < 50);
+    if (low3.length >= 3) {
+      alerts.push({
+        id: `meal_low_quality_${patientId}`,
+        patientId,
+        patientName: patient.name,
+        type: 'meal_low_quality',
+        priority: 2,
+        icon: '🍽️',
+        iconBg: 'bg-red-100',
+        iconColor: 'text-red-600',
+        title: 'Refeições Baixa Qualidade',
+        message: `${patient.name} teve 3 refeições seguidas com qualidade abaixo de 50%`,
+        severity: 'high',
+        actions: [
+          { label: 'Ver Análises', type: 'link', link: `/professional/patient/${patientId}?tab=nutricao` },
+          { label: 'Enviar Feedback', type: 'action', action: 'sendFeedback' }
+        ]
+      });
+    }
+
+    // P3 - Padrão de poucos vegetais (low_veggies em 3+ análises)
+    const lowVeggies = last3.filter(a => a.flags?.low_veggies);
+    if (lowVeggies.length >= 2) {
+      alerts.push({
+        id: `meal_low_veggies_${patientId}`,
+        patientId,
+        patientName: patient.name,
+        type: 'meal_low_veggies',
+        priority: 3,
+        icon: '🥬',
+        iconBg: 'bg-yellow-100',
+        iconColor: 'text-yellow-600',
+        title: 'Baixo Consumo de Vegetais',
+        message: `${patient.name} está comendo poucos vegetais nas últimas refeições`,
+        severity: 'medium',
+        actions: [
+          { label: 'Ver Perfil', type: 'link', link: `/professional/patient/${patientId}` }
+        ]
+      });
+    }
+
+    // P3 - Última análise com alto açúcar ou ultraprocessado
+    const lastAnalysis = sortedAnalyses[0];
+    if (lastAnalysis?.flags?.ultra_processed || lastAnalysis?.flags?.high_sugar) {
+      const flagLabel = lastAnalysis.flags.ultra_processed ? 'ultraprocessados' : 'alto açúcar';
+      alerts.push({
+        id: `meal_flag_${patientId}`,
+        patientId,
+        patientName: patient.name,
+        type: 'meal_unhealthy_flag',
+        priority: 3,
+        icon: '⚠️',
+        iconBg: 'bg-orange-100',
+        iconColor: 'text-orange-600',
+        title: 'Alerta Nutricional',
+        message: `Última refeição de ${patient.name} detectada com ${flagLabel}`,
+        severity: 'medium',
+        actions: [
+          { label: 'Ver Análise', type: 'link', link: `/professional/patient/${patientId}` }
+        ]
+      });
+    }
+  });
+
   // Ordenar por prioridade e retornar top 7
   return alerts
     .sort((a, b) => a.priority - b.priority)
