@@ -15,7 +15,7 @@ const iconMap = {
   Home, Calendar, ClipboardList, MessageSquare, ShoppingCart,
   ChefHat, Pill, Lightbulb, TrendingUp, Calculator, Settings,
   Users, Database, Palette, Shield, UserCog, Activity, Sparkles,
-  DollarSign, CalendarDays, Bell, Rocket, Book, Utensils
+  DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User
 };
 
 const Sidebar = ({ userType, onLogout, patientId }) => {
