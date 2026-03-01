@@ -454,123 +454,118 @@ export const getAnamnesis = async (patientId) => {
   return { data, error };
 };
 
-export const createAnamnesis = async (data) => {
-  try {
-    // VALIDATE BEFORE SENDING
-    if (!data.patient_id || !data.professional_id) {
-      console.error('❌ MISSING IDS:', { 
-        patient_id: data.patient_id, 
-        professional_id: data.professional_id 
-      });
-      return { 
-        data: null, 
-        error: { message: 'patient_id e professional_id são obrigatórios' } 
-      };
+// Whitelist centralizada de campos da tabela anamnesis
+const VALID_ANAMNESIS_FIELDS = [
+  'patient_id', 'professional_id', 'medical_conditions', 'allergies',
+  'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
+  'meals_per_day', 'food_preference', 'favorite_foods',
+  'exercises_regularly', 'physical_activity_level', 'sports_goal',
+  'status', 'last_edited_by', 'updated_at', 'created_at',
+  'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
+  'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
+  'family_history', 'eating_habits', 'dietary_restrictions',
+  'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
+  'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
+  'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
+  'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
+  'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
+];
+
+// Campos que NÃO pertencem à tabela anamnesis
+const IGNORED_ANAMNESIS_FIELDS = [
+  'current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 
+  'gender', 'phone', 'id', 'name', 'email'
+];
+
+/**
+ * Limpa payload removendo campos inválidos para a tabela anamnesis
+ */
+const cleanAnamnesisPayload = (data) => {
+  return Object.keys(data)
+    .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !IGNORED_ANAMNESIS_FIELDS.includes(key))
+    .reduce((obj, key) => { obj[key] = data[key]; return obj; }, {});
+};
+
+/**
+ * Extrai erro seguro sem acessar body do Response (previne "body stream already read")
+ */
+const extractSafeError = (error) => {
+  if (!error) return { message: 'Erro desconhecido' };
+  // NUNCA acessar response.text() ou response.json() - usar apenas propriedades diretas
+  const safe = { message: 'Erro ao salvar', code: '', details: '', hint: '' };
+  try { safe.message = String(error.message || error || 'Erro ao salvar'); } catch (_) {}
+  try { safe.code = String(error.code || ''); } catch (_) {}
+  try { safe.details = String(error.details || ''); } catch (_) {}
+  try { safe.hint = String(error.hint || ''); } catch (_) {}
+  return safe;
+};
+
+/**
+ * Executa operação Supabase com retry automático (até 2 tentativas)
+ */
+const withRetry = async (fn, maxRetries = 2) => {
+  let lastError = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      if (result.error) {
+        lastError = result.error;
+        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, extractSafeError(result.error));
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 500 * (attempt + 1))); // Backoff
+          continue;
+        }
+        return { data: null, error: extractSafeError(lastError) };
+      }
+      return result;
+    } catch (err) {
+      lastError = err;
+      console.warn(`⚠️ Exceção tentativa ${attempt + 1}:`, String(err.message || err));
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
     }
-    
-    // Whitelist de campos válidos da tabela anamnesis (APENAS CAMPOS QUE EXISTEM NO SUPABASE)
-    // NOTA: current_weight, height, goal_weight pertencem à tabela patient_profiles, NÃO à anamnesis
-    const VALID_ANAMNESIS_FIELDS = [
-      'patient_id', 'professional_id', 'medical_conditions', 'allergies',
-      'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
-      'meals_per_day', 'food_preference', 'favorite_foods',
-      'exercises_regularly', 'physical_activity_level', 'sports_goal',
-      'status', 'last_edited_by', 'updated_at', 'created_at',
-      'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
-      'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
-      'family_history', 'eating_habits', 'dietary_restrictions',
-      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
-      'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
-      'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
-      'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
-      'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
-    ];
-    
-    // CAMPOS QUE PERTENCEM A patient_profiles (IGNORAR NA ANAMNESIS)
-    const PATIENT_PROFILE_FIELDS = ['current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 'gender', 'phone'];
-    
-    // Filtrar apenas campos válidos da anamnesis (excluir campos de patient_profiles)
-    const cleanPayload = Object.keys(data)
-      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !PATIENT_PROFILE_FIELDS.includes(key))
-      .reduce((obj, key) => { 
-        obj[key] = data[key]; 
-        return obj; 
-      }, {});
-    
-    // LOG COMPLETO DO PAYLOAD
-    console.log('📤 PAYLOAD COMPLETO:', cleanPayload);
-    console.log('🔍 IDs diferentes?', cleanPayload.patient_id !== cleanPayload.professional_id);
-    
-    // Primeiro verificar se já existe anamnese para esse paciente
-    const { data: existing, error: selectError } = await supabase
+  }
+  return { data: null, error: extractSafeError(lastError) };
+};
+
+export const createAnamnesis = async (data) => {
+  // VALIDATE
+  if (!data.patient_id || !data.professional_id) {
+    return { data: null, error: { message: 'patient_id e professional_id são obrigatórios' } };
+  }
+
+  const cleanPayload = cleanAnamnesisPayload(data);
+  console.log('📤 Anamnese payload:', Object.keys(cleanPayload).length, 'campos');
+
+  try {
+    // Verificar se já existe (upsert)
+    const { data: existing } = await supabase
       .from('anamnesis')
       .select('id')
       .eq('patient_id', data.patient_id)
       .maybeSingle();
-    
-    if (selectError) {
-      console.error('❌ Erro SELECT:', String(selectError.message || selectError));
-      return { data: null, error: selectError };
-    }
-    
+
     if (existing) {
-      console.log('📝 Já existe anamnese, atualizando:', existing.id);
+      console.log('📝 Anamnese existente, atualizando:', existing.id);
       return await updateAnamnesis(existing.id, data);
     }
-    
-    // Se não existe, criar nova
-    console.log('✨ INSERINDO NO SUPABASE...');
-    
-    const finalPayload = {
-      ...cleanPayload,
-      created_at: new Date().toISOString()
-    };
-    
-    // CAPTURAR ERRO SEM TOCAR NO RESPONSE
-    let result, error;
-    try {
-      const response = await supabase
+
+    // Criar nova com retry
+    return await withRetry(async () => {
+      const { data: result, error } = await supabase
         .from('anamnesis')
-        .insert(finalPayload)
+        .insert({ ...cleanPayload, created_at: new Date().toISOString() })
         .select()
         .maybeSingle();
       
-      result = response.data;
-      error = response.error;
-    } catch (insertError) {
-      console.error('🔴 EXCEÇÃO NO INSERT:', insertError);
-      error = insertError;
-    }
-    
-    if (error) {
-      // Logar SEM acessar propriedades que podem ter Response
-      console.error('🔴 HTTP 400 - ERRO DETECTADO!');
-      console.error('🔴 Tipo:', typeof error);
-      console.error('🔴 Constructor:', error?.constructor?.name);
-      
-      // Tentar extrair info de forma segura
-      const safeError = {
-        message: '',
-        code: '',
-        details: '',
-        hint: ''
-      };
-      
-      try { safeError.message = String(error.message || ''); } catch (e) { }
-      try { safeError.code = String(error.code || ''); } catch (e) { }
-      try { safeError.details = String(error.details || ''); } catch (e) { }
-      try { safeError.hint = String(error.hint || ''); } catch (e) { }
-      
-      console.error('🔴 Safe Error:', safeError);
-      
-      return { data: null, error: safeError };
-    }
-    
-    console.log('✅ Anamnese criada com sucesso!');
-    return { data: result, error: null };
+      if (error) return { data: null, error };
+      console.log('✅ Anamnese criada com sucesso!');
+      return { data: result, error: null };
+    });
   } catch (err) {
-    console.error('❌ EXCEÇÃO GERAL:', String(err.message || err));
-    return { data: null, error: { message: String(err.message || 'Erro desconhecido') } };
+    return { data: null, error: extractSafeError(err) };
   }
 };
 
