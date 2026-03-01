@@ -3,7 +3,8 @@ import {
   getProfessionalDashboardData, 
   countOpenEmergencies, 
   getRecentEmergencies,
-  getBatchPatientRiskData 
+  getBatchPatientRiskData,
+  listProfessionalRecentMealAnalyses
 } from '@/lib/supabase';
 import {
   calculatePatientEngagementScore,
