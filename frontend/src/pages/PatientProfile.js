@@ -950,13 +950,14 @@ const PatientProfile = () => {
     setLoading(true);
     try {
       // Carregar dados em paralelo para melhor performance
-      const [patientResult, planResult, allPlansResult, anamnesisResult, adherenceResult, draftResult] = await Promise.allSettled([
+      const [patientResult, planResult, allPlansResult, anamnesisResult, adherenceResult, draftResult, assessmentResult] = await Promise.allSettled([
         getPatientById(id),
         getPatientMealPlan(id, profile.id),
         getMealPlans(profile.id, 'professional'),
         getAnamnesis(id),
         getChecklistAdherence(id, 7),
-        getDraftMealPlan(id)
+        getDraftMealPlan(id),
+        getLatestPhysicalAssessment(id)
       ]);
       
       if (patientResult.status === 'fulfilled' && patientResult.value.data) {
@@ -983,6 +984,10 @@ const PatientProfile = () => {
       
       if (draftResult.status === 'fulfilled') {
         setDraftPlan(draftResult.value.data?.draft_data || null);
+      }
+
+      if (assessmentResult.status === 'fulfilled') {
+        setAssessment(assessmentResult.value.data);
       }
 
       // Sincronizar templates globais para o paciente
