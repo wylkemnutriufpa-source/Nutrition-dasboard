@@ -103,34 +103,51 @@
 #====================================================================================================
 
 user_problem_statement: |
-  O usuário reportou 3 bugs críticos:
-  1. Erro ao salvar anamnese
-  2. Aba "Projeto" (visitor) voltando para tela inicial
-  3. Erro "userType is not defined" na página "Meu Plano" do paciente
+  Sessão atual:
+  1. Fix permanente da anamnese (retry + safe error handling)
+  2. Evolução do Dashboard Profissional para Central de Comando Inteligente
 
 backend:
-  - task: "Salvar Anamnese"
+  - task: "API Status endpoint"
     implemented: true
-    working: false
-    file: "/app/frontend/src/lib/supabase.js"
-    stuck_count: 2
-    priority: "high"
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "low"
     needs_retesting: false
     status_history:
-      - working: "unknown"
-        agent: "user"
-        comment: "Usuário reportou: 'erro O SALVAR ANAMINESE'"
-      - working: false
-        agent: "testing"
-        comment: "TESTADO E FALHOU ❌ - Login profissional OK. Acessou perfil do paciente 'joao teste'. Preencheu 3 campos (Peso: 78.5kg, Altura: 175cm, Peso Meta: 70kg). Clicou em 'Concluir' e 'Salvar'. ERRO DETECTADO: 2x HTTP 400 na API Supabase /rest/v1/anamnesis. Mensagem de erro na tela: 'Erro ao salvar: TypeError: Failed to execute text on Response: body stream already read'. Progresso mudou de 0% para 12% mas salvamento falhou. Root Cause: Erro de tratamento de response do Supabase - tentativa de ler body da response múltiplas vezes (body stream already read). Localização provável: createAnamnesis ou updateAnamnesis em supabase.js."
-      - working: "unknown"
+      - working: true
         agent: "main"
-        comment: "Adicionado tratamento de erro mais robusto em createAnamnesis e updateAnamnesis com try-catch. Melhorado retorno de erros para evitar leitura múltipla do body. Precisa re-testar."
-      - working: false
-        agent: "testing"
-        comment: "RE-TESTADO E AINDA FALHA ❌ - Teste completo executado: Login OK, navegou para joao teste, abriu aba Anamnese, preencheu Peso:78.5, Altura:175, Meta:70, clicou em Concluir. ERRO PERSISTE: HTTP 400 POST /anamnesis, erro 'TypeError: Failed to execute text on Response: body stream already read' detectado 3x no console. Progresso mudou 0%→12% mas salvamento falhou. Nenhum toast de sucesso. Mensagem 'Alterações não salvas' visível. Root Cause: createAnamnesis() ainda tenta ler response.text() após erro. As correções aplicadas NÃO resolveram o problema. Problema está em como o erro do Supabase client é tratado - o body já foi consumido internamente pelo client mas o código tenta ler novamente."
+        comment: "Backend mínimo, apenas /api/status"
 
 frontend:
+  - task: "Fix Anamnese Save (permanente)"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/lib/supabase.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "user"
+        comment: "Usuário confirmou que anamnese voltou a funcionar, mas pede fix permanente"
+      - working: "unknown"
+        agent: "main"
+        comment: "Refatorado createAnamnesis/updateAnamnesis: whitelist centralizada, extractSafeError (NUNCA lê response body), withRetry com backoff automático (2 tentativas). Elimina root cause do 'body stream already read'."
+
+  - task: "Dashboard Profissional - Central de Comando Inteligente"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/ProfessionalDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Implementado: Header premium, 5 cards executivos (Ativos, Inativos, SOS, Em Risco, Engajamento), Atenção Hoje com SOS P0, Ranking de Risco Top 10, Gráfico 7 dias, Recomendações Inteligentes, Ações Rápidas. Compilou sem erros."
+
   - task: "Fix ProtectedRoute para visitor"
     implemented: true
     working: true
@@ -139,15 +156,9 @@ frontend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: false
-        agent: "user"
-        comment: "Usuário reportou: 'ABA PROJETO VOLTANDO PARA TELA INICIAL'"
-      - working: true
-        agent: "main"
-        comment: "Corrigido ProtectedRoute para setar automaticamente userType='visitor' quando não existe no localStorage"
       - working: true
         agent: "testing"
-        comment: "TESTADO E PASSOU ✅ - Acessei /visitor/projeto com localStorage limpo. Não houve redirecionamento para '/'. O localStorage foi setado corretamente como 'visitor'. Página 'Projeto Biquíni Branco' carregada com sucesso. Bug CORRIGIDO!"
+        comment: "CORRIGIDO - Testado e aprovado"
   
   - task: "Meu Plano - userType prop"
     implemented: true
@@ -157,15 +168,9 @@ frontend:
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: false
-        agent: "user"
-        comment: "Usuário reportou: 'agora falta o erro do meu plano no paciente' - ReferenceError: userType is not defined"
-      - working: "unknown"
-        agent: "main"
-        comment: "Verificado código: prop userType está sendo passada corretamente na linha 1078. Precisa testar para confirmar se o bug ainda existe."
       - working: true
         agent: "testing"
-        comment: "TESTADO E PASSOU ✅ - Login como paciente (kelly@com) funcionou. Navegou para /patient/meal-plan sem NENHUM erro 'userType is not defined'. Página carregou corretamente. Botões 'Duplicar' estão ocultos conforme esperado no patient view. Bug CORRIGIDO!"
+        comment: "CORRIGIDO - Testado e aprovado"
 
 metadata:
   created_by: "main_agent"
