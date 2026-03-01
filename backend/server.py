@@ -292,6 +292,9 @@ REGRAS:
 async def analyze_body(request: BodyAnalysisRequest):
     """Analisa fotos corporais usando GPT-4o Vision"""
     try:
+        logger.info(f"💪 Starting body analysis for patient {request.patient_id}")
+        logger.info(f"📸 Images received: front={bool(request.images.get('front'))}, side={bool(request.images.get('side'))}, back={bool(request.images.get('back'))}")
+        
         llm_key = os.environ.get('EMERGENT_LLM_KEY')
         if not llm_key:
             return BodyAnalysisResponse(success=False, error="Chave de IA não configurada")
@@ -309,11 +312,16 @@ async def analyze_body(request: BodyAnalysisRequest):
         # Preparar imagens
         image_contents = []
         for position in ['front', 'side', 'back']:
-            if request.images.get(position):
-                image_contents.append(ImageContent(image_base64=request.images[position]))
+            img_data = request.images.get(position)
+            if img_data:
+                # Log tamanho da imagem
+                logger.info(f"📸 {position} image size: {len(img_data)} chars")
+                image_contents.append(ImageContent(image_base64=img_data))
 
         if not image_contents:
             return BodyAnalysisResponse(success=False, error="Nenhuma imagem fornecida")
+
+        logger.info(f"📸 Total images to analyze: {len(image_contents)}")
 
         # Escolher prompt (com ou sem comparação)
         if request.previous_analysis:
@@ -329,6 +337,7 @@ async def analyze_body(request: BodyAnalysisRequest):
             file_contents=image_contents
         )
 
+        logger.info(f"🚀 Sending to GPT-4o Vision...")
         response_text = await chat.send_message(user_message)
         
         logger.info(f"💪 Body analysis response received for patient {request.patient_id}")
