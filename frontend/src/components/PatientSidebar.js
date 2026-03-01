@@ -62,7 +62,8 @@ const PatientSidebar = ({ patientId, onLogout }) => {
   const fixedLinks = [
     { to: '/patient/dashboard', icon: Home, label: 'Dashboard' },
     { to: '/patient/anamnesis', icon: ClipboardList, label: 'Minha Anamnese', badge: 'importante' },
-    { to: '/patient/meal-photo', icon: Camera, label: 'Análise do Prato', badge: 'novo' }
+    { to: '/patient/meal-photo', icon: Camera, label: 'Análise do Prato', badge: 'novo' },
+    { to: '/patient/body-analysis', icon: User, label: 'Análise Corporal', badge: 'novo' }
   ];
 
   // Filtrar e ordenar itens visíveis
