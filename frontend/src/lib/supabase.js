@@ -468,23 +468,30 @@ export const createAnamnesis = async (data) => {
       };
     }
     
-    // Whitelist de campos válidos da tabela anamnesis
+    // Whitelist de campos válidos da tabela anamnesis (APENAS CAMPOS QUE EXISTEM NO SUPABASE)
+    // NOTA: current_weight, height, goal_weight pertencem à tabela patient_profiles, NÃO à anamnesis
     const VALID_ANAMNESIS_FIELDS = [
       'patient_id', 'professional_id', 'medical_conditions', 'allergies',
-      'food_intolerances', 'current_weight', 'height', 'goal_weight',
-      'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
+      'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
       'meals_per_day', 'food_preference', 'favorite_foods',
       'exercises_regularly', 'physical_activity_level', 'sports_goal',
       'status', 'last_edited_by', 'updated_at', 'created_at',
       'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
       'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
       'family_history', 'eating_habits', 'dietary_restrictions',
-      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency'
+      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
+      'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
+      'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
+      'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
+      'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
     ];
     
-    // Filtrar apenas campos válidos
+    // CAMPOS QUE PERTENCEM A patient_profiles (IGNORAR NA ANAMNESIS)
+    const PATIENT_PROFILE_FIELDS = ['current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 'gender', 'phone'];
+    
+    // Filtrar apenas campos válidos da anamnesis (excluir campos de patient_profiles)
     const cleanPayload = Object.keys(data)
-      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key))
+      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !PATIENT_PROFILE_FIELDS.includes(key))
       .reduce((obj, key) => { 
         obj[key] = data[key]; 
         return obj; 
