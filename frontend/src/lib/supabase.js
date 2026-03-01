@@ -3389,3 +3389,220 @@ export const getAllProfessionalFeedbacks = async (professionalId, filters = {}) 
     return { data: [], error };
   }
 };
+
+
+
+// ==================== BODY COMPOSITION ANALYSIS ====================
+
+/**
+ * Upload de foto corporal para o Supabase Storage
+ * @param {File} file - Arquivo de imagem
+ * @param {string} patientId - ID do paciente
+ * @param {string} position - front, side, back
+ * @returns {Object} { path, error }
+ */
+export const uploadBodyPhoto = async (file, patientId, position) => {
+  try {
+    const timestamp = Date.now();
+    const ext = file.name?.split('.').pop() || 'jpg';
+    const filePath = `${patientId}/${timestamp}_${position}.${ext}`;
+
+    const { data, error } = await supabase.storage
+      .from('body-photos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'image/jpeg'
+      });
+
+    if (error) {
+      console.warn('⚠️ Body photo upload error:', error.message);
+      return { path: filePath, error: null, storageUnavailable: true };
+    }
+
+    return { path: data.path || filePath, error: null };
+  } catch (err) {
+    console.warn('⚠️ Body photo upload exception:', err.message);
+    return { path: `${patientId}/${Date.now()}_${position}.jpg`, error: null, storageUnavailable: true };
+  }
+};
+
+/**
+ * Cria registro de análise corporal (status=processing)
+ */
+export const createBodyAnalysis = async ({ patientId, professionalId, photoFront, photoSide, photoBack, analysisType = 'progress', feedbackId = null, notes = null }) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .insert({
+        patient_id: patientId,
+        professional_id: professionalId || null,
+        photo_front: photoFront || null,
+        photo_side: photoSide || null,
+        photo_back: photoBack || null,
+        analysis_type: analysisType,
+        feedback_id: feedbackId,
+        notes: notes,
+        status: 'processing'
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao criar body analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Atualiza análise corporal com resultado da IA
+ */
+export const updateBodyAnalysis = async (analysisId, patch) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .update({
+        ...patch,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', analysisId)
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao atualizar body analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Lista análises corporais do paciente (mais recentes primeiro)
+ */
+export const listPatientBodyAnalyses = async (patientId, limit = 10) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .select('*')
+      .eq('patient_id', patientId)
+      .eq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('Erro ao listar body analyses:', err);
+    return { data: [], error: { message: err.message } };
+  }
+};
+
+/**
+ * Busca última análise corporal do paciente (para comparação)
+ */
+export const getLastBodyAnalysis = async (patientId) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .select('*')
+      .eq('patient_id', patientId)
+      .eq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    // Pode não existir análise anterior
+    return { data: null, error: null };
+  }
+};
+
+/**
+ * Busca análise corporal baseline do paciente
+ */
+export const getBaselineBodyAnalysis = async (patientId) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .select('*')
+      .eq('patient_id', patientId)
+      .eq('analysis_type', 'baseline')
+      .eq('status', 'done')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    return { data: null, error: null };
+  }
+};
+
+/**
+ * Lista análises corporais recentes dos pacientes de um profissional
+ */
+export const listProfessionalRecentBodyAnalyses = async (professionalId, limit = 20) => {
+  try {
+    // Buscar IDs dos pacientes do profissional
+    const { data: patients, error: pError } = await supabase
+      .from('patient_profiles')
+      .select('patient_id')
+      .eq('professional_id', professionalId);
+
+    if (pError || !patients?.length) return { data: [], error: pError };
+
+    const patientIds = patients.map(p => p.patient_id);
+
+    // Buscar análises recentes
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .select(`
+        *,
+        patient:profiles!body_analyses_patient_id_fkey(id, name, email)
+      `)
+      .in('patient_id', patientIds)
+      .eq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('Erro ao listar professional body analyses:', err);
+    return { data: [], error: { message: err.message } };
+  }
+};
+
+/**
+ * Busca análise corporal por ID
+ */
+export const getBodyAnalysisById = async (analysisId) => {
+  try {
+    const { data, error } = await supabase
+      .from('body_analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao buscar body analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Gera URL assinada para foto corporal
+ */
+export const getBodyPhotoSignedUrl = async (path) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('body-photos')
+      .createSignedUrl(path, 3600); // 1 hora
+
+    if (error) return { url: null, error };
+    return { url: data.signedUrl, error: null };
+  } catch (err) {
+    return { url: null, error: { message: err.message } };
+  }
+};
