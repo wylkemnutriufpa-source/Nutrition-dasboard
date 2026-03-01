@@ -13,8 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Calendar, FileText, Utensils, AlertTriangle, Edit, Loader2, User, Save, Plus,
   ClipboardList, MessageSquare, CheckCircle2, Circle, Trash2, Send, Pin, Settings2,
-  DollarSign, Download, ChefHat, Eye, Bell
+  DollarSign, Download, ChefHat, Eye, Bell, Shield
 } from 'lucide-react';
+import RiskScoreCard from '@/components/RiskScoreCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   getPatientById, updatePatient, getPatientMealPlan, getAnamnesis, updateAnamnesis, createAnamnesis,
