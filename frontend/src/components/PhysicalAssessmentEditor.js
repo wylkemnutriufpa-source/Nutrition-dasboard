@@ -526,6 +526,17 @@ const PhysicalAssessmentEditor = ({ patientId, professionalId, patient, onTipCre
         )}
       </div>
 
+      {/* Risk Score Card - Análise de Risco Multimodal */}
+      {(anamnesis || assessments.length > 0) && !showForm && (
+        <RiskScoreCard 
+          anamnesis={anamnesis}
+          assessment={assessments[0]} // Última avaliação
+          patient={patient}
+          previousScore={assessments.length > 1 ? { overall: 70 } : null} // Placeholder para evolução
+          variant="full"
+        />
+      )}
+
       {/* Formulário */}
       {showForm && (
         <Card>
