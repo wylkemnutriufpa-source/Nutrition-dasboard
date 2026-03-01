@@ -927,6 +927,7 @@ const PatientProfile = () => {
   const [anamnesis, setAnamnesis] = useState(null);
   const [adherence, setAdherence] = useState(null);
   const [draftPlan, setDraftPlan] = useState(null);
+  const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'resumo');
   const [showMealPlanViewer, setShowMealPlanViewer] = useState(false);
