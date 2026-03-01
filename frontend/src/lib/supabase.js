@@ -570,70 +570,27 @@ export const createAnamnesis = async (data) => {
 };
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
-  try {
-    // Whitelist de campos válidos da tabela anamnesis (APENAS CAMPOS QUE EXISTEM NO SUPABASE)
-    // NOTA: current_weight, height, goal_weight pertencem à tabela patient_profiles, NÃO à anamnesis
-    const VALID_ANAMNESIS_FIELDS = [
-      'patient_id', 'medical_conditions', 'allergies',
-      'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 
-      'stress_level', 'water_intake', 'meals_per_day', 'food_preference', 
-      'favorite_foods', 'exercises_regularly', 'physical_activity_level', 
-      'sports_goal', 'status', 'last_edited_by', 'updated_at', 'created_at',
-      'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
-      'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
-      'family_history', 'eating_habits', 'dietary_restrictions',
-      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
-      'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
-      'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
-      'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
-      'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
-    ];
-    
-    // CAMPOS QUE PERTENCEM A patient_profiles (IGNORAR NA ANAMNESIS)
-    const PATIENT_PROFILE_FIELDS = ['current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 'gender', 'phone', 'professional_id'];
-    
-    // Filtrar apenas campos válidos da anamnesis (excluir campos de patient_profiles)
-    const cleanUpdates = Object.keys(updates)
-      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !PATIENT_PROFILE_FIELDS.includes(key))
-      .reduce((obj, key) => { 
-        obj[key] = updates[key]; 
-        return obj; 
-      }, {});
-    
-    console.log('🔄 Atualizando anamnese:', anamnesisId);
-    console.log('📤 DADOS DE UPDATE:', {
-      anamnesis_id: anamnesisId,
-      status: cleanUpdates.status,
-      validFields: Object.keys(cleanUpdates).length,
-      fieldsIncluded: Object.keys(cleanUpdates)
-    });
-    
+  const cleanUpdates = cleanAnamnesisPayload(updates);
+  
+  // Remover campos que não devem estar no update
+  delete cleanUpdates.patient_id;
+  delete cleanUpdates.professional_id;
+  delete cleanUpdates.created_at;
+
+  console.log('🔄 Atualizando anamnese:', anamnesisId, '| Campos:', Object.keys(cleanUpdates).length);
+
+  return await withRetry(async () => {
     const { data, error } = await supabase
       .from('anamnesis')
-      .update({
-        ...cleanUpdates,
-        updated_at: new Date().toISOString()
-      })
+      .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
       .eq('id', anamnesisId)
       .select()
       .maybeSingle();
-    
-    if (error) {
-      console.error('❌ Erro completo ao atualizar:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
-      return { data: null, error };
-    }
-    
-    console.log('✅ Anamnese atualizada:', data);
+
+    if (error) return { data: null, error };
+    console.log('✅ Anamnese atualizada com sucesso');
     return { data, error: null };
-  } catch (err) {
-    console.error('❌ Exceção ao atualizar anamnese:', err);
-    return { data: null, error: { message: err.message || 'Erro desconhecido' } };
-  }
+  });
 };
 
 export const saveAnamnesisDraft = async (patientId, professionalId, updates) => {
