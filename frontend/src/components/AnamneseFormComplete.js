@@ -87,6 +87,25 @@ const AnamneseFormComplete = ({
       
       console.log('💾 Salvando anamnese:', { patientId, professionalId, cleanData });
       
+      // PASSO 1: Atualizar perfil do paciente com dados antropométricos PRIMEIRO
+      // (current_weight, height, goal_weight pertencem a patient_profiles, não a anamnesis)
+      if (cleanData.current_weight || cleanData.height || cleanData.goal_weight) {
+        try {
+          const { updatePatient } = await import('@/lib/supabase');
+          const patientUpdate = {};
+          if (cleanData.current_weight) patientUpdate.current_weight = cleanData.current_weight;
+          if (cleanData.height) patientUpdate.height = cleanData.height;
+          if (cleanData.goal_weight) patientUpdate.goal_weight = cleanData.goal_weight;
+          
+          await updatePatient(patientId, patientUpdate);
+          console.log('✅ Perfil do paciente atualizado com dados antropométricos');
+        } catch (profileError) {
+          console.warn('Aviso: Não foi possível atualizar perfil:', profileError);
+          // Não interromper o fluxo se falhar
+        }
+      }
+      
+      // PASSO 2: Salvar/Atualizar anamnese (sem campos de patient_profiles)
       if (anamnesis?.id) {
         console.log('📝 Atualizando anamnese existente:', anamnesis.id);
         const { data: result, error } = await updateAnamnesis(anamnesis.id, cleanData);
@@ -106,31 +125,14 @@ const AnamneseFormComplete = ({
           });
           
           if (response.error) {
-            // NÃO TOCAR NO ERRO - apenas retornar mensagem genérica
-            console.error('❌ Falha ao criar anamnese - erro 400');
-            throw new Error('Erro ao salvar anamnese. Verifique a aba Network para detalhes.');
+            console.error('❌ Falha ao criar anamnese:', response.error);
+            throw new Error(response.error.message || 'Erro ao salvar anamnese');
           }
           
           console.log('✅ Criada com sucesso');
         } catch (err) {
           console.error('❌ Exceção:', err);
-          throw new Error('Erro ao salvar anamnese. Verifique a aba Network para detalhes.');
-        }
-      }
-      
-      // Atualizar perfil do paciente com dados antropométricos
-      if (cleanData.current_weight || cleanData.height || cleanData.goal_weight) {
-        try {
-          const { updatePatient } = await import('@/lib/supabase');
-          const patientUpdate = {};
-          if (cleanData.current_weight) patientUpdate.current_weight = cleanData.current_weight;
-          if (cleanData.height) patientUpdate.height = cleanData.height;
-          if (cleanData.goal_weight) patientUpdate.goal_weight = cleanData.goal_weight;
-          
-          await updatePatient(patientId, patientUpdate);
-          console.log('✅ Perfil do paciente atualizado com dados antropométricos');
-        } catch (profileError) {
-          console.warn('Aviso: Não foi possível atualizar perfil:', profileError);
+          throw new Error(err.message || 'Erro ao salvar anamnese');
         }
       }
       
