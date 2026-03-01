@@ -149,6 +149,27 @@ frontend:
         agent: "main"
         comment: "Implementado: Header premium, 5 cards executivos (Ativos, Inativos, SOS, Em Risco, Engajamento), Atenção Hoje com SOS P0, Ranking de Risco Top 10, Gráfico 7 dias, Recomendações Inteligentes, Ações Rápidas. Compilou sem erros."
 
+  - task: "Meal Photo Analysis - Análise de Pratos por IA"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/MealPhotoAnalysis.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: |
+          Implementado completo:
+          - Backend: POST /api/analyze-meal com GPT-4o Vision (emergentintegrations)
+          - Frontend: Página MealPhotoAnalysis.js com upload, preview, análise, histórico
+          - Supabase.js: uploadMealPhoto, createMealAnalysis, updateMealAnalysis, listPatientMealAnalyses, listProfessionalRecentMealAnalyses
+          - Dashboard Pro: MealAnalysisSection adicionada ao grid
+          - Menu Paciente: Link "Análise do Prato" adicionado
+          - Risk Engine: Alertas de refeição integrados (low quality, low veggies, ultra_processed)
+          - SQL pronto em /app/sql/meal_analyses_setup.sql
+          PENDENTE: Usuário precisa executar SQL no Supabase Dashboard
+
   - task: "Fix ProtectedRoute para visitor"
     implemented: true
     working: true
