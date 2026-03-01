@@ -2,19 +2,25 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ChevronRight, Shield, Users } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Shield, Users, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
- * Ranking de Risco - Top 10 pacientes ordenados por score de risco
+ * Ranking de Risco Premium - Top 10 pacientes
  */
 const RiskRankingList = ({ patients = [], onViewAll }) => {
   const navigate = useNavigate();
 
-  const getRiskColor = (score) => {
-    if (score >= 70) return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', badge: 'bg-red-100 text-red-800 border-red-200' };
-    if (score >= 40) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-800 border-amber-200' };
-    return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-800 border-green-200' };
+  const getRiskGradient = (score) => {
+    if (score >= 70) return 'from-red-500 to-rose-600';
+    if (score >= 40) return 'from-amber-500 to-orange-600';
+    return 'from-green-500 to-emerald-600';
+  };
+
+  const getRiskBg = (score) => {
+    if (score >= 70) return 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200 hover:border-red-300';
+    if (score >= 40) return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300';
+    return 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 hover:border-green-300';
   };
 
   const getRiskLabel = (level) => {
@@ -22,69 +28,99 @@ const RiskRankingList = ({ patients = [], onViewAll }) => {
     return level.label || 'N/A';
   };
 
+  const getTrendIcon = (trend) => {
+    if (!trend) return <Minus className="h-3 w-3 text-gray-400" />;
+    if (trend > 0) return <TrendingUp className="h-3 w-3 text-red-500" />;
+    if (trend < 0) return <TrendingDown className="h-3 w-3 text-green-500" />;
+    return <Minus className="h-3 w-3 text-gray-400" />;
+  };
+
   if (patients.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Shield className="h-12 w-12 mx-auto mb-3 text-green-400 opacity-60" />
-          <h3 className="text-lg font-semibold text-green-800 mb-1">Sem Pacientes em Risco</h3>
-          <p className="text-sm text-gray-500">Todos os pacientes estão com score adequado.</p>
-        </CardContent>
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <div className="bg-gradient-to-br from-green-500 via-emerald-500 to-teal-600 p-8 text-white text-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Shield className="h-8 w-8" />
+          </div>
+          <h3 className="text-xl font-bold mb-1">Todos Saudáveis! 🎉</h3>
+          <p className="text-green-100 text-sm">
+            Nenhum paciente em risco elevado no momento.
+          </p>
+        </div>
       </Card>
     );
   }
 
   return (
-    <Card className="border-gray-200">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between text-lg">
+    <Card className="border-0 shadow-lg overflow-hidden">
+      <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 via-red-50 to-rose-50">
+        <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
-            Ranking de Risco
+            <div className="bg-gradient-to-br from-orange-500 to-red-500 p-2 rounded-xl">
+              <AlertTriangle className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <span className="text-lg font-bold text-gray-900">Ranking de Risco</span>
+              <p className="text-xs text-gray-500 font-normal">Pacientes que precisam de atenção</p>
+            </div>
           </div>
-          <span className="text-sm font-normal text-gray-500">Top {patients.length}</span>
+          <Badge className="bg-gradient-to-r from-orange-500 to-red-500 text-white border-0">
+            Top {patients.length}
+          </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
+      <CardContent className="p-4 space-y-2 max-h-[450px] overflow-y-auto">
         {patients.map((patient, index) => {
-          const colors = getRiskColor(patient.dashboardRisk?.score || 0);
           const riskScore = patient.dashboardRisk?.score || 0;
           const hasClinic = patient.dashboardRisk?.hasClinicData;
+          const trend = patient.dashboardRisk?.trend;
 
           return (
             <div
               key={patient.id}
               onClick={() => navigate(`/professional/patient/${patient.id}`)}
-              className={`flex items-center gap-3 p-3 rounded-lg border-2 ${colors.border} ${colors.bg} hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer group`}
+              className={`flex items-center gap-3 p-3 rounded-xl border-2 ${getRiskBg(riskScore)} hover:shadow-md transition-all cursor-pointer group`}
             >
-              {/* Posição */}
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${riskScore >= 70 ? 'bg-red-200 text-red-800' : riskScore >= 40 ? 'bg-amber-200 text-amber-800' : 'bg-green-200 text-green-800'}`}>
-                {index + 1}
+              {/* Posição com destaque para top 3 */}
+              <div className={`
+                w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm
+                ${index < 3 
+                  ? `bg-gradient-to-br ${getRiskGradient(riskScore)} text-white` 
+                  : 'bg-white text-gray-700 border border-gray-200'
+                }
+              `}>
+                {index === 0 && '🥇'}
+                {index === 1 && '🥈'}
+                {index === 2 && '🥉'}
+                {index > 2 && (index + 1)}
               </div>
 
               {/* Info do paciente */}
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-gray-900 truncate text-sm">
+                <h4 className="font-semibold text-gray-900 truncate text-sm flex items-center gap-1.5">
                   {patient.name}
+                  {getTrendIcon(trend)}
                 </h4>
                 <p className="text-xs text-gray-500 truncate">
                   {patient.email}
-                  {hasClinic && <span className="ml-1 text-blue-500">• Dados clínicos</span>}
+                  {hasClinic && (
+                    <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0 border-blue-200 text-blue-600">
+                      Clínico
+                    </Badge>
+                  )}
                 </p>
               </div>
 
-              {/* Score + Badge */}
+              {/* Score circular */}
               <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <div className={`text-xl font-bold ${colors.text}`}>
-                    {riskScore}
-                  </div>
-                  <div className="text-[10px] text-gray-400 uppercase tracking-wide">risco</div>
+                <div className={`
+                  w-12 h-12 rounded-full flex flex-col items-center justify-center
+                  bg-gradient-to-br ${getRiskGradient(riskScore)} text-white shadow-lg
+                `}>
+                  <span className="text-lg font-bold leading-none">{riskScore}</span>
+                  <span className="text-[8px] uppercase opacity-80">risco</span>
                 </div>
-                <Badge className={`${colors.badge} border text-xs px-2 py-0.5`}>
-                  {getRiskLabel(patient.dashboardRisk?.level)}
-                </Badge>
-                <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
               </div>
             </div>
           );
@@ -94,7 +130,7 @@ const RiskRankingList = ({ patients = [], onViewAll }) => {
           <Button
             onClick={onViewAll}
             variant="outline"
-            className="w-full mt-3"
+            className="w-full mt-4 h-11 border-2 border-dashed hover:border-solid hover:bg-teal-50 hover:border-teal-300 hover:text-teal-700 transition-all"
           >
             <Users className="mr-2 h-4 w-4" />
             Ver Todos os Pacientes
