@@ -35,7 +35,7 @@ import PhysicalAssessmentEditor from '@/components/PhysicalAssessmentEditor';
 import MealPlanViewerModal from '@/components/MealPlanViewerModal';
 
 // Componente de Aba Resumo
-const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate }) => {
+const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate, assessment }) => {
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
     const today = new Date();
@@ -97,6 +97,15 @@ const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate }) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Risk Score Card - Análise de Risco Multimodal */}
+      <RiskScoreCard 
+        anamnesis={anamnesis}
+        assessment={assessment}
+        patient={patient}
+        variant="compact"
+        onViewDetails={() => onNavigate('avaliacao')}
+      />
 
       {/* Info detalhada */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
