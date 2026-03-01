@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, Calendar, ClipboardList, MessageSquare, ShoppingCart,
-  ChefHat, Pill, Lightbulb, TrendingUp, LogOut, Calculator, Settings
+  ChefHat, Pill, Lightbulb, TrendingUp, LogOut, Calculator, Settings, Camera
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBranding } from '@/contexts/BrandingContext';
