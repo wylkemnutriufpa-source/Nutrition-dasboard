@@ -119,8 +119,8 @@ export const useProfessionalDashboard = (professionalId) => {
         patientsAtRisk
       });
 
-      // === FASE 6: Alertas com emergências ===
-      const alerts = detectAttentionNeeded(patientsComplete, emergencies);
+      // === FASE 6: Alertas com emergências e análises de refeição ===
+      const alerts = detectAttentionNeeded(patientsComplete, emergencies, mealAnalyses);
       setAttentionAlerts(alerts);
 
       // === FASE 7: Gráficos ===
