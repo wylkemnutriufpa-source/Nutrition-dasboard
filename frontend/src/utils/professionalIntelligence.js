@@ -134,9 +134,10 @@ export const classifyEngagement = (score) => {
  * Detecta pacientes que precisam de atenção (com prioridade SOS)
  * @param {Array} patients - Lista de pacientes com stats
  * @param {Array} emergencies - Lista de emergências recentes
+ * @param {Array} mealAnalyses - Lista de análises de refeição recentes (opcional)
  * @returns {Array} Lista de alertas priorizados (máx 7)
  */
-export const detectAttentionNeeded = (patients = [], emergencies = []) => {
+export const detectAttentionNeeded = (patients = [], emergencies = [], mealAnalyses = []) => {
   const alerts = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
