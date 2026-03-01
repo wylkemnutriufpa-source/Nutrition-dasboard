@@ -4,8 +4,8 @@ import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Users, UserX, TrendingUp, DollarSign, FileText,
-  Plus, MessageSquare, ClipboardList, RefreshCw
+  Users, UserX, AlertTriangle, ShieldAlert, TrendingUp,
+  Plus, RefreshCw, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,21 +14,25 @@ import MetricCard from '@/components/dashboard/MetricCard';
 import AttentionAlert from '@/components/dashboard/AttentionAlert';
 import QuickActionsGrid from '@/components/dashboard/QuickActionsGrid';
 import SimpleEngagementChart from '@/components/dashboard/SimpleEngagementChart';
-import PatientEngagementBadge from '@/components/dashboard/PatientEngagementBadge';
-import { formatCurrency } from '@/utils/professionalIntelligence';
+import RiskRankingList from '@/components/dashboard/RiskRankingList';
+import RecommendationsSection from '@/components/dashboard/RecommendationsSection';
+import { formatPercentage } from '@/utils/professionalIntelligence';
 
 const ProfessionalDashboard = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
 
-  // Hook centralizado com TODOS os dados
   const {
     loading,
     error,
     metrics,
     attentionAlerts,
     patientsWithScore,
+    riskRanking,
     chartData,
+    riskTrendData,
+    recommendations,
+    sosCount,
     refresh
   } = useProfessionalDashboard(profile?.id);
 
@@ -72,13 +76,22 @@ const ProfessionalDashboard = () => {
     }
   };
 
+  // Hora do dia para saudação
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
+
   if (loading) {
     return (
       <Layout title="Dashboard" userType="professional">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <RefreshCw className="h-8 w-8 animate-spin text-teal-600 mx-auto mb-4" />
-            <p className="text-gray-600">Carregando insights...</p>
+            <p className="text-gray-600 font-medium">Carregando Central de Comando...</p>
+            <p className="text-gray-400 text-sm mt-1">Analisando dados dos pacientes</p>
           </div>
         </div>
       </Layout>
@@ -101,24 +114,42 @@ const ProfessionalDashboard = () => {
   }
 
   return (
-    <Layout title="Dashboard Profissional" userType="professional">
+    <Layout title="Central de Comando" userType="professional">
       <div className="max-w-7xl mx-auto space-y-6 pb-8">
         
-        {/* ========== HEADER COM BOAS-VINDAS ========== */}
-        <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
+        {/* ========== 1) HEADER PREMIUM ========== */}
+        <div className="bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between relative z-10 gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">
-                Olá, {profile?.name?.split(' ')[0] || 'Profissional'}! 👋
-              </h1>
-              <p className="text-teal-100">
-                Aqui está um resumo dos seus atendimentos hoje
+              <p className="text-teal-200 text-sm font-medium mb-1">
+                {getGreeting()},
               </p>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                {profile?.name?.split(' ')[0] || 'Profissional'} 👋
+              </h1>
+              <p className="text-teal-100 text-sm md:text-base">
+                {patientsWithScore.length > 0 
+                  ? `Você tem ${patientsWithScore.length} paciente${patientsWithScore.length > 1 ? 's' : ''} sob acompanhamento`
+                  : 'Sua central de comando está pronta'}
+              </p>
+              {sosCount > 0 && (
+                <div className="mt-2 inline-flex items-center gap-2 bg-red-500/20 border border-red-300/30 text-red-100 px-3 py-1.5 rounded-lg text-sm font-medium animate-pulse">
+                  <span className="text-lg">🚨</span>
+                  {sosCount} SOS pendente{sosCount > 1 ? 's' : ''}
+                </div>
+              )}
             </div>
             <Button
-              onClick={refresh}
+              onClick={() => {
+                refresh();
+                toast.success('Atualizando dados...');
+              }}
               variant="outline"
-              className="bg-white text-teal-700 hover:bg-teal-50 border-0"
+              className="bg-white/10 text-white hover:bg-white/20 border-white/20 backdrop-blur-sm shadow-lg"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Atualizar
@@ -126,8 +157,8 @@ const ProfessionalDashboard = () => {
           </div>
         </div>
 
-        {/* ========== SEÇÃO 1: VISÃO EXECUTIVA (Cards de Métricas) ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* ========== 2) CARDS EXECUTIVOS ========== */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           <MetricCard
             title="Pacientes Ativos"
             value={metrics.activePatients}
@@ -138,7 +169,7 @@ const ProfessionalDashboard = () => {
           />
           
           <MetricCard
-            title="Pacientes Inativos"
+            title="Inativos"
             value={metrics.inactivePatients}
             subtitle="7+ dias sem login"
             icon={UserX}
@@ -147,132 +178,66 @@ const ProfessionalDashboard = () => {
           />
           
           <MetricCard
-            title="Engajamento Médio"
+            title="SOS Abertas"
+            value={metrics.sosOpen}
+            subtitle="Emergências pendentes"
+            icon={ShieldAlert}
+            iconColor={metrics.sosOpen > 0 ? "text-red-600" : "text-gray-400"}
+            iconBg={metrics.sosOpen > 0 ? "bg-red-100" : "bg-gray-100"}
+          />
+          
+          <MetricCard
+            title="Em Risco"
+            value={metrics.patientsAtRisk}
+            subtitle="Score ≥ 70"
+            icon={AlertTriangle}
+            iconColor={metrics.patientsAtRisk > 0 ? "text-orange-600" : "text-gray-400"}
+            iconBg={metrics.patientsAtRisk > 0 ? "bg-orange-100" : "bg-gray-100"}
+          />
+          
+          <MetricCard
+            title="Engajamento"
             value={`${metrics.avgEngagement}%`}
-            subtitle="Checklist concluído"
+            subtitle="Média dos pacientes"
             icon={TrendingUp}
             iconColor="text-blue-600"
             iconBg="bg-blue-100"
           />
-          
-          <MetricCard
-            title="Faturamento"
-            value={formatCurrency(metrics.revenue)}
-            subtitle="Estimativa mensal"
-            icon={DollarSign}
-            iconColor="text-emerald-600"
-            iconBg="bg-emerald-100"
-          />
-          
-          <MetricCard
-            title="Planos Ativos"
-            value={metrics.activePlans}
-            subtitle="Alimentares vigentes"
-            icon={FileText}
-            iconColor="text-purple-600"
-            iconBg="bg-purple-100"
-          />
         </div>
 
-        {/* ========== SEÇÃO 2: ATENÇÃO HOJE (Alertas Inteligentes) ========== */}
+        {/* ========== 3) ATENÇÃO HOJE ========== */}
         <AttentionAlert 
           alerts={attentionAlerts} 
           onAction={handleAlertAction}
         />
 
-        {/* ========== SEÇÃO 3: AÇÕES RÁPIDAS ========== */}
-        <Card>
+        {/* ========== 4) RANKING DE RISCO ========== */}
+        <RiskRankingList 
+          patients={riskRanking}
+          onViewAll={() => navigate('/professional/patients')}
+        />
+
+        {/* ========== 5) GRÁFICO + RECOMENDAÇÕES (lado a lado) ========== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <SimpleEngagementChart 
+            data={chartData}
+            title="Adesão ao Checklist (7 dias)"
+          />
+          <RecommendationsSection 
+            recommendations={recommendations}
+          />
+        </div>
+
+        {/* ========== 6) AÇÕES RÁPIDAS ========== */}
+        <Card className="border-gray-200">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Plus className="h-5 w-5 text-teal-600" />
+              <Activity className="h-5 w-5 text-teal-600" />
               Ações Rápidas
             </h3>
             <QuickActionsGrid onAction={handleQuickAction} />
           </CardContent>
         </Card>
-
-        {/* ========== SEÇÃO 4: GRÁFICO + PACIENTES ========== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Mini Gráfico */}
-          <div className="lg:col-span-1">
-            <SimpleEngagementChart 
-              data={chartData}
-              title="Adesão ao Checklist (7 dias)"
-            />
-          </div>
-
-          {/* Lista de Pacientes com Score */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Seus Pacientes ({patientsWithScore.length})
-                </h3>
-
-                {patientsWithScore.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>Nenhum paciente cadastrado ainda</p>
-                    <Button
-                      onClick={() => navigate('/professional/patients')}
-                      className="mt-4 bg-teal-600 hover:bg-teal-700"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Adicionar Paciente
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {patientsWithScore
-                      .sort((a, b) => a.engagementScore - b.engagementScore) // Risco primeiro
-                      .slice(0, 10) // Top 10
-                      .map((patient) => (
-                        <div
-                          key={patient.id}
-                          onClick={() => navigate(`/professional/patient/${patient.id}`)}
-                          className="flex items-center justify-between p-4 rounded-lg border-2 border-gray-200 hover:border-teal-300 hover:shadow-md transition-all cursor-pointer bg-white"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {patient.name}
-                            </h4>
-                            <p className="text-sm text-gray-500 truncate">
-                              {patient.email}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center gap-3 ml-4">
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-gray-900">
-                                {patient.engagementScore}
-                              </div>
-                              <div className="text-xs text-gray-500">score</div>
-                            </div>
-                            <PatientEngagementBadge
-                              score={patient.engagementScore}
-                              classification={patient.classification}
-                              size="md"
-                            />
-                          </div>
-                        </div>
-                      ))}
-
-                    {patientsWithScore.length > 10 && (
-                      <Button
-                        onClick={() => navigate('/professional/patients')}
-                        variant="outline"
-                        className="w-full mt-4"
-                      >
-                        Ver Todos os Pacientes ({patientsWithScore.length})
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
 
       </div>
     </Layout>
