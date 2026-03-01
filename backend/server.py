@@ -69,10 +69,6 @@ async def get_status_checks():
     
     return status_checks
 
-# Include the router in the main app
-app.include_router(api_router)
-
-
 # ==================== MEAL ANALYSIS ENDPOINT ====================
 
 class MealAnalysisRequest(BaseModel):
