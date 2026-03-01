@@ -608,14 +608,28 @@ const detectConditionsFromAnamnesis = (anamnesis, patient) => {
 
   if (!anamnesis) return { detectedConditions, recommendations };
 
-  // Converter para minúsculas para comparação
-  const medicalConditions = (anamnesis.medical_conditions || anamnesis.conditions || [])
-    .map(c => (typeof c === 'string' ? c : c.condition || '').toLowerCase());
-  
-  const medications = (anamnesis.medications || '').toLowerCase();
-  const allergies = (anamnesis.allergies || []).map(a => a.toLowerCase());
-  const intolerances = (anamnesis.intolerances || anamnesis.food_intolerances || []).map(i => i.toLowerCase());
-  const symptoms = (anamnesis.symptoms || anamnesis.gastrointestinal_symptoms || '').toLowerCase();
+  // Helper: converte qualquer valor (string, array, objeto) para string lowercase
+  const toSafeString = (val) => {
+    if (!val) return '';
+    if (typeof val === 'string') return val.toLowerCase();
+    if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v : String(v || '')).join(' ').toLowerCase();
+    return String(val).toLowerCase();
+  };
+
+  // Helper: converte qualquer valor para array de strings lowercase
+  const toSafeArray = (val) => {
+    if (!val) return [];
+    if (typeof val === 'string') return val.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v.toLowerCase() : (typeof v === 'object' ? String(v?.name || v?.condition || v || '').toLowerCase() : String(v || '').toLowerCase()));
+    return [];
+  };
+
+  // Converter para minúsculas para comparação (seguro para string OU array)
+  const medicalConditions = toSafeArray(anamnesis.medical_conditions || anamnesis.conditions);
+  const medications = toSafeString(anamnesis.medications);
+  const allergies = toSafeArray(anamnesis.allergies);
+  const intolerances = toSafeArray(anamnesis.intolerances || anamnesis.food_intolerances);
+  const symptoms = toSafeString(anamnesis.symptoms || anamnesis.gastrointestinal_symptoms);
   const isPregnant = anamnesis.is_pregnant || anamnesis.pregnant;
   const isBreastfeeding = anamnesis.is_breastfeeding || anamnesis.breastfeeding;
 
