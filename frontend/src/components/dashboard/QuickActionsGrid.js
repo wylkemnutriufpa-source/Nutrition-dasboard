@@ -1,11 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, MessageSquare, ClipboardList, Copy, BarChart3 } from 'lucide-react';
+import { Plus, MessageSquare, ClipboardList, Copy, BarChart3, Sparkles } from 'lucide-react';
 
 /**
- * Grid de Ações Rápidas
- * @param {Object} props
- * @param {Array} props.actions - Lista de ações com { icon, label, onClick, color }
+ * Grid de Ações Rápidas Premium
  */
 const QuickActionsGrid = ({ actions = [], onAction }) => {
   const defaultActions = [
@@ -13,36 +11,41 @@ const QuickActionsGrid = ({ actions = [], onAction }) => {
       id: 'create_plan',
       icon: Plus,
       label: 'Criar Plano',
-      color: 'bg-teal-600 hover:bg-teal-700',
-      action: 'createPlan'
+      gradient: 'from-teal-500 to-emerald-600',
+      action: 'createPlan',
+      emoji: '📋'
     },
     {
       id: 'send_feedback',
       icon: MessageSquare,
       label: 'Enviar Feedback',
-      color: 'bg-blue-600 hover:bg-blue-700',
-      action: 'sendFeedback'
+      gradient: 'from-blue-500 to-indigo-600',
+      action: 'sendFeedback',
+      emoji: '💬'
     },
     {
       id: 'create_checklist',
       icon: ClipboardList,
       label: 'Criar Checklist',
-      color: 'bg-purple-600 hover:bg-purple-700',
-      action: 'createChecklist'
+      gradient: 'from-purple-500 to-pink-600',
+      action: 'createChecklist',
+      emoji: '✅'
     },
     {
       id: 'duplicate_plan',
       icon: Copy,
       label: 'Duplicar Plano',
-      color: 'bg-indigo-600 hover:bg-indigo-700',
-      action: 'duplicatePlan'
+      gradient: 'from-indigo-500 to-purple-600',
+      action: 'duplicatePlan',
+      emoji: '📑'
     },
     {
       id: 'reports',
       icon: BarChart3,
       label: 'Ver Relatórios',
-      color: 'bg-orange-600 hover:bg-orange-700',
-      action: 'viewReports'
+      gradient: 'from-orange-500 to-red-600',
+      action: 'viewReports',
+      emoji: '📊'
     }
   ];
 
@@ -53,14 +56,29 @@ const QuickActionsGrid = ({ actions = [], onAction }) => {
       {actionsToRender.map((action) => {
         const Icon = action.icon;
         return (
-          <Button
+          <button
             key={action.id}
             onClick={() => onAction && onAction(action.action)}
-            className={`${action.color} text-white h-auto py-4 flex-col gap-2 shadow-sm hover:shadow-md transition-all`}
+            className={`
+              relative overflow-hidden rounded-2xl bg-gradient-to-br ${action.gradient} 
+              text-white h-auto py-5 px-4 flex flex-col items-center gap-2 
+              shadow-lg hover:shadow-xl transition-all duration-300 
+              hover:scale-[1.03] active:scale-[0.98] group
+            `}
           >
-            <Icon className="h-6 w-6" />
-            <span className="text-sm font-medium">{action.label}</span>
-          </Button>
+            {/* Efeito de brilho */}
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors duration-300" />
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -translate-y-8 translate-x-8 group-hover:scale-150 transition-transform duration-500" />
+            
+            <div className="relative z-10 flex flex-col items-center gap-2">
+              <div className="bg-white/20 p-2.5 rounded-xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
+                <Icon className="h-6 w-6" />
+              </div>
+              <span className="text-sm font-semibold text-center leading-tight">
+                {action.label}
+              </span>
+            </div>
+          </button>
         );
       })}
     </div>
