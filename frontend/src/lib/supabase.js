@@ -2905,6 +2905,75 @@ export const getPatientDashboardStats = async (patientId) => {
   }
 };
 
+// ==================== BATCH RISK DATA (Dashboard Inteligente) ====================
+
+/**
+ * Busca dados de anamnese e avaliação física para múltiplos pacientes (batch)
+ * Usado pelo dashboard profissional para calcular risk scores
+ */
+export const getBatchPatientRiskData = async (patientIds) => {
+  if (!patientIds || patientIds.length === 0) return { data: {}, error: null };
+
+  try {
+    // Buscar anamneses em batch
+    const { data: anamneses, error: anamError } = await supabase
+      .from('anamnesis')
+      .select('*')
+      .in('patient_id', patientIds);
+
+    if (anamError) console.warn('⚠️ Erro ao buscar anamneses batch:', anamError);
+
+    // Buscar últimas avaliações físicas em batch
+    const { data: assessments, error: assError } = await supabase
+      .from('physical_assessments')
+      .select('*')
+      .in('patient_id', patientIds)
+      .order('assessment_date', { ascending: false });
+
+    if (assError) console.warn('⚠️ Erro ao buscar avaliações batch:', assError);
+
+    // Organizar por patient_id (última de cada)
+    const riskData = {};
+    patientIds.forEach(id => {
+      riskData[id] = {
+        anamnesis: (anamneses || []).find(a => a.patient_id === id) || null,
+        assessment: (assessments || []).find(a => a.patient_id === id) || null
+      };
+    });
+
+    return { data: riskData, error: null };
+  } catch (error) {
+    console.error('Erro ao buscar risk data batch:', error);
+    return { data: {}, error };
+  }
+};
+
+/**
+ * Busca emergências recentes (últimas 72h) para dashboard
+ */
+export const getRecentEmergencies = async (professionalId) => {
+  try {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const { data, error } = await supabase
+      .from('feedbacks')
+      .select(`
+        *,
+        patient:profiles!feedbacks_patient_id_fkey(id, name, email)
+      `)
+      .eq('professional_id', professionalId)
+      .eq('type', 'emergency')
+      .gte('created_at', threeDaysAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    return { data: data || [], error };
+  } catch (error) {
+    console.error('Erro ao buscar emergências recentes:', error);
+    return { data: [], error };
+  }
+};
+
 // ==================== TEMPLATES GLOBAIS ====================
 
 /**
