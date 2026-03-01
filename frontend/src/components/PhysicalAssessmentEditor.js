@@ -151,7 +151,17 @@ const PhysicalAssessmentEditor = ({ patientId, professionalId, patient, onTipCre
 
   useEffect(() => {
     loadAssessments();
+    loadAnamnesisData();
   }, [patientId]);
+
+  const loadAnamnesisData = async () => {
+    try {
+      const { data } = await getAnamnesis(patientId);
+      setAnamnesisData(data);
+    } catch (error) {
+      console.warn('Erro ao carregar anamnese:', error);
+    }
+  };
 
   const loadAssessments = async () => {
     setLoading(true);
