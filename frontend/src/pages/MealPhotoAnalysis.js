@@ -232,6 +232,10 @@ const MealPhotoAnalysis = () => {
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`Erro do servidor: ${response.status}`);
+      }
+
       const aiResult = await response.json();
 
       if (!aiResult.success) {
