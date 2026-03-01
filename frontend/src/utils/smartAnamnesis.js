@@ -1259,12 +1259,55 @@ const populateMeals = (meals, recommendedFoods, goal, varIndex = 0, restrictions
 /**
  * Gera raciocínio/explicação do plano
  */
+// Mapa de tradução de condições (ID interno → nome em português)
+const CONDITION_LABELS_PT = {
+  'diabetes': 'Diabetes',
+  'diabetico': 'Diabetes',
+  'hypertension': 'Hipertensão',
+  'hipertensao': 'Hipertensão',
+  'high_cholesterol': 'Colesterol Alto',
+  'colesterol_alto': 'Colesterol Alto',
+  'intestinal_issues': 'Problemas Intestinais',
+  'gastrite': 'Gastrite/Refluxo',
+  'gastrite_refluxo': 'Gastrite/Refluxo',
+  'renal': 'Doença Renal',
+  'doenca_renal': 'Doença Renal',
+  'anemia': 'Anemia',
+  'hypothyroidism': 'Hipotireoidismo',
+  'hipotireoidismo': 'Hipotireoidismo',
+  'anxiety': 'Ansiedade',
+  'ansiedade': 'Ansiedade',
+  'depression': 'Depressão',
+  'depressao': 'Depressão',
+  'obesity': 'Obesidade',
+  'obesidade': 'Obesidade',
+  'pregnant': 'Gestante',
+  'gestante': 'Gestante',
+  'breastfeeding': 'Lactante',
+  'lactante': 'Lactante',
+  'lactose_intolerance': 'Intolerância à Lactose',
+  'gluten_intolerance': 'Intolerância ao Glúten',
+  'food_allergy': 'Alergia Alimentar',
+  'insomnia': 'Insônia',
+  'insonia': 'Insônia',
+  'fibromyalgia': 'Fibromialgia',
+  'ibs': 'Síndrome do Intestino Irritável',
+  'pcos': 'SOP (Síndrome dos Ovários Policísticos)',
+  'gout': 'Gota',
+  'osteoporosis': 'Osteoporose'
+};
+
+const translateCondition = (condition) => {
+  const key = (condition || '').toLowerCase().trim();
+  return CONDITION_LABELS_PT[key] || condition;
+};
+
 const generateReasoning = (conditions, goal, restrictions, variation = 1) => {
   let reasoning = `Este pré-plano foi gerado automaticamente com base na anamnese do paciente.\n\n`;
   reasoning += `**Estilo do plano:** ${VARIATION_NAMES[variation - 1] || 'Clássico Brasileiro'}\n`;
   
   if (conditions.length > 0) {
-    reasoning += `**Condições identificadas:** ${conditions.join(', ')}\n`;
+    reasoning += `**Condições identificadas:** ${conditions.map(c => translateCondition(c)).join(', ')}\n`;
   }
   
   if (goal.type) {
