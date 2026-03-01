@@ -214,6 +214,11 @@ function App() {
                   <PatientAvaliacaoFisica />
                 </ProtectedRoute>
               } />
+              <Route path="/patient/meal-photo" element={
+                <ProtectedRoute allowedTypes={['patient']}>
+                  <MealPhotoAnalysis />
+                </ProtectedRoute>
+              } />
               <Route path="/patient/jornada" element={
                 <ProtectedRoute allowedTypes={['patient']}>
                   <PatientJornada />
