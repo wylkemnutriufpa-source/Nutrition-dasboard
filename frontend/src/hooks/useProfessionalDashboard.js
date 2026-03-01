@@ -1,38 +1,51 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getProfessionalDashboardData } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { 
+  getProfessionalDashboardData, 
+  countOpenEmergencies, 
+  getRecentEmergencies,
+  getBatchPatientRiskData 
+} from '@/lib/supabase';
 import {
   calculatePatientEngagementScore,
   classifyEngagement,
+  calculateDashboardRiskScore,
   detectAttentionNeeded,
+  generateRecommendations,
   calculateActiveInactive,
   calculateAverageEngagement,
   countActivePlans,
   calculateMonthlyRevenue,
-  generateChecklistChartData
+  generateChecklistChartData,
+  generateRiskTrendData
 } from '@/utils/professionalIntelligence';
 
 /**
- * Hook centralizado para dados do Dashboard Profissional
- * @param {string} professionalId - ID do profissional logado
- * @returns {Object} Dados completos do dashboard
+ * Hook centralizado para dados do Dashboard Profissional Inteligente
+ * Retorna TODOS os dados necessários para a Central de Comando
  */
 export const useProfessionalDashboard = (professionalId) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rawPatients, setRawPatients] = useState([]);
   const [patientsWithScore, setPatientsWithScore] = useState([]);
+  const [sosCount, setSosCount] = useState(0);
+  const [recentEmergencies, setRecentEmergencies] = useState([]);
   const [metrics, setMetrics] = useState({
     activePatients: 0,
     inactivePatients: 0,
     avgEngagement: 0,
     revenue: 0,
-    activePlans: 0
+    activePlans: 0,
+    sosOpen: 0,
+    patientsAtRisk: 0
   });
   const [attentionAlerts, setAttentionAlerts] = useState([]);
   const [chartData, setChartData] = useState({ labels: [], values: [] });
+  const [riskTrendData, setRiskTrendData] = useState({ labels: [], values: [] });
+  const [recommendations, setRecommendations] = useState([]);
 
   /**
-   * Carrega dados do dashboard
+   * Carrega TODOS os dados do dashboard em uma única chamada
    */
   const loadDashboardData = useCallback(async () => {
     if (!professionalId) {
@@ -44,48 +57,83 @@ export const useProfessionalDashboard = (professionalId) => {
     setError(null);
 
     try {
-      // 1. Buscar pacientes com estatísticas do banco
-      const { data: patients, error: fetchError } = await getProfessionalDashboardData(professionalId);
+      // === FASE 1: Dados paralelos (pacientes + emergências) ===
+      const [patientsResult, sosResult, emergenciesResult] = await Promise.all([
+        getProfessionalDashboardData(professionalId),
+        countOpenEmergencies(professionalId),
+        getRecentEmergencies(professionalId)
+      ]);
 
-      if (fetchError) throw fetchError;
+      if (patientsResult.error) throw patientsResult.error;
 
-      setRawPatients(patients || []);
+      const patients = patientsResult.data || [];
+      const openSos = sosResult.data || 0;
+      const emergencies = emergenciesResult.data || [];
 
-      // 2. Calcular score de engajamento para cada paciente
-      const enrichedPatients = (patients || []).map((patient) => {
+      setRawPatients(patients);
+      setSosCount(openSos);
+      setRecentEmergencies(emergencies);
+
+      // === FASE 2: Enriquecer com engagement score ===
+      const enrichedPatients = patients.map((patient) => {
         const score = calculatePatientEngagementScore(patient, patient.stats);
         const classification = classifyEngagement(score);
-
-        return {
-          ...patient,
-          engagementScore: score,
-          classification
-        };
+        return { ...patient, engagementScore: score, classification };
       });
 
-      setPatientsWithScore(enrichedPatients);
+      // === FASE 3: Buscar dados de risco clínico (batch) ===
+      const patientIds = patients.map(p => p.id);
+      let riskDataMap = {};
+      
+      if (patientIds.length > 0) {
+        const { data: riskData } = await getBatchPatientRiskData(patientIds);
+        riskDataMap = riskData || {};
+      }
 
-      // 3. Calcular métricas agregadas
-      const { active, inactive } = calculateActiveInactive(enrichedPatients);
-      const avgEngagement = calculateAverageEngagement(enrichedPatients);
-      const activePlans = countActivePlans(enrichedPatients);
-      const revenue = calculateMonthlyRevenue(enrichedPatients);
+      // === FASE 4: Calcular risk scores do dashboard ===
+      const patientsComplete = enrichedPatients.map((patient) => {
+        const riskData = riskDataMap[patient.id] || null;
+        const dashboardRisk = calculateDashboardRiskScore(patient, riskData);
+        return { ...patient, dashboardRisk };
+      });
+
+      setPatientsWithScore(patientsComplete);
+
+      // === FASE 5: Métricas agregadas ===
+      const { active, inactive } = calculateActiveInactive(patientsComplete);
+      const avgEngagement = calculateAverageEngagement(patientsComplete);
+      const activePlans = countActivePlans(patientsComplete);
+      const revenue = calculateMonthlyRevenue(patientsComplete);
+      const patientsAtRisk = patientsComplete.filter(p => p.dashboardRisk?.score >= 70).length;
 
       setMetrics({
         activePatients: active,
         inactivePatients: inactive,
         avgEngagement,
         revenue,
-        activePlans
+        activePlans,
+        sosOpen: openSos,
+        patientsAtRisk
       });
 
-      // 4. Detectar alertas de atenção
-      const alerts = detectAttentionNeeded(enrichedPatients);
+      // === FASE 6: Alertas com emergências ===
+      const alerts = detectAttentionNeeded(patientsComplete, emergencies);
       setAttentionAlerts(alerts);
 
-      // 5. Gerar dados do gráfico
-      const chart = generateChecklistChartData(enrichedPatients);
+      // === FASE 7: Gráficos ===
+      const chart = generateChecklistChartData(patientsComplete);
       setChartData(chart);
+      const riskTrend = generateRiskTrendData(patientsComplete);
+      setRiskTrendData(riskTrend);
+
+      // === FASE 8: Recomendações inteligentes ===
+      const recs = generateRecommendations({
+        patients: patientsComplete,
+        alerts,
+        sosCount: openSos,
+        metrics: { activePatients: active, inactivePatients: inactive, avgEngagement }
+      });
+      setRecommendations(recs);
 
     } catch (err) {
       console.error('Erro ao carregar dashboard:', err);
@@ -96,19 +144,26 @@ export const useProfessionalDashboard = (professionalId) => {
   }, [professionalId]);
 
   /**
-   * Recarregar dados
+   * Recarregar dados (manual refresh)
    */
   const refresh = useCallback(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Carregar dados na montagem (APENAS UMA VEZ)
+  // Carregar dados na montagem (APENAS quando professionalId mudar)
   useEffect(() => {
     if (professionalId) {
       loadDashboardData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [professionalId]); // Apenas quando professionalId mudar
+  }, [professionalId]);
+
+  // Ranking de risco (memoizado)
+  const riskRanking = useMemo(() => {
+    return [...patientsWithScore]
+      .sort((a, b) => (b.dashboardRisk?.score || 0) - (a.dashboardRisk?.score || 0))
+      .slice(0, 10);
+  }, [patientsWithScore]);
 
   return {
     loading,
@@ -116,9 +171,13 @@ export const useProfessionalDashboard = (professionalId) => {
     metrics,
     attentionAlerts,
     patientsWithScore,
+    riskRanking,
     chartData,
+    riskTrendData,
+    recommendations,
+    sosCount,
+    recentEmergencies,
     refresh,
-    // Dados raw para uso específico
     rawPatients
   };
 };
