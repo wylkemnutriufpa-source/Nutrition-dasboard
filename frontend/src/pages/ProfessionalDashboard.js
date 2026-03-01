@@ -17,6 +17,7 @@ import SimpleEngagementChart from '@/components/dashboard/SimpleEngagementChart'
 import RiskRankingList from '@/components/dashboard/RiskRankingList';
 import RecommendationsSection from '@/components/dashboard/RecommendationsSection';
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton';
+import MealAnalysisSection from '@/components/dashboard/MealAnalysisSection';
 
 /** Wrapper de animação com delay escalonado */
 const AnimatedSection = ({ children, delay = 0, className = '' }) => (
