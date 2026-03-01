@@ -89,6 +89,7 @@ const PhysicalAssessmentEditor = ({ patientId, professionalId, patient, onTipCre
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [anamnesis, setAnamnesisData] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     circumferences: false,
