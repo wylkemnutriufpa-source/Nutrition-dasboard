@@ -1230,6 +1230,7 @@ const PatientProfile = () => {
               mealPlan={mealPlan} 
               anamnesis={anamnesis} 
               adherence={adherence}
+              assessment={assessment}
               onNavigate={handleNavigateTab}
             />
           </TabsContent>
