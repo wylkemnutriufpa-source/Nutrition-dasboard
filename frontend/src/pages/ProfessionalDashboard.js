@@ -264,7 +264,12 @@ const ProfessionalDashboard = () => {
           </AnimatedSection>
         </div>
 
-        {/* ========== 6) AÇÕES RÁPIDAS ========== */}
+        {/* ========== 6) ANÁLISES CORPORAIS ========== */}
+        <AnimatedSection delay={750}>
+          <BodyAnalysisSection professionalId={profile?.id} />
+        </AnimatedSection>
+
+        {/* ========== 7) AÇÕES RÁPIDAS ========== */}
         <AnimatedSection delay={800}>
           <Card className="border-gray-200">
             <CardContent className="p-6">
