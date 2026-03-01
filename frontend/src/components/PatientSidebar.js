@@ -20,7 +20,8 @@ const iconMap = {
   Lightbulb,
   TrendingUp,
   Calculator,
-  Settings
+  Settings,
+  Camera
 };
 
 const PatientSidebar = ({ patientId, onLogout }) => {
