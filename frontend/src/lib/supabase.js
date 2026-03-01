@@ -576,8 +576,8 @@ export const createAnamnesis = async (data) => {
 
 export const updateAnamnesis = async (anamnesisId, updates) => {
   try {
-    // Whitelist de campos válidos da tabela anamnesis
-    // NOTA: current_weight, height, goal_weight, professional_id são de outras tabelas
+    // Whitelist de campos válidos da tabela anamnesis (APENAS CAMPOS QUE EXISTEM NO SUPABASE)
+    // NOTA: current_weight, height, goal_weight pertencem à tabela patient_profiles, NÃO à anamnesis
     const VALID_ANAMNESIS_FIELDS = [
       'patient_id', 'medical_conditions', 'allergies',
       'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 
@@ -587,12 +587,19 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
       'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
       'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
       'family_history', 'eating_habits', 'dietary_restrictions',
-      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency'
+      'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
+      'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
+      'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
+      'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
+      'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
     ];
     
-    // Filtrar apenas campos válidos
+    // CAMPOS QUE PERTENCEM A patient_profiles (IGNORAR NA ANAMNESIS)
+    const PATIENT_PROFILE_FIELDS = ['current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 'gender', 'phone', 'professional_id'];
+    
+    // Filtrar apenas campos válidos da anamnesis (excluir campos de patient_profiles)
     const cleanUpdates = Object.keys(updates)
-      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key))
+      .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !PATIENT_PROFILE_FIELDS.includes(key))
       .reduce((obj, key) => { 
         obj[key] = updates[key]; 
         return obj; 
@@ -602,7 +609,8 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
     console.log('📤 DADOS DE UPDATE:', {
       anamnesis_id: anamnesisId,
       status: cleanUpdates.status,
-      validFields: Object.keys(cleanUpdates).length
+      validFields: Object.keys(cleanUpdates).length,
+      fieldsIncluded: Object.keys(cleanUpdates)
     });
     
     const { data, error } = await supabase
