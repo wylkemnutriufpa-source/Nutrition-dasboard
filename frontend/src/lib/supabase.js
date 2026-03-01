@@ -2744,7 +2744,6 @@ export const getProfessionalDashboardData = async (professionalId) => {
           id,
           name,
           email,
-          last_login,
           created_at,
           current_weight,
           goal_weight
