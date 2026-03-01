@@ -106,6 +106,7 @@ user_problem_statement: |
   Sessão atual:
   1. Fix permanente da anamnese (retry + safe error handling)
   2. Evolução do Dashboard Profissional para Central de Comando Inteligente
+  3. Feature: Análise de Pratos por IA (Meal Photo Analysis) com integração Risk Engine
 
 backend:
   - task: "API Status endpoint"
