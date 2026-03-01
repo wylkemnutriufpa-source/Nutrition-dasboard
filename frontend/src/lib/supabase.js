@@ -1604,16 +1604,20 @@ export const DEFAULT_PATIENT_MENU = [
   { id: 'agenda', name: 'Minha Agenda', icon: 'Calendar', route: '/patient/agenda', visible: true, order: 3 },
   // 🥗 Meu Plano
   { id: 'meal-plan', name: 'Meu Plano', icon: 'Utensils', route: '/patient/meal-plan', visible: true, order: 4 },
+  // 📸 Análise do Prato (IA)
+  { id: 'meal-photo', name: 'Análise do Prato', icon: 'Camera', route: '/patient/meal-photo', visible: true, order: 5, badge: 'novo' },
+  // 💪 Análise Corporal (IA)
+  { id: 'body-analysis', name: 'Análise Corporal', icon: 'User', route: '/patient/body-analysis', visible: true, order: 6, badge: 'novo' },
   // 📚 Biblioteca (agrupa receitas, lista, suplementos, calculadoras)
-  { id: 'biblioteca', name: 'Biblioteca', icon: 'Book', route: '/patient/biblioteca', visible: true, order: 5 },
+  { id: 'biblioteca', name: 'Biblioteca', icon: 'Book', route: '/patient/biblioteca', visible: true, order: 7 },
   // Itens secundários (podem ser ocultados ou acessados via biblioteca)
-  { id: 'avaliacao-fisica', name: 'Avaliação Física', icon: 'Activity', route: '/patient/avaliacao-fisica', visible: false, order: 6 },
-  { id: 'feedbacks', name: 'Meus Feedbacks', icon: 'MessageSquare', route: '/patient/feedbacks', visible: false, order: 7 },
-  { id: 'receitas', name: 'Minhas Receitas', icon: 'ChefHat', route: '/patient/receitas', visible: false, order: 8 },
-  { id: 'lista-compras', name: 'Lista de Compras', icon: 'ShoppingCart', route: '/patient/lista-compras', visible: false, order: 9 },
-  { id: 'suplementos', name: 'Suplementos', icon: 'Pill', route: '/patient/suplementos', visible: false, order: 10 },
-  { id: 'dicas', name: 'Dicas', icon: 'Lightbulb', route: '/patient/dicas', visible: false, order: 11 },
-  { id: 'calculadoras', name: 'Calculadoras', icon: 'Calculator', route: '/patient/calculadoras', visible: false, order: 12 }
+  { id: 'avaliacao-fisica', name: 'Avaliação Física', icon: 'Activity', route: '/patient/avaliacao-fisica', visible: false, order: 8 },
+  { id: 'feedbacks', name: 'Meus Feedbacks', icon: 'MessageSquare', route: '/patient/feedbacks', visible: false, order: 9 },
+  { id: 'receitas', name: 'Minhas Receitas', icon: 'ChefHat', route: '/patient/receitas', visible: false, order: 10 },
+  { id: 'lista-compras', name: 'Lista de Compras', icon: 'ShoppingCart', route: '/patient/lista-compras', visible: false, order: 11 },
+  { id: 'suplementos', name: 'Suplementos', icon: 'Pill', route: '/patient/suplementos', visible: false, order: 12 },
+  { id: 'dicas', name: 'Dicas', icon: 'Lightbulb', route: '/patient/dicas', visible: false, order: 13 },
+  { id: 'calculadoras', name: 'Calculadoras', icon: 'Calculator', route: '/patient/calculadoras', visible: false, order: 14 }
 ];
 
 // Buscar configuração do menu do paciente
