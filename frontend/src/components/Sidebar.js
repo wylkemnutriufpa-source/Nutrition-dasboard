@@ -3,7 +3,7 @@ import {
   Home, Users, Calendar, Calculator, FileText, Settings, LogOut, 
   Database, Palette, Shield, ClipboardList, MessageSquare, Stethoscope,
   UserCog, Activity, ShoppingCart, ChefHat, Pill, Lightbulb, TrendingUp,
-  Sparkles, DollarSign, CalendarDays, Bell, Rocket, Book, Utensils
+  Sparkles, DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBranding } from '@/contexts/BrandingContext';
