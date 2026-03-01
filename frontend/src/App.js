@@ -10,6 +10,7 @@ import LoginPage from '@/pages/LoginPage';
 import AdminDashboard from '@/pages/AdminDashboard';
 import AdminProjetoEditor from '@/pages/AdminProjetoEditor';
 import ProfessionalDashboard from '@/pages/ProfessionalDashboard';
+import PlatformGuide from '@/pages/PlatformGuide';
 import PatientsList from '@/pages/PatientsList';
 import PatientProfile from '@/pages/PatientProfile';
 import MealPlanEditor from '@/pages/MealPlanEditor';
