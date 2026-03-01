@@ -365,6 +365,9 @@ async def analyze_body(request: BodyAnalysisRequest):
             error=f"Erro na análise: {str(e)}"
         )
 
+# Include the router in the main app (AFTER all routes are defined)
+app.include_router(api_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
