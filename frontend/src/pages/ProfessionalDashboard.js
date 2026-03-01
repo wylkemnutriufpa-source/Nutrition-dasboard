@@ -16,7 +16,6 @@ import QuickActionsGrid from '@/components/dashboard/QuickActionsGrid';
 import SimpleEngagementChart from '@/components/dashboard/SimpleEngagementChart';
 import RiskRankingList from '@/components/dashboard/RiskRankingList';
 import RecommendationsSection from '@/components/dashboard/RecommendationsSection';
-import { formatPercentage } from '@/utils/professionalIntelligence';
 
 const ProfessionalDashboard = () => {
   const { profile } = useAuth();
