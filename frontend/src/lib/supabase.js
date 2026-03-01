@@ -2857,6 +2857,180 @@ export const getPatientDashboardStats = async (patientId) => {
   }
 };
 
+
+// ==================== MEAL PHOTO ANALYSIS ====================
+
+/**
+ * Upload da foto da refeição para o Supabase Storage
+ * @param {File} file - Arquivo de imagem
+ * @param {string} patientId - ID do paciente
+ * @returns {Object} { path, error }
+ */
+export const uploadMealPhoto = async (file, patientId) => {
+  try {
+    const timestamp = Date.now();
+    const ext = file.name?.split('.').pop() || 'jpg';
+    const filePath = `${patientId}/${timestamp}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { data, error } = await supabase.storage
+      .from('meal-photos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'image/jpeg'
+      });
+
+    if (error) {
+      console.warn('⚠️ Storage upload error:', error.message);
+      // Se o bucket não existir, retornar path fictício (a análise ainda funciona via base64)
+      return { path: filePath, error: null, storageUnavailable: true };
+    }
+
+    return { path: data.path || filePath, error: null };
+  } catch (err) {
+    console.warn('⚠️ Storage upload exception:', err.message);
+    return { path: `${patientId}/${Date.now()}.jpg`, error: null, storageUnavailable: true };
+  }
+};
+
+/**
+ * Cria registro de análise de refeição (status=processing)
+ */
+export const createMealAnalysis = async ({ patientId, professionalId, imagePath }) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .insert({
+        patient_id: patientId,
+        professional_id: professionalId || null,
+        image_path: imagePath,
+        status: 'processing'
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao criar meal analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Atualiza análise de refeição com resultado da IA
+ */
+export const updateMealAnalysis = async (analysisId, patch) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .update({
+        ...patch,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', analysisId)
+      .select()
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao atualizar meal analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Lista análises de refeições do paciente (mais recentes primeiro)
+ */
+export const listPatientMealAnalyses = async (patientId, limit = 10) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('Erro ao listar meal analyses:', err);
+    return { data: [], error: { message: err.message } };
+  }
+};
+
+/**
+ * Lista análises recentes dos pacientes de um profissional
+ */
+export const listProfessionalRecentMealAnalyses = async (professionalId, limit = 20) => {
+  try {
+    // Buscar IDs dos pacientes do profissional
+    const { data: patients, error: pError } = await supabase
+      .from('patient_profiles')
+      .select('patient_id')
+      .eq('professional_id', professionalId);
+
+    if (pError || !patients?.length) return { data: [], error: pError };
+
+    const patientIds = patients.map(p => p.patient_id);
+
+    // Buscar análises recentes desses pacientes
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .select(`
+        *,
+        patient:profiles!meal_analyses_patient_id_fkey(id, name, email)
+      `)
+      .in('patient_id', patientIds)
+      .eq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    return { data: data || [], error };
+  } catch (err) {
+    console.error('Erro ao listar professional meal analyses:', err);
+    return { data: [], error: { message: err.message } };
+  }
+};
+
+/**
+ * Busca análise por ID
+ */
+export const getMealAnalysisById = async (analysisId) => {
+  try {
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .select('*')
+      .eq('id', analysisId)
+      .single();
+
+    return { data, error };
+  } catch (err) {
+    console.error('Erro ao buscar meal analysis:', err);
+    return { data: null, error: { message: err.message } };
+  }
+};
+
+/**
+ * Busca análises recentes para cálculo de risco (últimos 7 dias)
+ */
+export const getRecentMealAnalysesForRisk = async (patientId, days = 7) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const { data, error } = await supabase
+      .from('meal_analyses')
+      .select('quality_score, adherence_score, flags, created_at')
+      .eq('patient_id', patientId)
+      .eq('status', 'done')
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: false });
+
+    return { data: data || [], error };
+  } catch (err) {
+    return { data: [], error: { message: err.message } };
+  }
+};
+
 // ==================== BATCH RISK DATA (Dashboard Inteligente) ====================
 
 /**
