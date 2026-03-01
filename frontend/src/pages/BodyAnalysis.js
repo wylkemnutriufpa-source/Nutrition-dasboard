@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Camera, Upload, Loader2, AlertCircle, CheckCircle2, 
   User, TrendingUp, TrendingDown, Minus, RefreshCw, X, 
-  ChevronDown, ChevronUp, Ruler, Activity, Target, Sparkles
+  ChevronDown, ChevronUp, Activity, Target, Sparkles,
+  Award, Flame, Star, Crown, Medal, Zap, Heart
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,23 +22,164 @@ import {
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-// ==================== COMPONENTES INTERNOS ====================
+// ==================== BADGES/CONQUISTAS ====================
+
+const ACHIEVEMENT_BADGES = [
+  { id: 'first_analysis', icon: Star, label: 'Primeira Análise', color: 'from-yellow-400 to-amber-500', condition: (history) => history.length >= 1 },
+  { id: 'consistent_3', icon: Flame, label: '3 Análises', color: 'from-orange-400 to-red-500', condition: (history) => history.length >= 3 },
+  { id: 'consistent_5', icon: Crown, label: '5 Análises', color: 'from-purple-400 to-pink-500', condition: (history) => history.length >= 5 },
+  { id: 'improvement', icon: TrendingUp, label: 'Em Evolução', color: 'from-green-400 to-emerald-500', condition: (history) => {
+    if (history.length < 2) return false;
+    return history[0]?.overall_score > history[1]?.overall_score;
+  }},
+  { id: 'high_score', icon: Medal, label: 'Score 70+', color: 'from-blue-400 to-indigo-500', condition: (history) => history.some(h => h.overall_score >= 70) },
+  { id: 'dedication', icon: Heart, label: 'Dedicação', color: 'from-pink-400 to-rose-500', condition: (history) => history.length >= 10 },
+];
+
+const AchievementBadge = ({ badge, unlocked }) => {
+  const Icon = badge.icon;
+  return (
+    <div className={`relative group ${!unlocked && 'opacity-40 grayscale'}`}>
+      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${badge.color} flex items-center justify-center shadow-lg transform transition-all ${unlocked ? 'hover:scale-110 hover:shadow-xl' : ''}`}>
+        <Icon className="h-7 w-7 text-white" />
+      </div>
+      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
+        <span className="text-[10px] font-medium text-gray-600">{badge.label}</span>
+      </div>
+      {unlocked && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+          <CheckCircle2 className="h-3 w-3 text-white" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ==================== GRÁFICO DE EVOLUÇÃO ====================
+
+const EvolutionChart = ({ history }) => {
+  if (!history || history.length < 2) {
+    return (
+      <Card className="border-gray-200">
+        <CardContent className="p-6 text-center">
+          <Activity className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-500">Faça mais análises para ver sua evolução</p>
+          <p className="text-xs text-gray-400">Mínimo 2 análises necessárias</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Últimas 6 análises (ordem cronológica)
+  const data = [...history].reverse().slice(-6);
+  const maxScore = 100;
+  const maxFat = 40;
+
+  return (
+    <Card className="border-gray-200 overflow-hidden">
+      <CardHeader className="pb-2 bg-gradient-to-r from-purple-50 to-indigo-50">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Activity className="h-4 w-4 text-purple-600" />
+          Evolução ao Longo do Tempo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">
+        <div className="space-y-4">
+          {/* Score Geral */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-600">Score Geral</span>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500" />
+              </div>
+            </div>
+            <div className="flex items-end gap-1 h-20">
+              {data.map((item, i) => {
+                const height = (item.overall_score / maxScore) * 100;
+                const isLast = i === data.length - 1;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    <div 
+                      className={`w-full rounded-t-lg transition-all ${isLast ? 'bg-gradient-to-t from-purple-600 to-indigo-500' : 'bg-gradient-to-t from-purple-300 to-indigo-300'}`}
+                      style={{ height: `${height}%`, minHeight: '8px' }}
+                    />
+                    <span className="text-[9px] text-gray-400 mt-1">
+                      {new Date(item.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* % Gordura */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-600">% Gordura Estimada</span>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+              </div>
+            </div>
+            <div className="flex items-end gap-1 h-16">
+              {data.map((item, i) => {
+                const height = ((item.body_fat_estimate || 20) / maxFat) * 100;
+                const isLast = i === data.length - 1;
+                return (
+                  <div key={i} className="flex-1">
+                    <div 
+                      className={`w-full rounded-t-lg ${isLast ? 'bg-gradient-to-t from-amber-600 to-orange-500' : 'bg-gradient-to-t from-amber-300 to-orange-300'}`}
+                      style={{ height: `${height}%`, minHeight: '4px' }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Definição Muscular */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-600">Definição Muscular</span>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500" />
+              </div>
+            </div>
+            <div className="flex items-end gap-1 h-12">
+              {data.map((item, i) => {
+                const height = ((item.muscle_definition || 5) / 10) * 100;
+                const isLast = i === data.length - 1;
+                return (
+                  <div key={i} className="flex-1">
+                    <div 
+                      className={`w-full rounded-t-lg ${isLast ? 'bg-gradient-to-t from-teal-600 to-emerald-500' : 'bg-gradient-to-t from-teal-300 to-emerald-300'}`}
+                      style={{ height: `${height}%`, minHeight: '4px' }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ==================== COMPONENTES DE UI ====================
 
 const PhotoUploadBox = ({ position, label, file, preview, onSelect, onRemove, disabled }) => {
   const inputRef = useRef(null);
   
-  const positionIcons = {
-    front: '👤',
-    side: '👤',
-    back: '👤'
-  };
+  const positionEmojis = { front: '🧍', side: '🧍‍♂️', back: '🔙' };
 
   return (
     <div className="flex flex-col items-center">
-      <p className="text-xs font-medium text-gray-600 mb-2">{positionIcons[position]} {label}</p>
+      <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+        <span>{positionEmojis[position]}</span> {label}
+      </p>
       <div 
-        className={`relative w-28 h-36 rounded-xl border-2 border-dashed transition-all overflow-hidden
-          ${preview ? 'border-teal-400 bg-teal-50' : 'border-gray-300 hover:border-teal-400 bg-gray-50'}
+        className={`relative w-24 h-32 sm:w-28 sm:h-36 rounded-2xl border-2 border-dashed transition-all overflow-hidden shadow-sm
+          ${preview ? 'border-teal-400 bg-teal-50 shadow-teal-100' : 'border-gray-300 hover:border-teal-400 hover:shadow-md bg-gray-50'}
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         onClick={() => !disabled && !preview && inputRef.current?.click()}
       >
@@ -47,16 +189,19 @@ const PhotoUploadBox = ({ position, label, file, preview, onSelect, onRemove, di
             {!disabled && (
               <button
                 onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full hover:bg-black/70"
+                className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 shadow-lg transition-all hover:scale-110"
               >
                 <X className="h-3 w-3" />
               </button>
             )}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+              <CheckCircle2 className="h-4 w-4 text-green-400" />
+            </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <Camera className="h-6 w-6 mb-1" />
-            <span className="text-[10px]">Adicionar</span>
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 hover:text-teal-500 transition-colors">
+            <Camera className="h-8 w-8 mb-2" />
+            <span className="text-[10px] font-medium">Adicionar</span>
           </div>
         )}
       </div>
@@ -72,124 +217,119 @@ const PhotoUploadBox = ({ position, label, file, preview, onSelect, onRemove, di
   );
 };
 
-const ScoreCircle = ({ value, label, size = 'md', color = 'teal' }) => {
-  const sizeClasses = {
-    sm: 'w-14 h-14 text-lg',
-    md: 'w-20 h-20 text-2xl',
-    lg: 'w-24 h-24 text-3xl'
-  };
-  const colorClasses = {
-    teal: 'bg-teal-100 text-teal-700 border-teal-300',
-    green: 'bg-green-100 text-green-700 border-green-300',
-    yellow: 'bg-yellow-100 text-yellow-700 border-yellow-300',
-    red: 'bg-red-100 text-red-700 border-red-300'
+const ScoreCard = ({ value, label, icon: Icon, gradient, subtext }) => (
+  <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 text-white shadow-lg`}>
+    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-10 translate-x-10" />
+    <div className="relative z-10">
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="h-5 w-5 opacity-80" />
+        <span className="text-xs font-medium opacity-90">{label}</span>
+      </div>
+      <div className="text-3xl font-bold">{value}</div>
+      {subtext && <p className="text-xs opacity-75 mt-1">{subtext}</p>}
+    </div>
+  </div>
+);
+
+const RegionAnalysisCard = ({ region, data }) => {
+  const regionLabels = {
+    shoulders: { label: 'Ombros', emoji: '💪' },
+    chest: { label: 'Peitoral', emoji: '🫁' },
+    abdomen: { label: 'Abdômen', emoji: '🎯' },
+    arms: { label: 'Braços', emoji: '💪' },
+    legs: { label: 'Pernas', emoji: '🦵' },
+    back: { label: 'Costas', emoji: '🔙' }
   };
   
-  const getScoreColor = (v) => {
-    if (v >= 70) return 'green';
-    if (v >= 40) return 'yellow';
-    return 'red';
-  };
-
-  return (
-    <div className="flex flex-col items-center">
-      <div className={`${sizeClasses[size]} ${colorClasses[color || getScoreColor(value)]} rounded-full flex items-center justify-center font-bold border-2`}>
-        {value}
-      </div>
-      <span className="text-xs text-gray-600 mt-1 text-center">{label}</span>
-    </div>
-  );
-};
-
-const RegionBar = ({ region, score, notes }) => {
-  const regionLabels = {
-    shoulders: 'Ombros',
-    chest: 'Peitoral',
-    abdomen: 'Abdômen',
-    arms: 'Braços',
-    legs: 'Pernas',
-    back: 'Costas'
-  };
+  const info = regionLabels[region] || { label: region, emoji: '📊' };
+  const score = data?.score || 5;
   
   const getColor = (s) => {
-    if (s >= 7) return 'bg-green-500';
-    if (s >= 5) return 'bg-yellow-500';
-    return 'bg-red-500';
+    if (s >= 7) return 'from-green-500 to-emerald-500';
+    if (s >= 5) return 'from-yellow-500 to-amber-500';
+    return 'from-red-500 to-orange-500';
   };
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-700">{regionLabels[region] || region}</span>
-        <span className="font-semibold text-gray-900">{score}/10</span>
+    <div className="bg-white rounded-xl border border-gray-100 p-3 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+          <span>{info.emoji}</span> {info.label}
+        </span>
+        <Badge className={`bg-gradient-to-r ${getColor(score)} text-white border-0`}>
+          {score}/10
+        </Badge>
       </div>
       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${getColor(score)}`} style={{ width: `${score * 10}%` }} />
+        <div 
+          className={`h-full rounded-full bg-gradient-to-r ${getColor(score)} transition-all duration-700`} 
+          style={{ width: `${score * 10}%` }} 
+        />
       </div>
-      {notes && <p className="text-xs text-gray-500">{notes}</p>}
+      {data?.notes && (
+        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{data.notes}</p>
+      )}
     </div>
   );
 };
 
-const ComparisonBadge = ({ change, label, unit = '' }) => {
-  if (change === 0 || change === null || change === undefined) {
-    return (
-      <div className="flex items-center gap-1 text-gray-500 text-sm">
-        <Minus className="h-4 w-4" />
-        <span>{label}: estável</span>
-      </div>
-    );
-  }
-  
-  const isPositive = change > 0;
-  const isGood = label.includes('Definição') ? isPositive : !isPositive;
-  
-  return (
-    <div className={`flex items-center gap-1 text-sm ${isGood ? 'text-green-600' : 'text-red-600'}`}>
-      {isGood ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-      <span>{label}: {isPositive ? '+' : ''}{change}{unit}</span>
-    </div>
-  );
-};
+const ComparisonCard = ({ comparison }) => {
+  if (!comparison) return null;
 
-const HistoryCard = ({ analysis, expanded, onToggle }) => {
-  const date = new Date(analysis.created_at);
-  const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-  const typeLabels = { baseline: '📍 Baseline', progress: '📈 Progresso', feedback: '💬 Feedback' };
-  
+  const getProgressColor = () => {
+    if (comparison.overall_progress === 'positive') return 'from-green-500 to-emerald-600';
+    if (comparison.overall_progress === 'stable') return 'from-yellow-500 to-amber-600';
+    return 'from-red-500 to-orange-600';
+  };
+
+  const getProgressIcon = () => {
+    if (comparison.overall_progress === 'positive') return TrendingUp;
+    if (comparison.overall_progress === 'stable') return Minus;
+    return TrendingDown;
+  };
+
+  const ProgressIcon = getProgressIcon();
+
   return (
-    <Card className="border-gray-200 hover:shadow-md transition-all">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between cursor-pointer" onClick={onToggle}>
-          <div className="flex items-center gap-3">
-            <div className={`h-12 w-12 rounded-full flex items-center justify-center text-lg font-bold
-              ${analysis.overall_score >= 70 ? 'bg-green-100 text-green-700' :
-                analysis.overall_score >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                'bg-red-100 text-red-700'}`}>
-              {analysis.overall_score || '?'}
-            </div>
-            <div>
-              <p className="font-medium text-sm text-gray-900">
-                {typeLabels[analysis.analysis_type] || 'Análise'}
-              </p>
-              <p className="text-xs text-gray-500">
-                {dateStr} • BF: {analysis.body_fat_estimate}% • Def: {analysis.muscle_definition}/10
-              </p>
-            </div>
+    <Card className="border-0 shadow-lg overflow-hidden">
+      <div className={`bg-gradient-to-r ${getProgressColor()} p-4 text-white`}>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+            <ProgressIcon className="h-6 w-6" />
           </div>
-          {expanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+          <div>
+            <p className="text-sm opacity-90">Comparação com Anterior</p>
+            <p className="text-2xl font-bold">Progresso: {comparison.progress_score}/100</p>
+          </div>
         </div>
-        {expanded && (
-          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-            <p className="text-sm text-gray-700">{analysis.ai_feedback}</p>
-            {analysis.comparison_result?.highlights?.length > 0 && (
-              <div className="bg-green-50 p-2 rounded-lg">
-                <p className="text-xs font-medium text-green-800 mb-1">✨ Destaques:</p>
-                {analysis.comparison_result.highlights.map((h, i) => (
-                  <p key={i} className="text-xs text-green-700">• {h}</p>
-                ))}
-              </div>
-            )}
+      </div>
+      <CardContent className="p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-gray-50 rounded-xl p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">Gordura</p>
+            <p className={`text-lg font-bold ${comparison.body_fat_change <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {comparison.body_fat_change > 0 ? '+' : ''}{comparison.body_fat_change}%
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3 text-center">
+            <p className="text-xs text-gray-500 mb-1">Definição</p>
+            <p className={`text-lg font-bold ${comparison.muscle_definition_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {comparison.muscle_definition_change > 0 ? '+' : ''}{comparison.muscle_definition_change}
+            </p>
+          </div>
+        </div>
+        
+        {comparison.highlights?.length > 0 && (
+          <div className="bg-green-50 rounded-xl p-3">
+            <p className="text-xs font-semibold text-green-800 mb-2 flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Destaques
+            </p>
+            {comparison.highlights.map((h, i) => (
+              <p key={i} className="text-sm text-green-700 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                {h}
+              </p>
+            ))}
           </div>
         )}
       </CardContent>
@@ -197,21 +337,80 @@ const HistoryCard = ({ analysis, expanded, onToggle }) => {
   );
 };
 
+const HistoryCard = ({ analysis, expanded, onToggle }) => {
+  const date = new Date(analysis.created_at);
+  const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' });
+  const typeLabels = { baseline: '📍 Baseline', progress: '📈 Progresso', feedback: '💬 Feedback' };
+  
+  const getScoreGradient = (score) => {
+    if (score >= 70) return 'from-green-500 to-emerald-600';
+    if (score >= 40) return 'from-yellow-500 to-amber-600';
+    return 'from-red-500 to-orange-600';
+  };
+  
+  return (
+    <Card className={`border-0 shadow-md hover:shadow-lg transition-all overflow-hidden ${expanded ? 'ring-2 ring-teal-400' : ''}`}>
+      <div className="flex items-center p-4 cursor-pointer" onClick={onToggle}>
+        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${getScoreGradient(analysis.overall_score)} flex items-center justify-center text-white font-bold text-lg shadow-lg`}>
+          {analysis.overall_score || '?'}
+        </div>
+        <div className="ml-4 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-gray-900">{typeLabels[analysis.analysis_type] || 'Análise'}</p>
+            {analysis.comparison_result?.overall_progress === 'positive' && (
+              <TrendingUp className="h-4 w-4 text-green-500" />
+            )}
+          </div>
+          <p className="text-sm text-gray-500">
+            {dateStr} • BF: {analysis.body_fat_estimate}% • Def: {analysis.muscle_definition}/10
+          </p>
+        </div>
+        <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center transition-transform ${expanded ? 'rotate-180' : ''}`}>
+          <ChevronDown className="h-4 w-4 text-gray-500" />
+        </div>
+      </div>
+      
+      {expanded && (
+        <div className="px-4 pb-4 pt-2 border-t border-gray-100 space-y-3 animate-fade-in">
+          <p className="text-sm text-gray-700">{analysis.ai_feedback}</p>
+          
+          {analysis.comparison_result?.highlights?.length > 0 && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-xl">
+              <p className="text-xs font-semibold text-green-800 mb-1">✨ Destaques:</p>
+              {analysis.comparison_result.highlights.map((h, i) => (
+                <p key={i} className="text-sm text-green-700">• {h}</p>
+              ))}
+            </div>
+          )}
+          
+          {analysis.recommendations?.length > 0 && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-3 rounded-xl">
+              <p className="text-xs font-semibold text-amber-800 mb-1">💡 Recomendações:</p>
+              {analysis.recommendations.slice(0, 2).map((r, i) => (
+                <p key={i} className="text-sm text-amber-700">• {r}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+};
+
 const AnalysisSkeleton = () => (
-  <Card className="border-gray-200">
-    <CardContent className="p-6 space-y-4">
-      <div className="flex justify-center gap-4">
-        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse" />
-        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse" />
-      </div>
-      <div className="space-y-2">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="h-8 bg-gray-200 rounded animate-pulse" />
-        ))}
-      </div>
-      <div className="h-20 bg-gray-200 rounded-xl animate-pulse" />
-    </CardContent>
-  </Card>
+  <div className="space-y-4">
+    <div className="grid grid-cols-3 gap-3">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-24 rounded-2xl bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse" />
+      ))}
+    </div>
+    <div className="h-48 rounded-2xl bg-gray-200 animate-pulse" />
+    <div className="grid grid-cols-2 gap-3">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-20 rounded-xl bg-gray-200 animate-pulse" />
+      ))}
+    </div>
+  </div>
 );
 
 // ==================== PÁGINA PRINCIPAL ====================
@@ -230,13 +429,13 @@ const BodyAnalysis = () => {
   const [expandedHistory, setExpandedHistory] = useState(null);
   const [previousAnalysis, setPreviousAnalysis] = useState(null);
 
-  // Carregar histórico e última análise
+  // Carregar histórico
   const loadHistory = useCallback(async () => {
     if (!profile?.id) return;
     setHistoryLoading(true);
     
     const [historyResult, lastResult] = await Promise.all([
-      listPatientBodyAnalyses(profile.id, 10),
+      listPatientBodyAnalyses(profile.id, 20),
       getLastBodyAnalysis(profile.id)
     ]);
     
@@ -249,31 +448,31 @@ const BodyAnalysis = () => {
     loadHistory();
   }, [loadHistory]);
 
-  // Selecionar foto
+  // Calcular badges desbloqueados
+  const unlockedBadges = ACHIEVEMENT_BADGES.filter(badge => badge.condition(history));
+
+  // Handlers de foto
   const handlePhotoSelect = (position, file) => {
     if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      toast.error('Formato não suportado. Use JPEG, PNG ou WEBP.');
+      toast.error('Use JPEG, PNG ou WEBP');
       return;
     }
     if (file.size > 15 * 1024 * 1024) {
-      toast.error('Imagem muito grande. Máximo 15MB.');
+      toast.error('Máximo 15MB por foto');
       return;
     }
-
     setPhotos(prev => ({ ...prev, [position]: file }));
     setPreviews(prev => ({ ...prev, [position]: URL.createObjectURL(file) }));
     setResult(null);
     setError(null);
   };
 
-  // Remover foto
   const handlePhotoRemove = (position) => {
     setPhotos(prev => ({ ...prev, [position]: null }));
     setPreviews(prev => ({ ...prev, [position]: null }));
   };
 
-  // Converter para base64
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -296,7 +495,7 @@ const BodyAnalysis = () => {
     setResult(null);
 
     try {
-      // 1. Upload das fotos
+      // Upload fotos
       const paths = {};
       for (const pos of ['front', 'side', 'back']) {
         if (photos[pos]) {
@@ -305,7 +504,7 @@ const BodyAnalysis = () => {
         }
       }
 
-      // 2. Criar registro no banco
+      // Criar registro
       const { data: analysisRecord } = await createBodyAnalysis({
         patientId: profile.id,
         photoFront: paths.front,
@@ -315,7 +514,7 @@ const BodyAnalysis = () => {
         notes: notes || null
       });
 
-      // 3. Converter fotos para base64
+      // Converter para base64
       const images = {};
       for (const pos of ['front', 'side', 'back']) {
         if (photos[pos]) {
@@ -323,7 +522,7 @@ const BodyAnalysis = () => {
         }
       }
 
-      // 4. Chamar API de IA
+      // Chamar API
       const response = await fetch(`${BACKEND_URL}/api/analyze-body`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -353,7 +552,7 @@ const BodyAnalysis = () => {
       const analysisData = aiResult.data;
       setResult(analysisData);
 
-      // 5. Atualizar registro no banco
+      // Atualizar banco
       if (analysisRecord?.id) {
         await updateBodyAnalysis(analysisRecord.id, {
           status: 'done',
@@ -372,19 +571,18 @@ const BodyAnalysis = () => {
         });
       }
 
-      toast.success('Análise concluída!');
+      toast.success('Análise concluída! 💪');
       loadHistory();
 
     } catch (err) {
       console.error('Erro na análise:', err);
       setError(err.message || 'Erro ao analisar');
-      toast.error('Erro na análise. Tente novamente.');
+      toast.error('Erro na análise');
     } finally {
       setAnalyzing(false);
     }
   };
 
-  // Reset
   const handleReset = () => {
     setPhotos({ front: null, side: null, back: null });
     setPreviews({ front: null, side: null, back: null });
@@ -397,32 +595,69 @@ const BodyAnalysis = () => {
 
   return (
     <Layout title="Análise Corporal" userType="patient">
-      <div className="max-w-2xl mx-auto space-y-6 pb-8">
+      <div className="max-w-2xl mx-auto space-y-6 pb-8 px-4">
 
-        {/* HEADER */}
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">💪 Análise Corporal</h1>
-          <p className="text-sm text-gray-500">
-            Envie fotos para acompanhar sua evolução física
-          </p>
-          {previousAnalysis && (
-            <Badge variant="outline" className="mt-2 border-teal-300 text-teal-700">
-              Última análise: {new Date(previousAnalysis.created_at).toLocaleDateString('pt-BR')}
-            </Badge>
-          )}
+        {/* HEADER PREMIUM */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-700 p-6 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-20 translate-x-20" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-16 -translate-x-16" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                <User className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Análise Corporal</h1>
+                <p className="text-purple-200 text-sm">Acompanhe sua evolução física</p>
+              </div>
+            </div>
+            
+            {previousAnalysis && (
+              <div className="mt-4 flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2 w-fit">
+                <Activity className="h-4 w-4" />
+                <span className="text-sm">
+                  Última: {new Date(previousAnalysis.created_at).toLocaleDateString('pt-BR')} • Score: {previousAnalysis.overall_score}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* UPLOAD AREA */}
-        <Card className="border-gray-200">
+        {/* CONQUISTAS */}
+        {history.length > 0 && (
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <CardHeader className="pb-2 bg-gradient-to-r from-amber-50 to-yellow-50">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Award className="h-5 w-5 text-amber-600" />
+                Suas Conquistas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="flex justify-center gap-4 flex-wrap pb-4">
+                {ACHIEVEMENT_BADGES.slice(0, 5).map(badge => (
+                  <AchievementBadge 
+                    key={badge.id} 
+                    badge={badge} 
+                    unlocked={unlockedBadges.some(u => u.id === badge.id)} 
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* UPLOAD */}
+        <Card className="border-0 shadow-lg">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Camera className="h-4 w-4 text-teal-600" />
+              <Camera className="h-5 w-5 text-teal-600" />
               Fotos para Análise
             </CardTitle>
-            <p className="text-xs text-gray-500">Envie pelo menos 1 foto. Ideal: frente, lado e costas</p>
+            <p className="text-xs text-gray-500">Envie 1 a 3 fotos para uma análise completa</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-3 sm:gap-4">
               <PhotoUploadBox
                 position="front"
                 label="Frente"
@@ -453,10 +688,10 @@ const BodyAnalysis = () => {
             </div>
 
             <Textarea
-              placeholder="Observações (opcional): Como está se sentindo? Alguma mudança recente na rotina?"
+              placeholder="Observações (opcional): Como está se sentindo?"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="text-sm"
+              className="text-sm resize-none"
               rows={2}
               disabled={analyzing}
             />
@@ -465,17 +700,17 @@ const BodyAnalysis = () => {
               <Button
                 onClick={handleAnalyze}
                 disabled={!hasAnyPhoto || analyzing}
-                className="flex-1 bg-teal-600 hover:bg-teal-700 text-white"
+                className="flex-1 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-200"
               >
                 {analyzing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analisando...</>
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analisando...</>
                 ) : (
-                  <><Sparkles className="mr-2 h-4 w-4" /> Analisar Composição</>
+                  <><Sparkles className="mr-2 h-5 w-5" /> Analisar Composição</>
                 )}
               </Button>
               {hasAnyPhoto && !analyzing && (
-                <Button variant="outline" onClick={handleReset}>
-                  Limpar
+                <Button variant="outline" onClick={handleReset} className="h-12">
+                  <X className="h-5 w-5" />
                 </Button>
               )}
             </div>
@@ -489,10 +724,10 @@ const BodyAnalysis = () => {
         {error && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-4 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+              <AlertCircle className="h-6 w-6 text-red-500" />
               <div>
-                <p className="font-medium text-red-800 text-sm">Erro na análise</p>
-                <p className="text-xs text-red-600">{error}</p>
+                <p className="font-semibold text-red-800">Erro na análise</p>
+                <p className="text-sm text-red-600">{error}</p>
               </div>
             </CardContent>
           </Card>
@@ -503,108 +738,64 @@ const BodyAnalysis = () => {
           <div className="space-y-4 animate-fade-in-up">
             
             {/* Scores principais */}
-            <Card className="border-gray-200">
-              <CardContent className="p-6">
-                <div className="flex justify-center gap-6 mb-4">
-                  <ScoreCircle value={result.overall_score} label="Score Geral" size="lg" />
-                  <div className="flex flex-col justify-center gap-2">
-                    <div className="text-center">
-                      <span className="text-2xl font-bold text-gray-900">{result.body_fat_estimate}%</span>
-                      <p className="text-xs text-gray-500">Gordura Est.</p>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-2xl font-bold text-gray-900">{result.muscle_definition}/10</span>
-                      <p className="text-xs text-gray-500">Definição</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-center gap-2 flex-wrap">
-                  <Badge variant="outline" className="border-purple-300 text-purple-700">
-                    {result.body_type}
-                  </Badge>
-                  <Badge variant="outline" className="border-blue-300 text-blue-700">
-                    Postura: {result.posture_score}/10
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-3 gap-3">
+              <ScoreCard 
+                value={result.overall_score} 
+                label="Score Geral" 
+                icon={Target}
+                gradient="from-purple-500 to-indigo-600"
+              />
+              <ScoreCard 
+                value={`${result.body_fat_estimate}%`} 
+                label="Gordura Est." 
+                icon={Activity}
+                gradient="from-amber-500 to-orange-600"
+              />
+              <ScoreCard 
+                value={`${result.muscle_definition}/10`} 
+                label="Definição" 
+                icon={Zap}
+                gradient="from-teal-500 to-emerald-600"
+              />
+            </div>
 
-            {/* Comparação (se houver) */}
-            {result.comparison && (
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2 text-green-800">
-                    <TrendingUp className="h-4 w-4" />
-                    Comparação com Análise Anterior
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex flex-wrap gap-4">
-                    <ComparisonBadge 
-                      change={result.comparison.body_fat_change} 
-                      label="Gordura" 
-                      unit="%" 
-                    />
-                    <ComparisonBadge 
-                      change={result.comparison.muscle_definition_change} 
-                      label="Definição" 
-                    />
-                  </div>
-                  
-                  {result.comparison.highlights?.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-green-800 mb-1">✨ Destaques:</p>
-                      {result.comparison.highlights.map((h, i) => (
-                        <p key={i} className="text-sm text-green-700">• {h}</p>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge 
-                      className={
-                        result.comparison.overall_progress === 'positive' 
-                          ? 'bg-green-600' 
-                          : result.comparison.overall_progress === 'stable'
-                            ? 'bg-yellow-600'
-                            : 'bg-red-600'
-                      }
-                    >
-                      Progresso: {result.comparison.progress_score}/100
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {/* Biotipo e Postura */}
+            <div className="flex gap-2 flex-wrap justify-center">
+              <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 px-4 py-1.5">
+                {result.body_type}
+              </Badge>
+              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 px-4 py-1.5">
+                Postura: {result.posture_score}/10
+              </Badge>
+            </div>
+
+            {/* Comparação */}
+            {result.comparison && <ComparisonCard comparison={result.comparison} />}
 
             {/* Análise por região */}
-            <Card className="border-gray-200">
+            <Card className="border-0 shadow-lg">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-teal-600" />
+                  <Activity className="h-5 w-5 text-teal-600" />
                   Análise por Região
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="grid grid-cols-2 gap-3">
                 {Object.entries(result.region_analysis || {}).map(([region, data]) => (
-                  <RegionBar 
-                    key={region} 
-                    region={region} 
-                    score={data.score} 
-                    notes={data.notes} 
-                  />
+                  <RegionAnalysisCard key={region} region={region} data={data} />
                 ))}
               </CardContent>
             </Card>
 
             {/* Feedback */}
-            <Card className="border-teal-200 bg-teal-50">
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-teal-50 to-emerald-50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                  <div className="w-10 h-10 bg-teal-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="h-5 w-5 text-white" />
+                  </div>
                   <div>
-                    <p className="font-medium text-teal-900 text-sm mb-1">Feedback</p>
+                    <p className="font-semibold text-teal-900 mb-1">Feedback da IA</p>
                     <p className="text-sm text-teal-800">{result.ai_feedback}</p>
                   </div>
                 </div>
@@ -613,35 +804,44 @@ const BodyAnalysis = () => {
 
             {/* Recomendações */}
             {(result.recommendations || []).length > 0 && (
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-50">
                 <CardContent className="p-4">
-                  <p className="font-medium text-amber-900 text-sm mb-2">
-                    <Target className="inline h-4 w-4 mr-1" />
-                    Recomendações
+                  <p className="font-semibold text-amber-900 mb-3 flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Recomendações Personalizadas
                   </p>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {result.recommendations.map((r, i) => (
-                      <p key={i} className="text-sm text-amber-800">
-                        <span className="font-bold">{i + 1}.</span> {r}
-                      </p>
+                      <div key={i} className="flex items-start gap-2 bg-white/60 rounded-xl p-3">
+                        <span className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                          {i + 1}
+                        </span>
+                        <span className="text-sm text-amber-900">{r}</span>
+                      </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            <Button onClick={handleReset} variant="outline" className="w-full">
-              <Camera className="mr-2 h-4 w-4" />
+            <Button onClick={handleReset} variant="outline" className="w-full h-12">
+              <Camera className="mr-2 h-5 w-5" />
               Nova Análise
             </Button>
           </div>
         )}
 
+        {/* GRÁFICO DE EVOLUÇÃO */}
+        <EvolutionChart history={history} />
+
         {/* HISTÓRICO */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900">Histórico de Análises</h2>
-            <Button variant="ghost" size="sm" onClick={loadHistory}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Activity className="h-5 w-5 text-purple-600" />
+              Histórico de Análises
+            </h2>
+            <Button variant="ghost" size="sm" onClick={loadHistory} className="h-8 w-8 p-0">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
@@ -649,15 +849,17 @@ const BodyAnalysis = () => {
           {historyLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : history.length === 0 ? (
-            <Card className="border-gray-100">
-              <CardContent className="p-6 text-center">
-                <User className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Nenhuma análise ainda</p>
-                <p className="text-xs text-gray-400">Envie suas primeiras fotos para começar!</p>
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <User className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="font-medium text-gray-700">Nenhuma análise ainda</p>
+                <p className="text-sm text-gray-500 mt-1">Envie suas primeiras fotos para começar!</p>
               </CardContent>
             </Card>
           ) : (
