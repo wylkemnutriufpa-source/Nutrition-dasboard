@@ -940,9 +940,16 @@ const calculateIMC = (patient) => {
  * Analisa restrições alimentares
  */
 const analyzeRestrictions = (anamnesis) => {
+  // Garantir que allergies e intolerances sejam arrays de strings
+  const toStringArray = (val) => {
+    if (!val) return [];
+    if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+    if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v : String(v?.name || v || '')).filter(Boolean);
+    return [];
+  };
   return {
-    allergies: anamnesis?.allergies || [],
-    intolerances: anamnesis?.food_intolerances || []
+    allergies: toStringArray(anamnesis?.allergies),
+    intolerances: toStringArray(anamnesis?.food_intolerances)
   };
 };
 
