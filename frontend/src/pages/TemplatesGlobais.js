@@ -312,31 +312,13 @@ const TemplatesGlobais = () => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Prioridade</Label>
-                        <Select 
-                          value={formData.priority} 
-                          onValueChange={(v) => setFormData({...formData, priority: v})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Baixa</SelectItem>
-                            <SelectItem value="normal">Normal</SelectItem>
-                            <SelectItem value="high">Alta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Categoria (opcional)</Label>
-                        <Input
-                          value={formData.category}
-                          onChange={(e) => setFormData({...formData, category: e.target.value})}
-                          placeholder="Ex: Hidratação"
-                        />
-                      </div>
+                    <div>
+                      <Label>Categoria (opcional)</Label>
+                      <Input
+                        value={formData.category}
+                        onChange={(e) => setFormData({...formData, category: e.target.value})}
+                        placeholder="Ex: Hidratação"
+                      />
                     </div>
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
