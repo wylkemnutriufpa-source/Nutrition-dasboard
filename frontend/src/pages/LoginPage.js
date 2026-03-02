@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Stethoscope, Eye, ArrowLeft, Loader2, Shield } from 'lucide-react';
+import { 
+  User, Stethoscope, Eye, ArrowLeft, Loader2, Shield, 
+  Sparkles, Heart, Activity, TrendingUp, Star, Zap,
+  ChevronRight, Lock, Mail
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,9 +60,7 @@ const LoginPage = () => {
 
       if (data?.user) {
         toast.success('Login realizado com sucesso!');
-        // Aguardar AuthContext processar e carregar o profile
         setPendingLogin(true);
-        // O useEffect abaixo irá navegar quando o profile for carregado
       }
     } catch (error) {
       toast.error('Erro ao fazer login');
@@ -71,7 +73,6 @@ const LoginPage = () => {
   useEffect(() => {
     if (!pendingLogin || !profile) return;
 
-    // Verificar se o tipo de login corresponde ao role do usuário
     if (loginType === 'professional' && profile.role !== 'professional' && profile.role !== 'admin') {
       toast.error('Esta conta não é de profissional');
       signOut();
@@ -96,12 +97,10 @@ const LoginPage = () => {
       return;
     }
 
-    // Armazenar no localStorage
     localStorage.setItem('fitjourney_user_type', profile.role);
     localStorage.setItem('fitjourney_user_email', profile.email);
     localStorage.setItem('fitjourney_user_id', profile.id);
 
-    // Redirecionar baseado no role
     if (profile.role === 'admin') {
       navigate('/admin/dashboard', { replace: true });
     } else if (profile.role === 'professional') {
@@ -121,229 +120,352 @@ const LoginPage = () => {
     navigate('/visitor/calculators');
   };
 
-  // Tela inicial de seleção de tipo
+  // ==================== FLOATING ELEMENTS ====================
+  const FloatingElements = () => (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* Gradient orbs */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-teal-400/30 to-emerald-400/20 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full blur-3xl" />
+      
+      {/* Floating icons */}
+      <div className="absolute top-32 right-20 text-teal-500/20 animate-bounce" style={{ animationDuration: '3s' }}>
+        <Heart className="w-12 h-12" />
+      </div>
+      <div className="absolute bottom-40 left-20 text-emerald-500/20 animate-bounce" style={{ animationDuration: '4s', animationDelay: '0.5s' }}>
+        <Activity className="w-10 h-10" />
+      </div>
+      <div className="absolute top-1/3 right-1/4 text-purple-500/20 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '1s' }}>
+        <TrendingUp className="w-8 h-8" />
+      </div>
+      <div className="absolute bottom-1/3 left-1/4 text-pink-500/20 animate-bounce" style={{ animationDuration: '4.5s', animationDelay: '0.3s' }}>
+        <Star className="w-9 h-9" />
+      </div>
+    </div>
+  );
+
+  // ==================== LOGIN CARD CONFIG ====================
+  const loginCards = [
+    {
+      type: 'admin',
+      icon: Shield,
+      title: 'Administrador',
+      description: 'Gerenciamento completo do sistema',
+      gradient: 'from-purple-600 to-indigo-700',
+      bgGradient: 'from-purple-500/10 to-indigo-500/10',
+      iconBg: 'bg-purple-100',
+      iconColor: 'text-purple-600',
+      borderHover: 'hover:border-purple-400',
+      shadowHover: 'hover:shadow-purple-200/50',
+      buttonGradient: 'from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+    },
+    {
+      type: 'professional',
+      icon: Stethoscope,
+      title: 'Profissional',
+      description: 'Nutricionistas e profissionais de saúde',
+      gradient: 'from-teal-600 to-emerald-600',
+      bgGradient: 'from-teal-500/10 to-emerald-500/10',
+      iconBg: 'bg-teal-100',
+      iconColor: 'text-teal-600',
+      borderHover: 'hover:border-teal-400',
+      shadowHover: 'hover:shadow-teal-200/50',
+      buttonGradient: 'from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700',
+      featured: true
+    },
+    {
+      type: 'patient',
+      icon: User,
+      title: 'Paciente',
+      description: 'Acompanhe seu plano alimentar',
+      gradient: 'from-green-500 to-lime-500',
+      bgGradient: 'from-green-500/10 to-lime-500/10',
+      iconBg: 'bg-green-100',
+      iconColor: 'text-green-600',
+      borderHover: 'hover:border-green-400',
+      shadowHover: 'hover:shadow-green-200/50',
+      buttonGradient: 'from-green-500 to-lime-500 hover:from-green-600 hover:to-lime-600'
+    },
+    {
+      type: 'visitor',
+      icon: Eye,
+      title: 'Visitante',
+      description: 'Check nutricional + calculadoras grátis',
+      gradient: 'from-blue-500 to-cyan-500',
+      bgGradient: 'from-blue-500/10 to-cyan-500/10',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+      borderHover: 'hover:border-blue-400',
+      shadowHover: 'hover:shadow-blue-200/50',
+      buttonGradient: 'from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600',
+      isVisitor: true
+    }
+  ];
+
+  // ==================== TELA DE SELEÇÃO ====================
   if (!loginType) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-green-50 flex items-center justify-center p-4">
-        <div className="max-w-5xl w-full">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-teal-700 to-teal-600 mb-4 shadow-lg">
-              <span className="text-white font-bold text-3xl">FJ</span>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 relative">
+        <FloatingElements />
+        
+        {/* Main Content */}
+        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+          
+          {/* Logo & Header */}
+          <div className="text-center mb-10 md:mb-14">
+            {/* Animated Logo */}
+            <div className="relative inline-block mb-6">
+              <div className="absolute inset-0 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-3xl blur-xl opacity-40 animate-pulse" />
+              <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-500 flex items-center justify-center shadow-2xl shadow-teal-500/30 transform hover:scale-105 transition-transform duration-300">
+                <span className="text-white font-black text-4xl md:text-5xl tracking-tight">FJ</span>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+              </div>
             </div>
-            <h1 className="text-5xl font-bold text-gray-900 mb-2">FitJourney</h1>
-            <p className="text-lg text-gray-600">Sua jornada para uma vida mais saudável</p>
+            
+            {/* Title */}
+            <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-gray-900 via-teal-800 to-emerald-800 bg-clip-text text-transparent mb-3">
+              FitJourney
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600 font-medium max-w-md mx-auto">
+              Sua jornada para uma vida mais saudável começa aqui
+            </p>
+            
+            {/* Stats */}
+            <div className="flex items-center justify-center gap-6 mt-6">
+              {[
+                { label: 'Profissionais', value: '500+' },
+                { label: 'Pacientes', value: '10k+' },
+                { label: 'Sucesso', value: '98%' }
+              ].map((stat, i) => (
+                <div key={i} className="text-center">
+                  <p className="text-2xl font-bold text-teal-600">{stat.value}</p>
+                  <p className="text-xs text-gray-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Admin */}
-            <Card 
-              data-testid="admin-login-card" 
-              className="hover:shadow-xl transition-all duration-300 border-2 hover:border-purple-700 cursor-pointer" 
-              onClick={() => setLoginType('admin')}
-            >
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
-                  <Shield className="text-purple-700" size={32} />
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-6xl w-full">
+            {loginCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <div
+                  key={card.type}
+                  data-testid={`${card.type}-login-card`}
+                  onClick={() => card.isVisitor ? handleVisitorLogin() : setLoginType(card.type)}
+                  className={`group relative cursor-pointer transition-all duration-500 ${card.featured ? 'lg:-mt-4 lg:mb-4' : ''}`}
+                >
+                  {/* Featured badge */}
+                  {card.featured && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
+                      <div className="px-4 py-1 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full text-white text-xs font-bold shadow-lg flex items-center gap-1">
+                        <Star className="w-3 h-3 fill-current" />
+                        MAIS POPULAR
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Card */}
+                  <Card className={`relative overflow-hidden border-2 border-gray-100 ${card.borderHover} transition-all duration-500 hover:shadow-2xl ${card.shadowHover} hover:-translate-y-2 bg-white/80 backdrop-blur-sm h-full`}>
+                    {/* Gradient overlay on hover */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${card.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                    
+                    <CardHeader className="relative text-center pb-2 pt-6">
+                      {/* Icon */}
+                      <div className="relative mx-auto mb-4">
+                        <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-500`} />
+                        <div className={`relative w-16 h-16 rounded-2xl ${card.iconBg} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl`}>
+                          <Icon className={`${card.iconColor} transition-transform duration-300`} size={32} />
+                        </div>
+                      </div>
+                      
+                      <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-gray-800 transition-colors">
+                        {card.title}
+                      </CardTitle>
+                      <CardDescription className="text-gray-500 mt-1 text-sm">
+                        {card.description}
+                      </CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="relative pt-0 pb-6">
+                      <Button 
+                        data-testid={`${card.type}-login-button`}
+                        className={`w-full bg-gradient-to-r ${card.buttonGradient} text-white shadow-lg hover:shadow-xl transition-all duration-300 py-5 text-sm font-semibold group-hover:scale-[1.02]`}
+                      >
+                        {card.isVisitor ? 'Acessar Ferramentas' : `Entrar como ${card.title}`}
+                        <ChevronRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </div>
-                <CardTitle className="text-xl">Administrador</CardTitle>
-                <CardDescription>Gerenciamento do sistema</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full bg-purple-700 hover:bg-purple-800" size="lg">
-                  Entrar como Admin
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Profissional */}
-            <Card 
-              data-testid="professional-login-card" 
-              className="hover:shadow-xl transition-all duration-300 border-2 hover:border-teal-700 cursor-pointer" 
-              onClick={() => setLoginType('professional')}
-            >
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center mb-4">
-                  <Stethoscope className="text-teal-700" size={32} />
-                </div>
-                <CardTitle className="text-xl" style={{ fontSize: 'var(--font-size-subheading, 1.5rem)' }}>Profissional</CardTitle>
-                <CardDescription style={{ fontSize: 'var(--font-size-body, 1rem)' }}>Nutricionistas e profissionais de saúde</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button data-testid="professional-login-button" className="w-full bg-teal-700 hover:bg-teal-800" size="lg" style={{ fontSize: 'var(--button-size, 1rem)' }}>
-                  Entrar como Profissional
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Paciente */}
-            <Card 
-              data-testid="patient-login-card" 
-              className="hover:shadow-xl transition-all duration-300 border-2 hover:border-green-600 cursor-pointer" 
-              onClick={() => setLoginType('patient')}
-            >
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                  <User className="text-green-700" size={32} />
-                </div>
-                <CardTitle className="text-xl" style={{ fontSize: 'var(--font-size-subheading, 1.5rem)' }}>Paciente</CardTitle>
-                <CardDescription style={{ fontSize: 'var(--font-size-body, 1rem)' }}>Acompanhe seu plano alimentar</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button data-testid="patient-login-button" className="w-full bg-green-600 hover:bg-green-700" size="lg" style={{ fontSize: 'var(--button-size, 1rem)' }}>
-                  Entrar como Paciente
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Visitante */}
-            <Card 
-              data-testid="visitor-login-card" 
-              className="hover:shadow-xl transition-all duration-300 border-2 hover:border-blue-600 cursor-pointer" 
-              onClick={handleVisitorLogin}
-            >
-              <CardHeader className="text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                  <Eye className="text-blue-700" size={32} />
-                </div>
-                <CardTitle className="text-xl" style={{ fontSize: 'var(--font-size-subheading, 1.5rem)' }}>Visitante</CardTitle>
-                <CardDescription style={{ fontSize: 'var(--font-size-body, 1rem)' }}>Check nutricional + calculadoras</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button data-testid="visitor-login-button" className="w-full bg-blue-600 hover:bg-blue-700" size="lg" style={{ fontSize: 'var(--button-size, 1rem)' }}>
-                  Acessar Ferramentas
-                </Button>
-              </CardContent>
-            </Card>
+              );
+            })}
           </div>
 
-          <div className="mt-8 text-center text-sm text-gray-600">
-            <p>Sistema de Nutrição • FitJourney</p>
+          {/* Footer */}
+          <div className="mt-12 text-center">
+            <div className="flex items-center justify-center gap-2 text-gray-400 text-sm">
+              <Lock className="w-4 h-4" />
+              <span>Conexão segura e criptografada</span>
+            </div>
+            <p className="mt-2 text-gray-500 text-sm font-medium">
+              Sistema de Nutrição Premium • FitJourney © 2025
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  // Formulário de login
+  // ==================== FORMULÁRIO DE LOGIN ====================
   const getLoginConfig = () => {
-    switch (loginType) {
-      case 'admin':
-        return {
-          icon: <Shield className="text-purple-700" size={32} />,
-          title: 'Login Administrador',
-          description: 'Acesso ao painel administrativo',
-          color: 'bg-purple-700 hover:bg-purple-800',
-          bgColor: 'bg-purple-100'
-        };
-      case 'professional':
-        return {
-          icon: <Stethoscope className="text-teal-700" size={32} />,
-          title: 'Login Profissional',
-          description: 'Acesso para nutricionistas',
-          color: 'bg-teal-700 hover:bg-teal-800',
-          bgColor: 'bg-teal-100'
-        };
-      case 'patient':
-        return {
-          icon: <User className="text-green-700" size={32} />,
-          title: 'Login Paciente',
-          description: 'Acesse seu plano alimentar',
-          color: 'bg-green-600 hover:bg-green-700',
-          bgColor: 'bg-green-100'
-        };
-      default:
-        return {};
-    }
+    const card = loginCards.find(c => c.type === loginType);
+    return card || loginCards[0];
   };
 
   const config = getLoginConfig();
+  const Icon = config.icon;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-green-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setLoginType(null);
-            setEmail('');
-            setPassword('');
-          }}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2" size={18} />
-          Voltar
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 relative">
+      <FloatingElements />
+      
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setLoginType(null);
+              setEmail('');
+              setPassword('');
+            }}
+            className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-white/50 backdrop-blur-sm"
+          >
+            <ArrowLeft className="mr-2" size={18} />
+            Voltar para seleção
+          </Button>
 
-        <Card className="shadow-xl">
-          <CardHeader className="text-center">
-            <div className={`mx-auto w-16 h-16 rounded-full ${config.bgColor} flex items-center justify-center mb-4`}>
-              {config.icon}
-            </div>
-            <CardTitle className="text-2xl">{config.title}</CardTitle>
-            <CardDescription>{config.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
+          {/* Login Card */}
+          <Card className="relative overflow-hidden border-0 shadow-2xl bg-white/90 backdrop-blur-xl">
+            {/* Top gradient bar */}
+            <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${config.gradient}`} />
+            
+            {/* Background decoration */}
+            <div className={`absolute top-0 right-0 w-40 h-40 bg-gradient-to-br ${config.bgGradient} rounded-full -translate-y-20 translate-x-20 blur-2xl`} />
+            
+            <CardHeader className="relative text-center pt-10 pb-4">
+              {/* Icon */}
+              <div className="relative mx-auto mb-4">
+                <div className={`absolute inset-0 bg-gradient-to-br ${config.gradient} rounded-2xl blur-lg opacity-30`} />
+                <div className={`relative w-20 h-20 rounded-2xl ${config.iconBg} flex items-center justify-center shadow-xl`}>
+                  <Icon className={config.iconColor} size={40} />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              <Button
-                type="submit"
-                className={`w-full ${config.color}`}
-                size="lg"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  'Entrar'
-                )}
-              </Button>
-            </form>
+              
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                Login {config.title}
+              </CardTitle>
+              <CardDescription className="text-gray-500 mt-1">
+                {config.description}
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="relative px-8 pb-8">
+              <form onSubmit={handleLogin} className="space-y-5">
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-700 font-medium flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    className="py-5 px-4 bg-gray-50/50 border-gray-200 focus:border-teal-400 focus:ring-teal-200 rounded-xl transition-all"
+                  />
+                </div>
+                
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-700 font-medium flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-gray-400" />
+                    Senha
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="py-5 px-4 bg-gray-50/50 border-gray-200 focus:border-teal-400 focus:ring-teal-200 rounded-xl transition-all"
+                  />
+                </div>
+                
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  className={`w-full bg-gradient-to-r ${config.buttonGradient} text-white shadow-xl hover:shadow-2xl transition-all duration-300 py-6 text-base font-semibold rounded-xl mt-2`}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Entrando...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-5 w-5" />
+                      Entrar na plataforma
+                    </>
+                  )}
+                </Button>
+              </form>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              {loginType === 'admin' && (
-                <p className="text-xs text-gray-600">
-                  <strong>Administrador:</strong> Gerencia profissionais e configurações do sistema.
-                </p>
-              )}
-              {loginType === 'professional' && (
-                <p className="text-xs text-gray-600">
-                  <strong>Profissional:</strong> Cadastrado pelo administrador. Gerencia seus pacientes e planos alimentares.
-                </p>
-              )}
-              {loginType === 'patient' && (
-                <p className="text-xs text-gray-600">
-                  <strong>Paciente:</strong> Cadastrado pelo seu nutricionista. Acesse para ver seu plano alimentar.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              {/* Info Box */}
+              <div className={`mt-6 p-4 rounded-xl bg-gradient-to-br ${config.bgGradient} border border-gray-100`}>
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-lg ${config.iconBg} flex-shrink-0`}>
+                    <Icon className={`${config.iconColor} w-4 h-4`} />
+                  </div>
+                  <div>
+                    {loginType === 'admin' && (
+                      <p className="text-sm text-gray-600">
+                        <strong className="text-gray-800">Administrador:</strong> Gerencia profissionais, configurações do sistema e tem acesso completo à plataforma.
+                      </p>
+                    )}
+                    {loginType === 'professional' && (
+                      <p className="text-sm text-gray-600">
+                        <strong className="text-gray-800">Profissional:</strong> Cadastrado pelo administrador. Gerencie seus pacientes, planos alimentares e acompanhe resultados.
+                      </p>
+                    )}
+                    {loginType === 'patient' && (
+                      <p className="text-sm text-gray-600">
+                        <strong className="text-gray-800">Paciente:</strong> Cadastrado pelo seu nutricionista. Acesse seu plano alimentar personalizado e acompanhe sua evolução.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Security Badge */}
+              <div className="mt-6 flex items-center justify-center gap-2 text-gray-400 text-xs">
+                <Lock className="w-3 h-3" />
+                <span>Seus dados estão protegidos com criptografia SSL</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
