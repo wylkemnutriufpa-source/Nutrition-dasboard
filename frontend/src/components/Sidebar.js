@@ -70,6 +70,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/financeiro', icon: DollarSign, label: 'Financeiro' },
     { to: '/professional/food-database', icon: Database, label: 'Alimentos' },
     { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni' },
+    { to: '/professional/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
     { to: '/professional/guide', icon: Book, label: 'Central de Recursos', premium: true }
