@@ -268,6 +268,13 @@ const PlatformGuide = () => {
 
   const featuresByCategory = useMemo(() => getFeaturesByCategory(), []);
 
+  const filteredCategories = useMemo(() => {
+    const cats = Object.entries(featuresByCategory);
+    if (!searchQuery.trim()) return cats;
+    const q = searchQuery.toLowerCase();
+    return cats.map(([cat, features]) => [cat, features.filter(f => f.label.toLowerCase().includes(q) || f.description.toLowerCase().includes(q) || f.key.toLowerCase().includes(q))]).filter(([, features]) => features.length > 0);
+  }, [searchQuery, featuresByCategory]);
+
   // ==================== TAB: MINHA JORNADA (PRINCIPAL) ====================
   const renderJornada = () => {
     const { loading, activatedFeaturesCount, activationPercentage, totalFeatures, currentLevel, nextLevel, suggestedFeatures, featuresUntilNextLevel, medals, monthlyGoal, activatedFeatures } = journey;
