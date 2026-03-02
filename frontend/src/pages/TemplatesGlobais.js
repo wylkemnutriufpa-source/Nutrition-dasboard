@@ -97,7 +97,6 @@ const TemplatesGlobais = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         type: formData.type,
-        priority: formData.priority,
         category: formData.category,
         is_active: true
       });
