@@ -184,7 +184,20 @@ const ProfessionalDashboard = () => {
           <ProfessionalJourneyBanner professionalId={profile?.id} />
         </AnimatedSection>
 
-        {/* ========== 2) CARDS EXECUTIVOS (com stagger) ========== */}
+        {/* ========== 2) AÇÕES RÁPIDAS (movido para cima) ========== */}
+        <AnimatedSection delay={60}>
+          <Card className="border-gray-200">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-teal-600" />
+                Ações Rápidas
+              </h3>
+              <QuickActionsGrid onAction={handleQuickAction} />
+            </CardContent>
+          </Card>
+        </AnimatedSection>
+
+        {/* ========== 3) CARDS EXECUTIVOS (com stagger) ========== */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           <AnimatedSection delay={80}>
             <MetricCard
