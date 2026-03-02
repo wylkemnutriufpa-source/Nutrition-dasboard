@@ -103,11 +103,15 @@
 #====================================================================================================
 
 user_problem_statement: |
-  Sessão atual:
-  1. Fix permanente da anamnese (retry + safe error handling)
-  2. Evolução do Dashboard Profissional para Central de Comando Inteligente
-  3. Feature: Análise de Pratos por IA (Meal Photo Analysis) com integração Risk Engine
-  4. Central de Recursos Premium - Hub interativo com tutorial da plataforma no menu do profissional
+  Sessão atual - 8 correções:
+  1. Mover Ações Rápidas para o topo do Dashboard Profissional
+  2. Fix SOS - notificação não chegava ao profissional (criar notification ao enviar emergência)
+  3. Criar Checklist redirecionava para Pacientes - agora vai para Templates
+  4. Checklist diário reseta automaticamente à meia-noite
+  5. Fix erro is_reminder na criação de lembrete (coluna não existe em appointments)
+  6. Fix erro 409 na visibilidade de receitas (usar upsert)
+  7. Fix erro priority na criação de template (coluna não existe em professional_templates)
+  8. Modal no calendário ao clicar no dia
 
 backend:
   - task: "API Status endpoint"
@@ -123,22 +127,7 @@ backend:
         comment: "Backend mínimo, apenas /api/status"
 
 frontend:
-  - task: "Fix Anamnese Save (permanente)"
-    implemented: true
-    working: "unknown"
-    file: "/app/frontend/src/lib/supabase.js"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: true
-    status_history:
-      - working: true
-        agent: "user"
-        comment: "Usuário confirmou que anamnese voltou a funcionar, mas pede fix permanente"
-      - working: "unknown"
-        agent: "main"
-        comment: "Refatorado createAnamnesis/updateAnamnesis: whitelist centralizada, extractSafeError (NUNCA lê response body), withRetry com backoff automático (2 tentativas). Elimina root cause do 'body stream already read'."
-
-  - task: "Dashboard Profissional - Central de Comando Inteligente"
+  - task: "Ações Rápidas movidas para o topo do Dashboard"
     implemented: true
     working: "unknown"
     file: "/app/frontend/src/pages/ProfessionalDashboard.js"
@@ -148,91 +137,104 @@ frontend:
     status_history:
       - working: "unknown"
         agent: "main"
-        comment: "Implementado: Header premium, 5 cards executivos (Ativos, Inativos, SOS, Em Risco, Engajamento), Atenção Hoje com SOS P0, Ranking de Risco Top 10, Gráfico 7 dias, Recomendações Inteligentes, Ações Rápidas. Compilou sem erros."
+        comment: "Seção Ações Rápidas movida de posição 7 (final) para posição 2 (após header), antes dos cards executivos"
 
-  - task: "Meal Photo Analysis - Análise de Pratos por IA"
+  - task: "SOS Notification para profissional"
     implemented: true
     working: "unknown"
-    file: "/app/frontend/src/pages/MealPhotoAnalysis.js"
+    file: "/app/frontend/src/lib/supabase.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "unknown"
         agent: "main"
-        comment: |
-          Implementado completo:
-          - Backend: POST /api/analyze-meal com GPT-4o Vision (emergentintegrations)
-          - Frontend: Página MealPhotoAnalysis.js com upload, preview, análise, histórico
-          - Supabase.js: uploadMealPhoto, createMealAnalysis, updateMealAnalysis, listPatientMealAnalyses, listProfessionalRecentMealAnalyses
-          - Dashboard Pro: MealAnalysisSection adicionada ao grid
-          - Menu Paciente: Link "Análise do Prato" adicionado
-          - Risk Engine: Alertas de refeição integrados (low quality, low veggies, ultra_processed)
-          - SQL pronto em /app/sql/meal_analyses_setup.sql
-          PENDENTE: Usuário precisa executar SQL no Supabase Dashboard
+        comment: "Adicionada createNotification(). createEmergencyFeedback agora cria notificação tipo 'emergency' para o profissional. NotificationBell atualizado com ícone SOS."
 
-  - task: "Fix ProtectedRoute para visitor"
-    implemented: true
-    working: true
-    file: "/app/frontend/src/App.js"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "testing"
-        comment: "CORRIGIDO - Testado e aprovado"
-  
-  - task: "Meu Plano - userType prop"
-    implemented: true
-    working: true
-    file: "/app/frontend/src/pages/MealPlanEditor.js"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "testing"
-        comment: "CORRIGIDO - Testado e aprovado"
-
-  - task: "Central de Recursos Premium"
+  - task: "Criar Checklist redireciona para Templates"
     implemented: true
     working: "unknown"
-    file: "/app/frontend/src/pages/PlatformGuide.js"
+    file: "/app/frontend/src/pages/ProfessionalDashboard.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "unknown"
         agent: "main"
-        comment: |
-          Implementado completo:
-          - Rota /professional/guide adicionada no App.js
-          - Link "Central de Recursos" com badge PRO no Sidebar.js
-          - PlatformGuide.js revampado completamente:
-            * Header premium animado com stats (funcionalidades, IA, categorias, disponíveis)
-            * 5 tabs interativas: Início, Tutorial, Funcionalidades, Novidades, Dicas Pro
-            * Tutorial com 6 passos interativos expand/collapse com dicas detalhadas
-            * Busca/filtro de funcionalidades em tempo real
-            * 6 categorias com todas as features da plataforma
-            * Seção "O que há de Novo" com últimas atualizações
-            * 8 Dicas Pro com estratégias avançadas
-            * FAQ com 8 perguntas frequentes
-            * Boas Práticas de uso
-            * Atalhos úteis para navegação rápida
-            * Roadmap de funcionalidades futuras
-            * CTA de suporte no footer
-          Compilou sem erros, lint limpo.
+        comment: "QuickAction createChecklist agora navega para /professional/templates ao invés de /professional/patients"
+
+  - task: "Checklist diário reseta à meia-noite"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/lib/supabase.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "getChecklistTasks agora verifica updated_at vs hoje. Se tarefa completada de dia anterior, reseta completed=false automaticamente. toggleChecklistTask salva updated_at."
+
+  - task: "Fix erro is_reminder na criação de lembrete"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/lib/supabase.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Removido is_reminder do payload de createReminder, createFeedbackReminder, createPlanExpirationReminder. Coluna não existe em appointments."
+
+  - task: "Fix erro 409 visibilidade receitas"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/lib/supabase.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "setRecipeVisibility agora usa upsert com onConflict recipe_id,patient_id ao invés de check-then-insert. Elimina race conditions e erros 409."
+
+  - task: "Fix erro priority na criação de template"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/TemplatesGlobais.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Removido campo priority do payload de createTemplate, formData, resetForm, openEditModal. Removido Select de prioridade e Badge de Alta Prioridade do UI."
+
+  - task: "Modal no calendário ao clicar no dia"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/AgendaPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Adicionado estado showDayModal. handleDayClick agora abre modal. Modal mostra todos eventos do dia ordenados por horário, com opções de editar/excluir/marcar. Removida seção estática de detalhes."
 
 metadata:
   created_by: "main_agent"
-  version: "3.0"
-  test_sequence: 3
+  version: "4.0"
+  test_sequence: 4
   run_ui: true
 
 test_plan:
   current_focus:
-    - "Central de Recursos Premium"
+    - "Ações Rápidas movidas para o topo do Dashboard"
+    - "Fix erro is_reminder na criação de lembrete"
+    - "Fix erro priority na criação de template"
+    - "Modal no calendário ao clicar no dia"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -240,12 +242,14 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Implementação da Central de Recursos Premium completa:
+      8 correções implementadas nesta sessão:
       
       ARQUIVOS MODIFICADOS:
-      1. /app/frontend/src/App.js - Adicionada rota /professional/guide com PlatformGuide
-      2. /app/frontend/src/components/Sidebar.js - Adicionado link "Central de Recursos" com badge PRO e estilo premium
-      3. /app/frontend/src/pages/PlatformGuide.js - Revamp completo com 5 tabs, tutorial interativo, busca, novidades, dicas pro, FAQ
+      1. /app/frontend/src/pages/ProfessionalDashboard.js - Ações Rápidas movidas para o topo, Criar Checklist redireciona para Templates
+      2. /app/frontend/src/lib/supabase.js - createReminder sem is_reminder, createNotification nova, createEmergencyFeedback cria notificação, getChecklistTasks com reset diário, setRecipeVisibility com upsert
+      3. /app/frontend/src/pages/TemplatesGlobais.js - Removido priority do payload e UI
+      4. /app/frontend/src/pages/AgendaPage.js - Modal de detalhes do dia adicionado
+      5. /app/frontend/src/components/NotificationBell.js - Ícone SOS adicionado
       
-      Compilou sem erros, lint 100% limpo.
-      Requer login como profissional para testar (Supabase auth).
+      Build compilou sem erros. App requer Supabase auth para testar.
+      NOTA: A tabela recipe_patient_visibility precisa ter constraint UNIQUE(recipe_id, patient_id) para upsert funcionar.
