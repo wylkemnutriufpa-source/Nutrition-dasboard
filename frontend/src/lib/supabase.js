@@ -1607,7 +1607,10 @@ export const updateChecklistTask = async (taskId, updates) => {
 };
 
 export const toggleChecklistTask = async (taskId, completed) => {
-  return await updateChecklistTask(taskId, { completed });
+  return await updateChecklistTask(taskId, { 
+    completed, 
+    updated_at: new Date().toISOString() 
+  });
 };
 
 export const deleteChecklistTask = async (taskId) => {
