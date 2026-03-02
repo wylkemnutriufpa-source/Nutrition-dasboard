@@ -121,6 +121,7 @@ const AgendaPage = () => {
     if (!day) return;
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     setSelectedDate(dateStr);
+    setShowDayModal(true);
   };
 
   const openAddModal = (dateStr = null) => {
