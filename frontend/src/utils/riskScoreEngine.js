@@ -32,7 +32,10 @@ const RISK_WEIGHTS = {
  * Fatores: IMC, pressão arterial, circunferência abdominal, colesterol, idade
  */
 export const calculateCardiovascularRisk = (data = {}) => {
-  const { anamnesis = {}, assessment = {}, patient = {} } = data;
+  const { anamnesis: _anamnesis, assessment: _assessment, patient: _patient } = data;
+  const anamnesis = _anamnesis || {};
+  const assessment = _assessment || {};
+  const patient = _patient || {};
   
   let score = 100;
   const factors = [];
