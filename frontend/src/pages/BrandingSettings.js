@@ -170,25 +170,43 @@ const BrandingSettings = () => {
       <div data-testid="branding-settings" className="max-w-4xl mx-auto space-y-6 pb-8">
         {/* Premium Header */}
         <div className="relative overflow-hidden rounded-3xl shadow-2xl">
-          <div className="bg-gradient-to-br from-slate-900 via-fuchsia-900 to-pink-900 p-6 md:p-8 text-white relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+          <div className="bg-gradient-to-br from-pink-500 via-rose-500 to-red-400 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32" />
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
             <div className="relative z-10">
-              <div className="flex items-center justify-between">
+              <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold mb-3">White-Label</span>
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
-                    <Palette className="h-7 w-7 text-white" />
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                    <Palette className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Personalizacao</h1>
-                    <p className="text-fuchsia-300 text-sm">Customize a aparencia do sistema com sua identidade visual</p>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Personalizacao da Marca</h1>
+                    <p className="text-white/80 text-sm">Personalize a aparencia do sistema com sua identidade visual</p>
                   </div>
                 </div>
-                <Button onClick={handleReset} className="bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-sm" disabled={loading}>
+                <Button onClick={handleReset} className="bg-white/20 text-white hover:bg-white/30 border border-white/20 backdrop-blur-sm" disabled={loading}>
                   <RotateCcw size={16} className="mr-2" />
                   Restaurar Padrao
                 </Button>
               </div>
+              {branding.primary_color && (
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  {[
+                    { color: branding.primary_color, label: 'Cor Primaria' },
+                    { color: branding.secondary_color, label: 'Cor Secundaria' },
+                    { color: branding.accent_color, label: 'Cor Destaque' }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-xl p-3">
+                      <div className="w-8 h-8 rounded-lg shadow-inner" style={{ backgroundColor: item.color }} />
+                      <div>
+                        <p className="text-sm font-bold">{item.color}</p>
+                        <p className="text-[10px] text-white/70">{item.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
