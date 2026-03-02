@@ -244,6 +244,11 @@ const ProfessionalJourneyBanner = ({ professionalId }) => {
                   const catFeatures = PLATFORM_FEATURES.filter(f => f.category === category);
                   const totalCount = catFeatures.length;
                   const medalData = medals.find(m => m.category === category);
+                  // Calcular contagem real de features ativadas nesta categoria
+                  const usedCount = medalData 
+                    ? medalData.usedCount 
+                    : catFeatures.filter(f => activatedFeatures.has(f.key)).length;
+                  const pct = totalCount > 0 ? Math.round((usedCount / totalCount) * 100) : 0;
 
                   return (
                     <div key={category} className="bg-white rounded-xl border border-gray-100 p-3 text-center">
@@ -251,7 +256,10 @@ const ProfessionalJourneyBanner = ({ professionalId }) => {
                         <span className="text-sm">{emoji}</span>
                       </div>
                       <p className="font-semibold text-gray-900 text-[11px] truncate">{category}</p>
-                      <p className="text-[10px] text-gray-500">{medalData ? `${medalData.usedCount}/${medalData.totalCount}` : `0/${totalCount}`}</p>
+                      <p className="text-[10px] text-gray-500">{usedCount}/{totalCount}</p>
+                      <div className="h-1 bg-gray-100 rounded-full overflow-hidden mt-1 mx-1">
+                        <div className={`h-full bg-gradient-to-r ${gradient} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
                       {medalData && (
                         <span className="text-xs">{medalData.emoji}</span>
                       )}
