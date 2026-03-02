@@ -39,7 +39,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
   const [photos, setPhotos] = useState({ before: null, after: null, single: null });
   const [previews, setPreviews] = useState({ before: null, after: null, single: null });
   const [submitting, setSubmitting] = useState(false);
-  const [photoType, setPhotoType] = useState('none'); // 'none', 'single', 'before_after'
+  const [photoType, setPhotoType] = useState('none');
 
   const handlePhotoChange = (type, file) => {
     if (!file) return;
@@ -83,7 +83,6 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
 
     setSubmitting(true);
     try {
-      // Upload photos if any
       let photo_before_url = null, photo_after_url = null, photo_single_url = null;
 
       const uploadPhoto = async (file, prefix) => {
@@ -91,7 +90,6 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
         const fileName = `${prefix}_${Date.now()}.${ext}`;
         const { error } = await supabase.storage.from('testimonials').upload(fileName, file);
         if (error) {
-          // Fallback to base64
           return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result);
@@ -159,10 +157,10 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
 
   return (
     <Card className="border-0 shadow-2xl overflow-hidden bg-white" id="enviar-depoimento">
-      <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-500" />
+      <div className="h-2 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500" />
       <CardHeader className="pb-2">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white shadow-lg">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
             <Send className="w-6 h-6" />
           </div>
           <div>
@@ -188,7 +186,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                   onClick={() => setFormData(prev => ({ ...prev, display_mode: opt.value }))}
                   className={`p-3 rounded-xl border-2 text-sm font-medium transition-all
                     ${formData.display_mode === opt.value 
-                      ? 'border-green-500 bg-green-50 text-green-700' 
+                      ? 'border-pink-500 bg-pink-50 text-pink-700' 
                       : 'border-gray-200 hover:border-gray-300'}`}
                 >
                   {opt.label}
@@ -212,7 +210,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                     initials: prev.display_mode === 'initials' ? generateInitials(e.target.value) : prev.initials
                   }))}
                   placeholder="Seu nome"
-                  className="border-gray-200 focus:border-green-400"
+                  className="border-gray-200 focus:border-pink-400"
                 />
               </div>
               {formData.display_mode === 'initials' && (
@@ -223,7 +221,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                     onChange={(e) => setFormData(prev => ({ ...prev, initials: e.target.value.toUpperCase().slice(0, 3) }))}
                     placeholder="Ex: MC"
                     maxLength={3}
-                    className="border-gray-200 focus:border-green-400"
+                    className="border-gray-200 focus:border-pink-400"
                   />
                 </div>
               )}
@@ -238,7 +236,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                 value={formData.city}
                 onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                 placeholder="Ex: São Paulo - SP"
-                className="border-gray-200 focus:border-green-400"
+                className="border-gray-200 focus:border-pink-400"
               />
             </div>
             <div className="space-y-2">
@@ -248,7 +246,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 placeholder="seu@email.com"
-                className="border-gray-200 focus:border-green-400"
+                className="border-gray-200 focus:border-pink-400"
               />
             </div>
           </div>
@@ -261,7 +259,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
               onChange={(e) => setFormData(prev => ({ ...prev, testimonial_text: e.target.value }))}
               placeholder="Conte sua experiência com o projeto... (mínimo 20 caracteres)"
               rows={4}
-              className="border-gray-200 focus:border-green-400"
+              className="border-gray-200 focus:border-pink-400"
               required
             />
             <p className="text-xs text-gray-400">{formData.testimonial_text.length}/400 caracteres</p>
@@ -277,7 +275,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                 value={formData.kg_lost}
                 onChange={(e) => setFormData(prev => ({ ...prev, kg_lost: e.target.value }))}
                 placeholder="Ex: 12"
-                className="border-gray-200 focus:border-green-400"
+                className="border-gray-200 focus:border-pink-400"
               />
             </div>
             <div className="space-y-2">
@@ -286,7 +284,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                 value={formData.duration_text}
                 onChange={(e) => setFormData(prev => ({ ...prev, duration_text: e.target.value }))}
                 placeholder="Ex: 3 meses"
-                className="border-gray-200 focus:border-green-400"
+                className="border-gray-200 focus:border-pink-400"
               />
             </div>
             <div className="space-y-2">
@@ -327,7 +325,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                   }}
                   className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all
                     ${photoType === opt.value 
-                      ? 'border-green-500 bg-green-50 text-green-700' 
+                      ? 'border-pink-500 bg-pink-50 text-pink-700' 
                       : 'border-gray-200 hover:border-gray-300'}`}
                 >
                   {opt.label}
@@ -345,7 +343,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                     </button>
                   </div>
                 ) : (
-                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-colors">
+                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 transition-colors">
                     <Upload className="w-6 h-6 text-gray-400" />
                     <span className="text-xs text-gray-400 mt-1">Foto</span>
                     <input type="file" accept="image/jpeg,image/png" onChange={(e) => handlePhotoChange('single', e.target.files[0])} className="hidden" />
@@ -356,7 +354,6 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
 
             {photoType === 'before_after' && (
               <div className="flex items-center gap-4">
-                {/* Before */}
                 {previews.before ? (
                   <div className="relative">
                     <img src={previews.before} alt="Antes" className="w-24 h-24 object-cover rounded-xl border-2" />
@@ -366,24 +363,23 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                     </button>
                   </div>
                 ) : (
-                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-colors">
+                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 transition-colors">
                     <Upload className="w-6 h-6 text-gray-400" />
                     <span className="text-xs text-gray-400 mt-1">Antes</span>
                     <input type="file" accept="image/jpeg,image/png" onChange={(e) => handlePhotoChange('before', e.target.files[0])} className="hidden" />
                   </label>
                 )}
                 <ArrowRight className="w-6 h-6 text-gray-300" />
-                {/* After */}
                 {previews.after ? (
                   <div className="relative">
                     <img src={previews.after} alt="Depois" className="w-24 h-24 object-cover rounded-xl border-2" />
-                    <span className="absolute bottom-1 left-1 bg-green-600 text-white text-xs px-2 py-0.5 rounded">Depois</span>
+                    <span className="absolute bottom-1 left-1 bg-pink-600 text-white text-xs px-2 py-0.5 rounded">Depois</span>
                     <button type="button" onClick={() => removePhoto('after')} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-green-400 transition-colors">
+                  <label className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-pink-400 transition-colors">
                     <Upload className="w-6 h-6 text-gray-400" />
                     <span className="text-xs text-gray-400 mt-1">Depois</span>
                     <input type="file" accept="image/jpeg,image/png" onChange={(e) => handlePhotoChange('after', e.target.files[0])} className="hidden" />
@@ -394,13 +390,13 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
           </div>
 
           {/* Consent checkboxes */}
-          <div className="space-y-3 p-4 bg-amber-50 rounded-xl border border-amber-200">
+          <div className="space-y-3 p-4 bg-pink-50 rounded-xl border border-pink-200">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.consent_authorized}
                 onChange={(e) => setFormData(prev => ({ ...prev, consent_authorized: e.target.checked }))}
-                className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                className="mt-1 w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                 required
               />
               <span className="text-sm text-gray-700">
@@ -412,7 +408,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
                 type="checkbox"
                 checked={formData.terms_accepted}
                 onChange={(e) => setFormData(prev => ({ ...prev, terms_accepted: e.target.checked }))}
-                className="mt-1 w-5 h-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                className="mt-1 w-5 h-5 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
                 required
               />
               <span className="text-sm text-gray-700">
@@ -424,7 +420,7 @@ const TestimonialForm = ({ projectId, whatsappNumber, onSuccess }) => {
           <Button
             type="submit"
             disabled={submitting || !formData.consent_authorized || !formData.terms_accepted}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-6 text-lg font-bold rounded-xl shadow-lg"
+            className="w-full bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 hover:from-pink-600 hover:via-rose-600 hover:to-orange-600 text-white py-6 text-lg font-bold rounded-xl shadow-lg"
           >
             {submitting ? (
               <>
@@ -460,27 +456,25 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
 
   return (
     <>
-      <div className={`group relative overflow-hidden rounded-2xl bg-white border transition-all duration-300 hover:-translate-y-1
-        ${featured 
-          ? 'border-amber-200 shadow-xl shadow-amber-100/50 hover:shadow-2xl' 
-          : 'border-gray-100 shadow-lg hover:shadow-xl hover:border-pink-200'}`}
+      <Card className={`border-0 shadow-lg overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl
+        ${featured ? 'ring-2 ring-amber-400' : ''}`}
       >
+        {/* Top bar - matching editor style */}
+        <div className={`h-2 ${featured ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500'}`} />
+        
         {/* Featured badge */}
         {featured && (
-          <div className="absolute top-0 right-0 z-10">
-            <div className="bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl flex items-center gap-1">
-              <Star className="w-3 h-3 fill-current" />
+          <div className="absolute top-4 right-4 z-10">
+            <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-0 shadow-lg">
+              <Star className="w-3 h-3 fill-current mr-1" />
               Destaque
-            </div>
+            </Badge>
           </div>
         )}
 
         {/* Photo section */}
         {hasPhoto && (
-          <div 
-            className="relative cursor-pointer"
-            onClick={() => setShowPhotoModal(true)}
-          >
+          <div className="relative cursor-pointer" onClick={() => setShowPhotoModal(true)}>
             {hasBeforeAfter ? (
               <div className="flex">
                 <div className="relative w-1/2">
@@ -489,7 +483,7 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
                 </div>
                 <div className="relative w-1/2">
                   <img src={testimonial.photo_after_url} alt="Depois" className="w-full h-32 object-cover" />
-                  <span className="absolute bottom-2 left-2 bg-green-600 text-white text-xs px-2 py-0.5 rounded">Depois</span>
+                  <span className="absolute bottom-2 left-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-xs px-2 py-0.5 rounded">Depois</span>
                 </div>
               </div>
             ) : (
@@ -498,10 +492,10 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
           </div>
         )}
 
-        <div className="p-5">
+        <CardContent className="p-5">
           {/* Header */}
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
               {testimonial.display_mode === 'anonymous' ? '?' : (testimonial.initials || displayName().charAt(0))}
             </div>
             <div className="flex-1">
@@ -514,12 +508,12 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
                   </span>
                 )}
                 {testimonial.kg_lost && (
-                  <Badge className="bg-green-100 text-green-700 text-xs border-0">
+                  <Badge className="bg-pink-100 text-pink-700 text-xs border-0">
                     -{testimonial.kg_lost}kg
                   </Badge>
                 )}
                 {testimonial.duration_text && (
-                  <Badge className="bg-blue-100 text-blue-700 text-xs border-0">
+                  <Badge className="bg-purple-100 text-purple-700 text-xs border-0">
                     {testimonial.duration_text}
                   </Badge>
                 )}
@@ -551,20 +545,14 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
               </button>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Photo Modal */}
       {showPhotoModal && hasPhoto && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setShowPhotoModal(false)}
-        >
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPhotoModal(false)}>
           <div className="relative max-w-4xl w-full" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={() => setShowPhotoModal(false)}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300"
-            >
+            <button onClick={() => setShowPhotoModal(false)} className="absolute -top-12 right-0 text-white hover:text-gray-300">
               <X className="w-8 h-8" />
             </button>
             {hasBeforeAfter ? (
@@ -575,7 +563,7 @@ const TestimonialCard = ({ testimonial, featured = false }) => {
                 </div>
                 <div className="relative flex-1">
                   <img src={testimonial.photo_after_url} alt="Depois" className="w-full rounded-xl" />
-                  <span className="absolute bottom-4 left-4 bg-green-600 text-white px-4 py-2 rounded-lg font-bold">Depois</span>
+                  <span className="absolute bottom-4 left-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-4 py-2 rounded-lg font-bold">Depois</span>
                 </div>
               </div>
             ) : (
@@ -669,7 +657,6 @@ const ProjetoBiquiniBranco = () => {
   const loadTestimonials = async () => {
     setLoadingTestimonials(true);
     try {
-      // Featured
       const { data: featured } = await supabase
         .from('testimonials')
         .select('*')
@@ -680,7 +667,6 @@ const ProjetoBiquiniBranco = () => {
         .limit(6);
       setFeaturedTestimonials(featured || []);
 
-      // Community (non-featured)
       const { data: community } = await supabase
         .from('testimonials')
         .select('*')
@@ -700,10 +686,6 @@ const ProjetoBiquiniBranco = () => {
   const handleWhatsApp = (message = '') => {
     const msg = message || 'Olá! Quero saber mais sobre o Projeto Biquíni Branco e transformar meu corpo! 💪';
     window.open(`https://wa.me/${projectData?.whatsappNumber || '5591980124814'}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleInstagram = () => {
-    window.open(projectData?.instagramUrl || 'https://www.instagram.com/dr_wylkem_raiol/', '_blank', 'noopener,noreferrer');
   };
 
   const handleCTA = (planName = '') => {
@@ -752,462 +734,443 @@ const ProjetoBiquiniBranco = () => {
         message="Olá! Quero saber mais sobre o Projeto Biquíni Branco!"
       />
 
-      <div className="space-y-16 -mt-8">
+      <div className="max-w-6xl mx-auto space-y-8 pb-8">
         
-        {/* ==================== HERO PREMIUM ==================== */}
-        <section className="relative -mx-8 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-rose-500 to-pink-600" />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
-          <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-24 right-20 text-white/20 animate-bounce" style={{ animationDuration: '3s' }}>
-            <Flame className="w-16 h-16" />
+        {/* ==================== HERO PREMIUM - STYLE LIKE EDITOR ==================== */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-pink-600 via-rose-500 to-orange-500 p-8 md:p-12 text-white shadow-2xl">
+          {/* Background elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24 blur-2xl" />
+          <div className="absolute top-1/2 right-1/4 opacity-20">
+            <Flame className="w-32 h-32" />
+          </div>
+          <div className="absolute bottom-1/4 left-1/4 opacity-10">
+            <Heart className="w-24 h-24" />
           </div>
           
-          <div className="relative z-10 px-8 py-20 md:py-28 text-white text-center">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full mb-8 border border-white/30 shadow-xl">
-              <Sparkles className="w-5 h-5 text-yellow-300" />
+          <div className="relative z-10 text-center">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full mb-6 border border-white/30">
+              <Crown className="w-5 h-5 text-yellow-300" />
               <span className="font-bold text-sm tracking-wide">PROJETO EXCLUSIVO</span>
-              <Sparkles className="w-5 h-5 text-yellow-300" />
+              <Badge className="bg-white/20 text-white border-0 text-[10px]">PRO</Badge>
             </div>
             
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 drop-shadow-2xl tracking-tight">
-              <span className="bg-gradient-to-r from-white via-yellow-100 to-white bg-clip-text text-transparent">
-                {projectData.projectName.toUpperCase()}
-              </span>
+            {/* Title */}
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-4 tracking-tight">
+              {projectData.projectName.toUpperCase()}
             </h1>
             
-            <div className="inline-flex items-center gap-3 mb-6">
+            {/* Subtitle */}
+            <div className="inline-flex items-center gap-3 mb-4">
               <div className="h-px w-12 bg-gradient-to-r from-transparent to-yellow-300" />
-              <h2 className="text-2xl md:text-3xl font-bold text-yellow-300 tracking-widest">
+              <h2 className="text-xl md:text-2xl font-bold text-yellow-300 tracking-widest">
                 {projectData.heroSubtitle}
               </h2>
               <div className="h-px w-12 bg-gradient-to-l from-transparent to-yellow-300" />
             </div>
             
-            <p className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto text-white/90 leading-relaxed font-medium">
+            {/* Tagline */}
+            <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-white/90 leading-relaxed">
               {projectData.heroTagline}
             </p>
             
-            <div className="flex flex-col items-center gap-4">
-              <Button 
-                onClick={() => handleCTA()}
-                className="group relative bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xl px-12 py-8 rounded-full shadow-2xl shadow-green-900/30 transform hover:scale-105 transition-all duration-300 border-2 border-white/20"
-                size="lg"
-              >
-                <MessageCircle className="mr-3 relative z-10" size={26} />
-                <span className="relative z-10 font-bold">{projectData.ctaMain}</span>
-                <ChevronRight className="ml-2 relative z-10 group-hover:translate-x-1 transition-transform" size={24} />
-              </Button>
-              
-              <div className="flex items-center gap-3">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-300"></span>
-                </span>
-                <p className="text-yellow-300 font-bold text-lg">{projectData.ctaUrgency}</p>
-              </div>
+            {/* CTA */}
+            <a
+              href={`https://wa.me/${projectData.whatsappNumber}?text=${encodeURIComponent('Olá! Quero saber mais sobre o Projeto Biquíni Branco e transformar meu corpo! 💪')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center bg-white text-pink-600 hover:bg-white/90 text-lg px-10 py-5 rounded-full shadow-xl font-bold transition-all duration-300 hover:scale-105"
+            >
+              <MessageCircle className="mr-3" size={24} />
+              {projectData.ctaMain}
+              <ChevronRight className="ml-2" size={22} />
+            </a>
+            
+            {/* Urgency */}
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-300"></span>
+              </span>
+              <p className="text-yellow-300 font-bold">{projectData.ctaUrgency}</p>
             </div>
             
-            <div className="mt-12 flex flex-wrap justify-center gap-8 md:gap-16">
+            {/* Stats - like editor */}
+            <div className="grid grid-cols-3 gap-4 mt-10 max-w-lg mx-auto">
               {[
                 { value: '500+', label: 'Transformações' },
                 { value: '98%', label: 'Satisfação' },
                 { value: '12kg', label: 'Média perdida' }
               ].map((stat, i) => (
-                <div key={i} className="text-center">
-                  <p className="text-4xl md:text-5xl font-black text-white">{stat.value}</p>
-                  <p className="text-sm text-white/70 font-medium mt-1">{stat.label}</p>
+                <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+                  <p className="text-2xl md:text-3xl font-bold">{stat.value}</p>
+                  <p className="text-xs text-white/70">{stat.label}</p>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* ==================== MITOS / VERDADES ==================== */}
-        <section className="max-w-5xl mx-auto px-4">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-8 md:p-12 shadow-2xl border border-gray-700">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl" />
-            <div className="relative z-10">
-              <div className="text-center mb-10">
-                <div className="inline-flex items-center gap-2 bg-yellow-500/20 px-4 py-2 rounded-full mb-4">
-                  <Shield className="w-5 h-5 text-yellow-400" />
-                  <span className="text-yellow-400 font-bold text-sm">IMPORTANTE</span>
+        {/* ==================== VERDADES - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-500" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{projectData.sectionTitles?.myths || '⚠️ VERDADES QUE NINGUÉM TE CONTA'}</CardTitle>
+                <p className="text-gray-500 text-sm">Pontos importantes sobre emagrecimento real</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-4">
+            {projectData.myths.map((myth, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-amber-50 transition-colors">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
+                  <Check className="w-4 h-4" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-black text-white mb-2">
-                  {projectData.sectionTitles?.myths || '⚠️ VERDADES QUE NINGUÉM TE CONTA'}
-                </h2>
+                <p className="text-gray-700 font-medium">{myth}</p>
               </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                {projectData.myths.map((myth, index) => (
-                  <div key={index} className="group flex items-start gap-4 bg-white/5 backdrop-blur-sm p-5 rounded-2xl border border-white/10 hover:border-green-500/50 hover:bg-white/10 transition-all duration-300">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30 group-hover:scale-110 transition-transform">
-                      <Check className="text-white w-5 h-5" />
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* ==================== BENEFÍCIOS - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                <Gift className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{projectData.sectionTitles?.benefits || '✅ O QUE VOCÊ VAI TER'}</CardTitle>
+                <p className="text-gray-500 text-sm">Benefícios exclusivos do programa</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              {projectData.benefits.map((benefit, index) => {
+                const Icon = getIcon(benefit.icon);
+                return (
+                  <div key={index} className="p-5 bg-gradient-to-br from-pink-50 to-orange-50 rounded-2xl border border-pink-100 hover:shadow-md transition-all text-center">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                      <Icon className="w-7 h-7" />
                     </div>
-                    <p className="text-lg text-white/90 font-medium leading-relaxed pt-1">{myth}</p>
+                    <h3 className="font-bold text-gray-900 mb-1">{benefit.text}</h3>
+                    {benefit.detail && <p className="text-sm text-gray-500">{benefit.detail}</p>}
                   </div>
-                ))}
+                );
+              })}
+            </div>
+            
+            {/* Biweekly tasks */}
+            <div className="mt-6 p-4 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-2xl text-white flex flex-wrap items-center justify-center gap-4">
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                <span className="font-bold">A cada 15 dias:</span>
+              </div>
+              {projectData.biweeklyTasks.map((task, index) => (
+                <span key={index} className="bg-white/20 px-4 py-1.5 rounded-full text-sm font-medium">✓ {task}</span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ==================== SUPORTE - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-purple-500 to-indigo-600" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{projectData.sectionTitles?.support || '👥 SUPORTE EXCLUSIVO EM 2 GRUPOS'}</CardTitle>
+                <p className="text-gray-500 text-sm">Você não vai estar sozinha nessa jornada!</p>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ==================== BENEFÍCIOS ==================== */}
-        <section className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-pink-100 px-4 py-2 rounded-full mb-4">
-              <Gift className="w-5 h-5 text-pink-600" />
-              <span className="text-pink-600 font-bold text-sm">BENEFÍCIOS EXCLUSIVOS</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
-              {projectData.sectionTitles?.benefits || '✅ O QUE VOCÊ VAI TER'}
-            </h2>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-6 mb-10">
-            {projectData.benefits.map((benefit, index) => {
-              const Icon = getIcon(benefit.icon);
-              return (
-                <div key={index} className="group relative overflow-hidden rounded-3xl bg-white border-2 border-gray-100 hover:border-pink-300 shadow-lg hover:shadow-2xl hover:shadow-pink-100 transition-all duration-500 hover:-translate-y-2">
-                  <div className="relative p-8 text-center">
-                    <div className="relative mx-auto mb-6">
-                      <div className="absolute inset-0 bg-gradient-to-br from-pink-500 to-orange-500 rounded-2xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity" />
-                      <div className="relative w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-300">
-                        <Icon className="text-white w-10 h-10" />
-                      </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid md:grid-cols-3 gap-4">
+              {projectData.supportGroups.map((group, index) => {
+                const Icon = getIcon(group.icon);
+                return (
+                  <div key={index} className="p-5 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl border border-purple-100 hover:shadow-md transition-all text-center">
+                    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                      <Icon className="w-7 h-7" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">{benefit.text}</h3>
-                    {benefit.detail && <p className="text-gray-500 text-sm">{benefit.detail}</p>}
+                    <h3 className="font-bold text-gray-900 mb-1">{group.text}</h3>
+                    {group.detail && <p className="text-sm text-gray-500">{group.detail}</p>}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-500 via-emerald-500 to-green-500 p-1 shadow-2xl">
-            <div className="relative z-10 px-8 py-6 flex flex-col md:flex-row items-center justify-center gap-6 text-white">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <Camera className="w-7 h-7" />
-                </div>
-                <span className="text-2xl font-bold">{projectData.sectionTitles?.biweekly || 'A cada 15 dias:'}</span>
+        {/* ==================== PLANOS - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden" id="planos">
+          <div className="h-2 bg-gradient-to-r from-amber-500 to-orange-600" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg">
+                <Crown className="w-6 h-6" />
               </div>
-              <div className="flex flex-wrap gap-3 justify-center">
-                {projectData.biweeklyTasks.map((task, index) => (
-                  <span key={index} className="bg-white/20 backdrop-blur-sm px-5 py-2.5 rounded-full font-semibold border border-white/30">✓ {task}</span>
-                ))}
+              <div>
+                <CardTitle className="text-xl">{projectData.sectionTitles?.plans || '🏆 PLANOS DE SUCESSO'}</CardTitle>
+                <p className="text-gray-500 text-sm">Escolha o plano ideal para sua transformação</p>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ==================== SUPORTE EXCLUSIVO ==================== */}
-        <section className="max-w-5xl mx-auto px-4">
-          <div className="relative overflow-hidden rounded-3xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-            <div className="relative z-10 px-8 py-14 text-white text-center">
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6 border border-white/30">
-                <Users className="w-5 h-5" />
-                <span className="font-bold text-sm">COMUNIDADE EXCLUSIVA</span>
-              </div>
-              <h2 className="text-3xl md:text-4xl font-black mb-3">
-                {projectData.sectionTitles?.support || '👥 SUPORTE EXCLUSIVO EM 2 GRUPOS'}
-              </h2>
-              <p className="text-xl text-purple-200 mb-10">
-                {projectData.sectionTitles?.supportSubtitle || 'Você não vai estar sozinha nessa jornada!'}
-              </p>
-              <div className="grid md:grid-cols-3 gap-6">
-                {projectData.supportGroups.map((group, index) => {
-                  const Icon = getIcon(group.icon);
-                  return (
-                    <div key={index} className="group bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:-translate-y-1">
-                      <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <p className="font-bold text-lg mb-1">{group.text}</p>
-                      {group.detail && <p className="text-sm text-purple-200">{group.detail}</p>}
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="grid md:grid-cols-3 gap-6">
+              {projectData.plans.filter(plan => plan.active !== false).map((plan, index) => (
+                <div key={index} className={`relative rounded-2xl overflow-hidden border-2 transition-all hover:shadow-xl
+                  ${plan.highlight ? 'border-pink-400 shadow-lg shadow-pink-100' : 'border-gray-200'}`}
+                >
+                  {/* Top bar */}
+                  <div className={`h-2 bg-gradient-to-r ${plan.gradient}`} />
+                  
+                  {/* Badge */}
+                  {plan.badge && (
+                    <div className="absolute top-4 right-4">
+                      <Badge className={`bg-gradient-to-r ${plan.gradient} text-white border-0 shadow-lg text-[10px]`}>
+                        {plan.highlight ? <Flame className="w-3 h-3 mr-1" /> : <Gem className="w-3 h-3 mr-1" />}
+                        {plan.badge}
+                      </Badge>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ==================== PLANOS PREMIUM ==================== */}
-        <section className="max-w-6xl mx-auto px-4" id="planos">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-amber-100 px-4 py-2 rounded-full mb-4">
-              <Crown className="w-5 h-5 text-amber-600" />
-              <span className="text-amber-600 font-bold text-sm">INVESTIMENTO</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
-              {projectData.sectionTitles?.plans || '🏆 PLANOS DE SUCESSO'}
-            </h2>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-            {projectData.plans.filter(plan => plan.active !== false).map((plan, index) => (
-              <div key={index} className={`relative group ${plan.highlight ? 'md:-mt-6 md:mb-6' : ''}`}>
-                {plan.badge && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
-                    <div className={`px-5 py-1.5 bg-gradient-to-r ${plan.gradient} rounded-full text-white text-xs font-bold shadow-lg flex items-center gap-1.5`}>
-                      {plan.highlight ? <Flame className="w-3.5 h-3.5" /> : <Gem className="w-3.5 h-3.5" />}
-                      {plan.badge}
-                    </div>
-                  </div>
-                )}
-                <Card className={`relative overflow-hidden transition-all duration-500 h-full
-                  ${plan.highlight ? 'border-4 border-pink-400 shadow-2xl shadow-pink-200/50 bg-gradient-to-br from-pink-50 to-white' : 'border-2 border-gray-200 hover:border-gray-300 shadow-lg hover:shadow-xl bg-white'}
-                `}>
-                  <div className={`absolute top-0 left-0 right-0 h-2 bg-gradient-to-r ${plan.gradient}`} />
-                  <CardContent className="pt-10 pb-8 px-6">
-                    <div className="text-center mb-6">
-                      <h3 className="text-2xl font-black text-gray-900 mb-2">{plan.name}</h3>
-                      <span className={`text-5xl font-black bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>{plan.price}</span>
-                      <p className="text-sm text-gray-500 mt-1">{plan.priceNote}</p>
-                      <p className={`font-bold mt-2 bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>{plan.tagline}</p>
-                    </div>
-                    <div className="space-y-3 mb-8">
+                  )}
+                  
+                  <div className="p-6 text-center">
+                    <h3 className="text-xl font-black text-gray-900 mb-2">{plan.name}</h3>
+                    <p className={`text-4xl font-black bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>{plan.price}</p>
+                    <p className="text-sm text-gray-500 mt-1">{plan.priceNote}</p>
+                    <p className={`font-bold text-sm mt-2 bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>{plan.tagline}</p>
+                    
+                    <div className="my-5 space-y-2">
                       {plan.features.map((feature, fIndex) => (
-                        <div key={fIndex} className="flex items-center gap-3">
-                          <div className={`flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br ${plan.gradient} flex items-center justify-center`}>
-                            <Check className="text-white w-3.5 h-3.5" />
+                        <div key={fIndex} className="flex items-center gap-2 text-left">
+                          <div className={`w-5 h-5 rounded-full bg-gradient-to-br ${plan.gradient} flex items-center justify-center flex-shrink-0`}>
+                            <Check className="w-3 h-3 text-white" />
                           </div>
-                          <span className="text-gray-700 font-medium">{feature}</span>
+                          <span className="text-sm text-gray-700">{feature}</span>
                         </div>
                       ))}
                     </div>
-                    <Button 
-                      onClick={() => handleCTA(plan.name)}
-                      className={`w-full py-7 text-lg font-bold rounded-xl transition-all duration-300
-                        ${plan.highlight ? `bg-gradient-to-r ${plan.gradient} hover:opacity-90 shadow-lg shadow-pink-300/30` : 'bg-gray-900 hover:bg-gray-800'} text-white
-                      `}
+                    
+                    <a
+                      href={`https://wa.me/${projectData.whatsappNumber}?text=${encodeURIComponent(`Olá! Quero participar do Projeto Biquíni Branco - Plano ${plan.name}! 🔥`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-full inline-flex items-center justify-center py-4 rounded-xl font-bold text-white transition-all
+                        bg-gradient-to-r ${plan.gradient} hover:opacity-90 shadow-lg`}
                     >
                       QUERO ESSE PLANO
-                      <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20} />
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ==================== RESULTADOS REAIS DA COMUNIDADE ==================== */}
-        <section className="max-w-6xl mx-auto px-4" id="depoimentos">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-100 to-purple-100 px-4 py-2 rounded-full mb-4">
-              <MessageSquareQuote className="w-5 h-5 text-pink-600" />
-              <span className="text-pink-600 font-bold text-sm">COMUNIDADE</span>
+                      <ArrowRight className="ml-2 w-5 h-5" />
+                    </a>
+                  </div>
+                </div>
+              ))}
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-2">
-              Resultados Reais da Comunidade
-            </h2>
-            <p className="text-gray-600 text-lg">
-              Depoimentos reais de pacientes que autorizaram a publicação
-            </p>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Depoimentos em Destaque */}
-          {featuredTestimonials.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Star className="w-6 h-6 text-amber-500 fill-current" />
-                  Depoimentos em Destaque
-                </h3>
-                <Button variant="outline" onClick={scrollToForm} className="border-pink-300 text-pink-600 hover:bg-pink-50">
-                  <Send className="w-4 h-4 mr-2" />
-                  Enviar meu depoimento
-                </Button>
+        {/* ==================== DEPOIMENTOS - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden" id="depoimentos">
+          <div className="h-2 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 flex items-center justify-center text-white shadow-lg">
+                  <MessageSquareQuote className="w-6 h-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Resultados Reais da Comunidade</CardTitle>
+                  <p className="text-gray-500 text-sm">Depoimentos reais de pacientes que autorizaram a publicação</p>
+                </div>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredTestimonials.map(t => (
-                  <TestimonialCard key={t.id} testimonial={t} featured />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mural da Comunidade */}
-          <div className="mb-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Users className="w-6 h-6 text-purple-500" />
-                Mural da Comunidade
-                {communityTestimonials.length > 0 && (
-                  <Badge className="bg-purple-100 text-purple-700 border-0 ml-2">
-                    +{featuredTestimonials.length + communityTestimonials.length} depoimentos
-                  </Badge>
-                )}
-              </h3>
-              <div className="flex gap-2">
-                {[
-                  { value: 'recent', label: 'Mais Recentes' },
-                  { value: 'results', label: 'Maior Transformação' }
-                ].map(f => (
-                  <button
-                    key={f.value}
-                    onClick={() => setTestimonialFilter(f.value)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all
-                      ${testimonialFilter === f.value 
-                        ? 'bg-purple-600 text-white' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {loadingTestimonials ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse" />
-                ))}
-              </div>
-            ) : sortedCommunityTestimonials.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedCommunityTestimonials.map(t => (
-                  <TestimonialCard key={t.id} testimonial={t} />
-                ))}
-              </div>
-            ) : featuredTestimonials.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
-                <MessageSquareQuote className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">Nenhum depoimento publicado ainda.</p>
-                <Button onClick={scrollToForm} className="bg-gradient-to-r from-pink-500 to-purple-500 text-white">
-                  Seja o primeiro a compartilhar!
-                </Button>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Formulário de Envio */}
-          {showTestimonialForm ? (
-            <TestimonialForm 
-              projectId="biquini_branco" 
-              whatsappNumber={projectData.whatsappNumber}
-              onSuccess={loadTestimonials}
-            />
-          ) : (
-            <div className="text-center">
-              <Button 
-                onClick={scrollToForm}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-6 text-lg font-bold rounded-xl shadow-lg"
-              >
-                <Send className="w-5 h-5 mr-2" />
-                Quero enviar meu depoimento
+              <Button onClick={scrollToForm} className="bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 text-white hover:opacity-90">
+                <Send className="w-4 h-4 mr-2" />
+                Enviar meu depoimento
               </Button>
             </div>
-          )}
-        </section>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-6">
+            {/* Featured */}
+            {featuredTestimonials.length > 0 && (
+              <div>
+                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-500 fill-current" />
+                  Depoimentos em Destaque
+                </h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {featuredTestimonials.map(t => <TestimonialCard key={t.id} testimonial={t} featured />)}
+                </div>
+              </div>
+            )}
 
-        {/* ==================== FAQ PREMIUM ==================== */}
-        <section className="max-w-3xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-2 bg-indigo-100 px-4 py-2 rounded-full mb-4">
-              <MessageCircle className="w-5 h-5 text-indigo-600" />
-              <span className="text-indigo-600 font-bold text-sm">DÚVIDAS</span>
+            {/* Community */}
+            <div>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-purple-500" />
+                  Mural da Comunidade
+                  {(featuredTestimonials.length + communityTestimonials.length) > 0 && (
+                    <Badge className="bg-purple-100 text-purple-700 border-0 ml-2">
+                      +{featuredTestimonials.length + communityTestimonials.length} depoimentos
+                    </Badge>
+                  )}
+                </h3>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'recent', label: 'Mais Recentes' },
+                    { value: 'results', label: 'Maior Transformação' }
+                  ].map(f => (
+                    <button
+                      key={f.value}
+                      onClick={() => setTestimonialFilter(f.value)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                        ${testimonialFilter === f.value ? 'bg-pink-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingTestimonials ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => <div key={i} className="h-48 bg-gray-100 rounded-2xl animate-pulse" />)}
+                </div>
+              ) : sortedCommunityTestimonials.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedCommunityTestimonials.map(t => <TestimonialCard key={t.id} testimonial={t} />)}
+                </div>
+              ) : featuredTestimonials.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                  <MessageSquareQuote className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-4">Nenhum depoimento publicado ainda.</p>
+                  <Button onClick={scrollToForm} className="bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 text-white">
+                    Seja o primeiro a compartilhar!
+                  </Button>
+                </div>
+              ) : null}
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900">
-              {projectData.sectionTitles?.faq || '❓ PERGUNTAS FREQUENTES'}
-            </h2>
-          </div>
-          
-          <div className="space-y-4">
+
+            {/* Form */}
+            {showTestimonialForm && (
+              <TestimonialForm 
+                projectId="biquini_branco" 
+                whatsappNumber={projectData.whatsappNumber}
+                onSuccess={loadTestimonials}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ==================== FAQ - CARD STYLE ==================== */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-teal-500 to-cyan-500" />
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg">
+                <MessageCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{projectData.sectionTitles?.faq || '❓ PERGUNTAS FREQUENTES'}</CardTitle>
+                <p className="text-gray-500 text-sm">Tire suas dúvidas sobre o programa</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4 space-y-3">
             {projectData.faq.map((item, index) => (
               <div 
                 key={index}
-                className={`overflow-hidden rounded-2xl border-2 transition-all duration-300 cursor-pointer
-                  ${expandedFaq === index ? 'border-pink-400 shadow-lg shadow-pink-100 bg-gradient-to-br from-pink-50 to-white' : 'border-gray-200 bg-white hover:border-pink-200 hover:shadow-md'}
-                `}
+                className={`rounded-xl border-2 transition-all cursor-pointer overflow-hidden
+                  ${expandedFaq === index ? 'border-teal-400 shadow-md bg-teal-50' : 'border-gray-200 hover:border-teal-200'}`}
                 onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
               >
-                <div className="p-5 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-gray-900 pr-4">{item.question}</h3>
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
-                    ${expandedFaq === index ? 'bg-gradient-to-br from-pink-500 to-rose-500 text-white rotate-180' : 'bg-gray-100 text-gray-400'}
-                  `}>
+                <div className="p-4 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-900 pr-4">{item.question}</h3>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all
+                    ${expandedFaq === index ? 'bg-teal-500 text-white rotate-180' : 'bg-gray-100 text-gray-400'}`}>
                     <ChevronDown className="w-5 h-5" />
                   </div>
                 </div>
                 {expandedFaq === index && (
-                  <div className="px-5 pb-5 pt-0">
-                    <div className="p-4 bg-white rounded-xl border border-pink-100">
-                      <p className="text-gray-700 leading-relaxed">{item.answer}</p>
-                    </div>
+                  <div className="px-4 pb-4">
+                    <p className="text-gray-700 bg-white p-3 rounded-lg border border-teal-100">{item.answer}</p>
                   </div>
                 )}
               </div>
             ))}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        {/* ==================== CTA FINAL + CONTATO ==================== */}
-        <section className="max-w-5xl mx-auto px-4 pb-8">
-          <div className="relative overflow-hidden rounded-3xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-rose-500 to-pink-600" />
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-            <div className="absolute top-1/2 left-1/4 opacity-20">
-              <Heart className="w-24 h-24 text-white" />
+        {/* ==================== CTA FINAL - CARD STYLE ==================== */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-pink-600 via-rose-500 to-orange-500 p-8 md:p-12 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24 blur-2xl" />
+          <div className="absolute top-1/2 left-1/4 opacity-10">
+            <Heart className="w-32 h-32" />
+          </div>
+          
+          <div className="relative z-10 text-center">
+            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6 border border-white/30">
+              <PartyPopper className="w-5 h-5 text-yellow-300" />
+              <span className="font-bold text-sm">SUA VEZ CHEGOU</span>
             </div>
             
-            <div className="relative z-10 px-8 py-16 text-center text-white">
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-5 py-2 rounded-full mb-6 border border-white/30">
-                <PartyPopper className="w-5 h-5 text-yellow-300" />
-                <span className="font-bold text-sm">SUA VEZ CHEGOU</span>
-              </div>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-6 max-w-2xl mx-auto leading-tight">
+              {projectData.ctaEmotional}
+            </h2>
+            
+            <p className="text-lg mb-8 text-white/90 max-w-xl mx-auto">
+              {projectData.ctaFinal || 'Centenas de mulheres já transformaram suas vidas. Agora é sua vez!'}
+            </p>
+            
+            {/* Contact Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a
+                href={`https://wa.me/${projectData.whatsappNumber}?text=${encodeURIComponent('Olá! Quero saber mais sobre o Projeto Biquíni Branco e transformar meu corpo! 💪')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center bg-white text-pink-600 hover:bg-white/90 text-lg px-10 py-5 rounded-full shadow-xl font-bold transition-all"
+              >
+                <MessageCircle className="mr-3" size={24} />
+                FALAR NO WHATSAPP
+                <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
+              </a>
               
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-6 max-w-3xl mx-auto leading-tight">
-                {projectData.ctaEmotional}
-              </h2>
-              
-              <p className="text-xl mb-10 text-white/90 max-w-2xl mx-auto">
-                {projectData.ctaFinal || 'Centenas de mulheres já transformaram suas vidas. Agora é sua vez!'}
+              <a
+                href={projectData.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border-2 border-white/40 text-lg px-8 py-5 rounded-full transition-all font-bold"
+              >
+                <Instagram className="mr-3" size={22} />
+                VER NO INSTAGRAM
+                <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
+              </a>
+            </div>
+            
+            {/* Urgency */}
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <span className="relative flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-300"></span>
+              </span>
+              <p className="text-yellow-300 font-black text-lg">
+                ⚠️ VAGAS LIMITADAS - GARANTA A SUA AGORA!
               </p>
-              
-              {/* Botões de Contato */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
-                  href={`https://wa.me/${projectData.whatsappNumber}?text=${encodeURIComponent('Olá! Quero saber mais sobre o Projeto Biquíni Branco e transformar meu corpo! 💪')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex items-center justify-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xl px-12 py-6 rounded-full shadow-2xl shadow-green-900/40 transition-all duration-300 border-2 border-white/20 font-bold"
-                >
-                  <MessageCircle className="mr-3" size={26} />
-                  FALAR NO WHATSAPP
-                  <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
-                </a>
-                
-                <a
-                  href={projectData.instagramUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border-2 border-white/40 text-xl px-10 py-6 rounded-full transition-all duration-300 font-bold"
-                >
-                  <Instagram className="mr-3" size={24} />
-                  VER NO INSTAGRAM
-                  <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
-                </a>
-              </div>
-              
-              <div className="mt-10 flex items-center justify-center gap-3">
-                <span className="relative flex h-4 w-4">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-300"></span>
-                </span>
-                <p className="text-yellow-300 font-black text-xl animate-pulse">
-                  ⚠️ VAGAS LIMITADAS - GARANTA A SUA AGORA!
-                </p>
-              </div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </Layout>
   );
