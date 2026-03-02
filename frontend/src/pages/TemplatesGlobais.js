@@ -226,33 +226,31 @@ const TemplatesGlobais = () => {
 
   return (
     <Layout title="Templates Globais" showBack userType="professional">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6 pb-8">
         
-        {/* Header */}
-        <Card className="bg-gradient-to-r from-teal-700 to-teal-600 text-white">
-          <CardContent className="py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
-                  <Sparkles size={28} />
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-violet-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                    <Sparkles className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Templates Globais</h1>
+                    <p className="text-purple-300 text-sm">Conteudos aplicados automaticamente a todos os seus pacientes</p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold">Templates Globais</h1>
-                  <p className="text-teal-100 mt-1">
-                    Crie conteúdos que são aplicados automaticamente a todos os seus pacientes
-                  </p>
-                </div>
-              </div>
-              <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-                <DialogTrigger asChild>
-                  <Button 
-                    className="bg-white text-teal-700 hover:bg-teal-50"
-                    data-testid="create-template-btn"
-                  >
-                    <Plus className="mr-2" size={18} />
-                    Criar Template
-                  </Button>
-                </DialogTrigger>
+                <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-sm shadow-lg" data-testid="create-template-btn">
+                      <Plus className="mr-2" size={18} />
+                      Criar Template
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
