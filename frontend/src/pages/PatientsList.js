@@ -308,7 +308,40 @@ const PatientsList = () => {
 
   return (
     <Layout title="Pacientes" userType={profile?.role || 'professional'}>
-      <div data-testid="patients-list" className="space-y-6">
+      <div data-testid="patients-list" className="max-w-7xl mx-auto space-y-6 pb-8">
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                  <Users className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight">Meus Pacientes</h1>
+                  <p className="text-blue-300 text-sm">Gerencie e acompanhe seus pacientes</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 max-w-lg">
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{patients.filter(p => p.status === 'active').length}</p>
+                  <p className="text-xs text-white/60">Ativos</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{patients.filter(p => p.status !== 'active').length}</p>
+                  <p className="text-xs text-white/60">Inativos</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{patients.length}</p>
+                  <p className="text-xs text-white/60">Total</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Header com busca e filtros */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative flex-1 min-w-[200px] max-w-md">
