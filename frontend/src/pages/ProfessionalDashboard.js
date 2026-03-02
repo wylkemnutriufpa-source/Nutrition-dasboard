@@ -21,6 +21,8 @@ import MealAnalysisSection from '@/components/dashboard/MealAnalysisSection';
 import BodyAnalysisSection from '@/components/dashboard/BodyAnalysisSection';
 import ProfessionalJourneyBanner from '@/components/dashboard/ProfessionalJourneyBanner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
+import { getAutomationRules } from '@/lib/supabase';
+import { runAutomationEngine } from '@/utils/automationEngine';
 
 /** Wrapper de animação com delay escalonado */
 const AnimatedSection = ({ children, delay = 0, className = '' }) => (
@@ -56,6 +58,26 @@ const ProfessionalDashboard = () => {
     if (chartData?.length > 0) trackProfessionalFeature('view_engagement_chart');
     if (recommendations?.length > 0) trackProfessionalFeature('view_smart_recommendations');
   }, [riskRanking, chartData, recommendations]);
+
+  // Executar motor de automação ao carregar dashboard
+  React.useEffect(() => {
+    const runAutomations = async () => {
+      if (!profile?.id || !patientsWithScore?.length || loading) return;
+      try {
+        const { data: rules } = await getAutomationRules(profile.id);
+        if (rules?.length > 0) {
+          const { executed } = await runAutomationEngine(rules, patientsWithScore, profile.id);
+          if (executed > 0) {
+            console.log(`🤖 Automação: ${executed} ações executadas no carregamento do dashboard`);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao executar automações:', err);
+      }
+    };
+    runAutomations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, loading]);
 
   // Handlers de ações rápidas
   const handleQuickAction = (action) => {

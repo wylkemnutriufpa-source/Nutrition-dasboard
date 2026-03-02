@@ -3,7 +3,8 @@ import {
   Home, Users, Calendar, Calculator, FileText, Settings, LogOut, 
   Database, Palette, Shield, ClipboardList, MessageSquare, Stethoscope,
   UserCog, Activity, ShoppingCart, ChefHat, Pill, Lightbulb, TrendingUp,
-  Sparkles, DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User
+  Sparkles, DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User,
+  Bot, BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBranding } from '@/contexts/BrandingContext';
@@ -15,7 +16,8 @@ const iconMap = {
   Home, Calendar, ClipboardList, MessageSquare, ShoppingCart,
   ChefHat, Pill, Lightbulb, TrendingUp, Calculator, Settings,
   Users, Database, Palette, Shield, UserCog, Activity, Sparkles,
-  DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User
+  DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User,
+  Bot, BarChart3
 };
 
 const Sidebar = ({ userType, onLogout, patientId }) => {
@@ -73,6 +75,8 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
+    { to: '/professional/automations', icon: Bot, label: 'Automações', premium: true },
+    { to: '/professional/reports', icon: BarChart3, label: 'Relatórios', premium: true },
     { to: '/professional/guide', icon: Book, label: 'Central de Recursos', premium: true }
   ];
 

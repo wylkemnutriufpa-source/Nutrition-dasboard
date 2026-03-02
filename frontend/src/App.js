@@ -11,6 +11,8 @@ import AdminDashboard from '@/pages/AdminDashboard';
 import AdminProjetoEditor from '@/pages/AdminProjetoEditor';
 import ProfessionalDashboard from '@/pages/ProfessionalDashboard';
 import PlatformGuide from '@/pages/PlatformGuide';
+import AutomationCenter from '@/pages/AutomationCenter';
+import WeeklyReport from '@/pages/WeeklyReport';
 import PatientsList from '@/pages/PatientsList';
 import PatientProfile from '@/pages/PatientProfile';
 import MealPlanEditor from '@/pages/MealPlanEditor';
@@ -173,6 +175,16 @@ function App() {
               <Route path="/professional/guide" element={
                 <ProtectedRoute allowedTypes={['professional', 'admin']}>
                   <PlatformGuide />
+                </ProtectedRoute>
+              } />
+              <Route path="/professional/automations" element={
+                <ProtectedRoute allowedTypes={['professional', 'admin']}>
+                  <AutomationCenter />
+                </ProtectedRoute>
+              } />
+              <Route path="/professional/reports" element={
+                <ProtectedRoute allowedTypes={['professional', 'admin']}>
+                  <WeeklyReport />
                 </ProtectedRoute>
               } />
               

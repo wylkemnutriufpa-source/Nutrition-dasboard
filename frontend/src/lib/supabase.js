@@ -3681,3 +3681,158 @@ export const getBodyPhotoSignedUrl = async (path) => {
     return { url: null, error: { message: err.message } };
   }
 };
+
+
+
+// ==================== AUTOMATION RULES ====================
+
+/**
+ * Buscar todas as regras de automação do profissional
+ */
+export const getAutomationRules = async (professionalId) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_rules')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .order('created_at', { ascending: false });
+    return { data: data || [], error };
+  } catch (error) {
+    console.error('Erro ao buscar automações:', error);
+    return { data: [], error };
+  }
+};
+
+/**
+ * Criar nova regra de automação
+ */
+export const createAutomationRule = async (ruleData) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_rules')
+      .insert(ruleData)
+      .select()
+      .single();
+    return { data, error };
+  } catch (error) {
+    console.error('Erro ao criar automação:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Atualizar regra de automação
+ */
+export const updateAutomationRule = async (ruleId, updates) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_rules')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', ruleId)
+      .select()
+      .single();
+    return { data, error };
+  } catch (error) {
+    console.error('Erro ao atualizar automação:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Deletar regra de automação
+ */
+export const deleteAutomationRule = async (ruleId) => {
+  try {
+    const { error } = await supabase
+      .from('automation_rules')
+      .delete()
+      .eq('id', ruleId);
+    return { error };
+  } catch (error) {
+    return { error };
+  }
+};
+
+/**
+ * Toggle ativo/inativo de regra
+ */
+export const toggleAutomationRule = async (ruleId, isActive) => {
+  return updateAutomationRule(ruleId, { is_active: isActive });
+};
+
+/**
+ * Atualizar contagem de execuções
+ */
+export const updateAutomationRuleExecution = async (ruleId) => {
+  try {
+    const { data: rule } = await supabase
+      .from('automation_rules')
+      .select('execution_count')
+      .eq('id', ruleId)
+      .single();
+
+    await supabase
+      .from('automation_rules')
+      .update({
+        execution_count: (rule?.execution_count || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', ruleId);
+  } catch (error) {
+    console.error('Erro ao atualizar execução:', error);
+  }
+};
+
+// ==================== AUTOMATION LOGS ====================
+
+/**
+ * Buscar logs de automação
+ */
+export const getAutomationLogs = async (professionalId, limit = 100) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_logs')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return { data: data || [], error };
+  } catch (error) {
+    console.error('Erro ao buscar logs:', error);
+    return { data: [], error };
+  }
+};
+
+/**
+ * Criar log de automação
+ */
+export const createAutomationLog = async (logData) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_logs')
+      .insert(logData)
+      .select()
+      .single();
+    return { data, error };
+  } catch (error) {
+    console.error('Erro ao criar log:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Contar execuções de hoje
+ */
+export const countTodayExecutions = async (professionalId) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { count, error } = await supabase
+      .from('automation_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('professional_id', professionalId)
+      .gte('created_at', today + 'T00:00:00');
+    return { count: count || 0, error };
+  } catch (error) {
+    return { count: 0, error };
+  }
+};

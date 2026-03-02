@@ -211,17 +211,64 @@ frontend:
         agent: "main"
         comment: "Removido campo priority do payload de createTemplate, formData, resetForm, openEditModal. Removido Select de prioridade e Badge de Alta Prioridade do UI."
 
-  - task: "Modal no calendário ao clicar no dia"
+  - task: "Central de Automações (Rules Engine)"
     implemented: true
     working: "unknown"
-    file: "/app/frontend/src/pages/AgendaPage.js"
+    file: "/app/frontend/src/pages/AutomationCenter.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "unknown"
         agent: "main"
-        comment: "Adicionado estado showDayModal. handleDayClick agora abre modal. Modal mostra todos eventos do dia ordenados por horário, com opções de editar/excluir/marcar. Removida seção estática de detalhes."
+        comment: |
+          Implementado completo:
+          - AutomationCenter.js: Página premium com 3 tabs (Minhas Automações, Templates, Histórico)
+          - automationEngine.js: Motor que avalia regras vs pacientes com cooldown
+          - 7 templates pré-configurados (inativo, checklist baixo, plano vencendo, onboarding, risco, feedback)
+          - CRUD completo para automation_rules + automation_logs
+          - Execução automática no carregamento do dashboard
+          - Botão "Executar Agora" manual
+          - Rota /professional/automations + link no Sidebar com badge PRO
+          SQL: /app/sql/automation_setup.sql precisa ser executado no Supabase
+
+  - task: "Relatório Semanal Automático"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/pages/WeeklyReport.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: |
+          Implementado completo:
+          - WeeklyReport.js: Página premium com header, stats cards, distribuição engajamento
+          - Top 5 melhor engajamento + Precisam de atenção
+          - Distribuição de risco clínico (barra visual)
+          - Recomendações da semana geradas automaticamente
+          - Navegação por semana (anterior/atual)
+          - Usa dados do useProfessionalDashboard (sem tabela extra)
+          - Rota /professional/reports + link no Sidebar com badge PRO
+
+  - task: "Onboarding Automatizado"
+    implemented: true
+    working: "unknown"
+    file: "/app/frontend/src/utils/automationEngine.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: |
+          Implementado como template de automação:
+          - Template "Onboarding Automático" na Central de Automações
+          - Trigger: new_patient (paciente criado recentemente)
+          - Ação: assign_templates (sincroniza templates + envia boas-vindas + solicita anamnese)
+          - Cria 2 notificações automáticas para o novo paciente
+          - Integrado ao motor que roda no dashboard load
 
 metadata:
   created_by: "main_agent"
