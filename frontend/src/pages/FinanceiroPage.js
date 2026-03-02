@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, DollarSign, Plus, Trash2,
-  Edit, Loader2, ArrowUpCircle, ArrowDownCircle, Filter
+  Edit, Loader2, ArrowUpCircle, ArrowDownCircle, Filter, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
