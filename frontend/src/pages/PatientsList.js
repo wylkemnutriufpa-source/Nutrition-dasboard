@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
-  Plus, Search, Loader2, User, Phone, Mail, Calendar, Ruler, Scale, Target,
+  Plus, Search, Loader2, User, Users, Phone, Mail, Calendar, Ruler, Scale, Target,
   MoreVertical, Eye, Edit, Archive, ClipboardList, Utensils, ArrowUpDown,
   Filter, Undo2
 } from 'lucide-react';
