@@ -367,8 +367,8 @@ const TemplatesGlobais = () => {
                 </DialogContent>
               </Dialog>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Info Box */}
         <Card className="border-teal-200 bg-teal-50">
