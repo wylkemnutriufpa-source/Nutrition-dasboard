@@ -92,6 +92,8 @@ const NotificationBell = () => {
         return '📈';
       case 'appointment':
         return '📅';
+      case 'emergency':
+        return '🆘';
       default:
         return '🔔';
     }
