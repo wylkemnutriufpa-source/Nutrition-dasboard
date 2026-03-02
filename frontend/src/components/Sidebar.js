@@ -233,6 +233,9 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
               {link.premium && !isActive && (
                 <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>
               )}
+              {link.badge && !isActive && (
+                <span className="text-[9px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full">{link.badge}</span>
+              )}
             </Link>
           );
         })}
