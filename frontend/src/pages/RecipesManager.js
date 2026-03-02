@@ -329,22 +329,44 @@ const RecipesManager = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <ChefHat className="w-7 h-7 text-teal-600" />
-              Gerenciar Receitas
-            </h1>
-            <p className="text-gray-600">
-              Crie receitas e controle quais pacientes podem visualizá-las
-            </p>
+      <div className="max-w-7xl mx-auto space-y-6 pb-8">
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-amber-900 to-orange-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                    <ChefHat className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Gerenciar Receitas</h1>
+                    <p className="text-amber-300 text-sm">Crie receitas e controle a visibilidade para seus pacientes</p>
+                  </div>
+                </div>
+                <Button onClick={() => setShowForm(true)} className="bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-sm shadow-lg">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Receita
+                </Button>
+              </div>
+              <div className="grid grid-cols-3 gap-4 max-w-lg mt-4">
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{filteredRecipes.length}</p>
+                  <p className="text-xs text-white/60">Receitas</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{categories.length}</p>
+                  <p className="text-xs text-white/60">Categorias</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{recipes.filter(r => r.is_global || r.visibility_mode === 'all').length}</p>
+                  <p className="text-xs text-white/60">Publicadas</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <Button onClick={() => setShowForm(true)} className="bg-teal-600 hover:bg-teal-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Receita
-          </Button>
         </div>
 
         {/* Filtros */}
