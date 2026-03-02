@@ -2239,6 +2239,30 @@ export const deleteNotification = async (notificationId) => {
   return { error };
 };
 
+/**
+ * Cria uma notificação para um usuário
+ */
+export const createNotification = async (userId, { title, message, type = 'general', link = null }) => {
+  try {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        title,
+        message,
+        type,
+        link,
+        is_read: false
+      })
+      .select()
+      .single();
+    return { data, error };
+  } catch (error) {
+    console.error('Erro ao criar notificação:', error);
+    return { data: null, error };
+  }
+};
+
 // ==================== RECIPES ====================
 
 export const getRecipes = async (professionalId = null, includeAll = true) => {
