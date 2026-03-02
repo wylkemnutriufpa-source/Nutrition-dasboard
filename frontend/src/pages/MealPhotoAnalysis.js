@@ -16,6 +16,7 @@ import {
   updateMealAnalysis,
   listPatientMealAnalyses
 } from '@/lib/supabase';
+import { trackProfessionalFeature } from '@/utils/featureTracking';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
