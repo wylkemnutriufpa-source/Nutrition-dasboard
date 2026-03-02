@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar, Clock, User,
-  Video, MapPin, Trash2, Edit, Loader2, Check
+  Video, MapPin, Trash2, Edit, Loader2, Check, CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
