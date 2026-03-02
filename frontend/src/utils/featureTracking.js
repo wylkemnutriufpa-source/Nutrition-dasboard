@@ -56,6 +56,7 @@ export const trackProfessionalFeature = (featureKey) => {
 
 /**
  * Execução real do tracking (async, isolado)
+ * Quando INSERT (primeiro uso), incrementa a meta mensal automaticamente
  */
 const _doTrack = async (featureKey) => {
   try {
@@ -76,6 +77,7 @@ const _doTrack = async (featureKey) => {
       .maybeSingle();
 
     if (existing) {
+      // UPDATE: feature já usada antes — apenas incrementar contagem
       await supabase
         .from('professional_feature_usage')
         .update({
@@ -84,6 +86,7 @@ const _doTrack = async (featureKey) => {
         })
         .eq('id', existing.id);
     } else {
+      // INSERT: primeiro uso desta feature — registrar e incrementar meta mensal
       await supabase
         .from('professional_feature_usage')
         .insert({
@@ -93,6 +96,9 @@ const _doTrack = async (featureKey) => {
           first_used_at: new Date().toISOString(),
           last_used_at: new Date().toISOString()
         });
+
+      // Incrementar meta mensal (primeiro uso = nova feature ativada)
+      incrementMonthlyGoal(professionalId).catch(() => {});
     }
   } catch {
     // Silencioso - tracking nunca deve impactar UX
