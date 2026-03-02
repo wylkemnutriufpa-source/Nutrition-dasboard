@@ -210,28 +210,30 @@ const FoodDatabase = () => {
 
   return (
     <Layout title="Banco de Alimentos" showBack userType="professional">
-      <div data-testid="food-database" className="space-y-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Database className="text-teal-700" size={24} />
-              <div>
-                <CardTitle>Gerenciar Alimentos</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Visualize alimentos TACO/USDA e crie seus próprios alimentos personalizados
-                </p>
-              </div>
-            </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  className="bg-teal-700 hover:bg-teal-800"
-                  onClick={() => handleOpenDialog()}
-                >
-                  <Plus size={18} className="mr-2" />
-                  Novo Alimento
-                </Button>
-              </DialogTrigger>
+      <div data-testid="food-database" className="max-w-7xl mx-auto space-y-6 pb-8">
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-lime-900 to-emerald-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                    <Database className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight">Banco de Alimentos</h1>
+                    <p className="text-lime-300 text-sm">Visualize alimentos TACO/USDA e crie seus proprios</p>
+                  </div>
+                </div>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-white/15 text-white hover:bg-white/25 border border-white/20 backdrop-blur-sm shadow-lg" onClick={() => handleOpenDialog()}>
+                      <Plus size={18} className="mr-2" />
+                      Novo Alimento
+                    </Button>
+                  </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
