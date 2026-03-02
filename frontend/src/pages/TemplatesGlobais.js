@@ -174,7 +174,6 @@ const TemplatesGlobais = () => {
       title: template.title,
       description: template.description || template.content || '',
       type: template.type,
-      priority: template.priority || 'normal',
       category: template.category || ''
     });
   };
