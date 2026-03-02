@@ -1556,6 +1556,34 @@ export const getChecklistTasks = async (patientId) => {
     .select('*')
     .eq('patient_id', patientId)
     .order('created_at', { ascending: true });
+  
+  if (error || !data) return { data, error };
+
+  // === RESET DIÁRIO: Verificar se tarefas completadas são de dias anteriores ===
+  const today = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+  const tasksToReset = data.filter(task => {
+    if (!task.completed) return false;
+    // Usar updated_at como referência de quando foi completada
+    const taskDate = task.updated_at ? task.updated_at.split('T')[0] : '';
+    return taskDate < today;
+  });
+
+  if (tasksToReset.length > 0) {
+    console.log(`🔄 Resetando ${tasksToReset.length} tarefas do checklist (dia anterior)`);
+    // Resetar em batch
+    const resetIds = tasksToReset.map(t => t.id);
+    await supabase
+      .from('checklist_tasks')
+      .update({ completed: false, updated_at: new Date().toISOString() })
+      .in('id', resetIds);
+    
+    // Atualizar dados locais
+    const resetData = data.map(task => 
+      resetIds.includes(task.id) ? { ...task, completed: false } : task
+    );
+    return { data: resetData, error: null };
+  }
+
   return { data, error };
 };
 
