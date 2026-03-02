@@ -57,18 +57,37 @@ const SettingsPage = () => {
       <div data-testid="settings-page" className="max-w-3xl mx-auto space-y-6 pb-8">
         {/* Premium Header */}
         <div className="relative overflow-hidden rounded-3xl shadow-2xl">
-          <div className="bg-gradient-to-br from-slate-900 via-gray-800 to-zinc-900 p-6 md:p-8 text-white relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+          <div className="bg-gradient-to-br from-gray-600 via-slate-600 to-zinc-700 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32" />
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
             <div className="relative z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
-                  <Settings className="h-7 w-7 text-white" />
+              <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold mb-3">Configuracoes</span>
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <Settings className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <h1 className="text-2xl md:text-3xl font-black tracking-tight">Configuracoes</h1>
-                  <p className="text-gray-400 text-sm">Gerencie sua conta e preferencias</p>
+                  <p className="text-white/80 text-sm">Gerencie sua conta, seguranca e preferencias</p>
                 </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { icon: User, label: 'Conta', sub: 'Perfil configurado', gradient: 'from-blue-500 to-indigo-500' },
+                  { icon: Lock, label: 'Seguranca', sub: 'Senha protegida', gradient: 'from-emerald-500 to-teal-500' },
+                  { icon: Settings, label: 'Preferencias', sub: 'Personalizado', gradient: 'from-purple-500 to-fuchsia-500' }
+                ].map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={i} className={`bg-gradient-to-br ${item.gradient} rounded-xl p-3 text-center`}>
+                      <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-white/20 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-white" />
+                      </div>
+                      <p className="text-sm font-bold">{item.label}</p>
+                      <p className="text-[10px] text-white/70">{item.sub}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
