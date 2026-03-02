@@ -21,6 +21,7 @@ import {
   getPatientPersonalizedTips, getPatientAppointments, 
   getPatientFeedbacks, sendFeedbackReply, getPatientStats
 } from '@/lib/supabase';
+import { trackProfessionalFeature } from '@/utils/featureTracking';
 import {
   computeAdherenceScore,
   generateSmartAlerts,
