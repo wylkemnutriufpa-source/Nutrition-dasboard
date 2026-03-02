@@ -370,7 +370,6 @@ const TemplatesGlobais = () => {
           </div>
         </div>
         </div>
-        </div>
 
         {/* Info Box */}
         <Card className="border-teal-200 bg-teal-50">
