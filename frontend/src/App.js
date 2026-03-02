@@ -140,6 +140,11 @@ function App() {
                   <AdminProjetoEditor />
                 </ProtectedRoute>
               } />
+              <Route path="/professional/testimonials" element={
+                <ProtectedRoute allowedTypes={['professional', 'admin']}>
+                  <TestimonialsModeration />
+                </ProtectedRoute>
+              } />
               <Route path="/professional/agenda" element={
                 <ProtectedRoute allowedTypes={['professional', 'admin']}>
                   <AgendaPage />
