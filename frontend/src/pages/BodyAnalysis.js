@@ -447,6 +447,7 @@ const BodyAnalysis = () => {
 
   useEffect(() => {
     loadHistory();
+    trackProfessionalFeature('use_body_analysis');
   }, [loadHistory]);
 
   // Calcular badges desbloqueados
