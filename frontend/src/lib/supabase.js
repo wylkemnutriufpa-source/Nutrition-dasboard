@@ -3348,6 +3348,30 @@ export const createEmergencyFeedback = async (patientId, professionalId, feedbac
     .select()
     .single();
 
+  // Criar notificação para o profissional
+  if (data && !error) {
+    try {
+      // Buscar nome do paciente
+      const { data: patientProfile } = await supabase
+        .from('profiles')
+        .select('name, full_name')
+        .eq('id', patientId)
+        .maybeSingle();
+      
+      const patientName = patientProfile?.full_name || patientProfile?.name || 'Paciente';
+      
+      await createNotification(professionalId, {
+        title: `🆘 SOS - ${patientName}`,
+        message: `Emergência: ${feedbackData.category} - ${feedbackData.message?.substring(0, 100)}`,
+        type: 'emergency',
+        link: `/professional/feedbacks`
+      });
+      console.log('✅ Notificação SOS criada para o profissional');
+    } catch (notifError) {
+      console.error('⚠️ Erro ao criar notificação SOS (feedback salvo):', notifError);
+    }
+  }
+
   return { data, error };
 };
 
