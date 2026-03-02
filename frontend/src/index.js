@@ -4,8 +4,7 @@ import "@/index.css";
 import App from "@/App";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+
+// StrictMode desabilitado temporariamente para evitar double renders
+// que causam erros removeChild durante navegação
+root.render(<App />);
