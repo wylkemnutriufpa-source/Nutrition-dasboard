@@ -297,19 +297,6 @@ const ProfessionalDashboard = () => {
           <BodyAnalysisSection professionalId={profile?.id} />
         </AnimatedSection>
 
-        {/* ========== 7) AÇÕES RÁPIDAS ========== */}
-        <AnimatedSection delay={800}>
-          <Card className="border-gray-200">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Activity className="h-5 w-5 text-teal-600" />
-                Ações Rápidas
-              </h3>
-              <QuickActionsGrid onAction={handleQuickAction} />
-            </CardContent>
-          </Card>
-        </AnimatedSection>
-
       </div>
     </Layout>
   );
