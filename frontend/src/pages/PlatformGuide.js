@@ -25,7 +25,8 @@ import {
   FEATURE_CATEGORIES, 
   CATEGORY_EMOJIS, 
   CATEGORY_GRADIENTS,
-  getFeaturesByCategory 
+  getFeaturesByCategory,
+  DYNAMIC_COUNTS
 } from '@/constants/platformFeatureInventory';
 
 // ==================== TABS ====================
@@ -277,7 +278,7 @@ const PlatformGuide = () => {
 
   // ==================== TAB: MINHA JORNADA (PRINCIPAL) ====================
   const renderJornada = () => {
-    const { loading, activatedFeaturesCount, activationPercentage, totalFeatures, currentLevel, nextLevel, suggestedFeatures, featuresUntilNextLevel, medals, monthlyGoal, activatedFeatures } = journey;
+    const { loading, activatedFeaturesCount, activationPercentage, totalFeatures, currentLevel, nextLevel, suggestedFeatures, pointsUntilNextLevel, levelProgress, medals, monthlyGoal, activatedFeatures, totalPoints, scoreBreakdown, dynamicCounts, aiFeatures } = journey;
 
     if (loading) {
       return (
@@ -305,9 +306,9 @@ const PlatformGuide = () => {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-white/80 text-sm font-medium">Seu nivel atual</span>
+                      <span className="text-white/80 text-sm font-medium">Seu nível atual</span>
                       {nextLevel && (
-                        <Badge className="bg-white/20 text-white border-0 text-[10px]">{featuresUntilNextLevel} para {nextLevel.emoji} {nextLevel.name}</Badge>
+                        <Badge className="bg-white/20 text-white border-0 text-[10px]">{pointsUntilNextLevel} pts para {nextLevel.emoji} {nextLevel.name}</Badge>
                       )}
                     </div>
                     <h2 className="text-3xl font-black tracking-tight">{currentLevel.emoji} {currentLevel.name}</h2>
@@ -315,35 +316,65 @@ const PlatformGuide = () => {
                   </div>
                 </div>
 
-                {/* Progress */}
+                {/* Progress - agora baseado em pontos */}
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                   <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-white/90 font-medium">{activatedFeaturesCount} de {totalFeatures} funcionalidades ativadas</span>
-                    <span className="text-white font-bold text-lg">{activationPercentage}%</span>
+                    <span className="text-white/90 font-medium">{totalPoints} pontos</span>
+                    <span className="text-white font-bold text-lg">{levelProgress}%</span>
                   </div>
                   <div className="h-4 bg-white/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-white rounded-full transition-all duration-1000 ease-out shadow-md" style={{ width: `${Math.max(3, activationPercentage)}%` }} />
+                    <div className="h-full bg-white rounded-full transition-all duration-1000 ease-out shadow-md" style={{ width: `${Math.max(3, levelProgress)}%` }} />
                   </div>
                 </div>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-3 gap-4 mt-6">
+                {/* Stats Row - dinâmicos */}
+                <div className="grid grid-cols-4 gap-3 mt-6">
                   <div className="text-center bg-white/10 rounded-xl p-3">
-                    <p className="text-2xl font-black text-white">{activatedFeaturesCount}</p>
-                    <p className="text-xs text-white/70">Ativadas</p>
+                    <p className="text-2xl font-black text-white">{totalPoints}</p>
+                    <p className="text-[10px] text-white/70">Pontos</p>
+                  </div>
+                  <div className="text-center bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black text-white">{activatedFeaturesCount}/{dynamicCounts.total}</p>
+                    <p className="text-[10px] text-white/70">Features</p>
+                  </div>
+                  <div className="text-center bg-white/10 rounded-xl p-3">
+                    <p className="text-2xl font-black text-white">{aiFeatures.size}/{dynamicCounts.totalAI}</p>
+                    <p className="text-[10px] text-white/70">IA Ativas</p>
                   </div>
                   <div className="text-center bg-white/10 rounded-xl p-3">
                     <p className="text-2xl font-black text-white">{medals.length}</p>
-                    <p className="text-xs text-white/70">Medalhas</p>
-                  </div>
-                  <div className="text-center bg-white/10 rounded-xl p-3">
-                    <p className="text-2xl font-black text-white">{monthlyGoal?.activated_count || 0}/{monthlyGoal?.target_features_to_activate || 5}</p>
-                    <p className="text-xs text-white/70">Meta Mensal</p>
+                    <p className="text-[10px] text-white/70">Medalhas</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+        )}
+
+        {/* Score Breakdown */}
+        {scoreBreakdown.length > 0 && (
+          <Card className="border-gray-100 shadow-sm">
+            <CardContent className="p-5">
+              <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                Breakdown de Pontuação
+              </h3>
+              <div className="space-y-2">
+                {scoreBreakdown.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{item.emoji}</span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                        <p className="text-xs text-gray-400">{item.count}x × {item.points} pts</p>
+                      </div>
+                    </div>
+                    <span className="text-lg font-black text-indigo-600">+{item.total}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Medals */}
@@ -739,10 +770,10 @@ const PlatformGuide = () => {
     }
   };
 
-  // Stats
-  const totalFeatures = INVENTORY_FEATURES.length;
-  const aiFeatures = INVENTORY_FEATURES.filter(f => f.category === FEATURE_CATEGORIES.IA).length;
-  const categories = Object.keys(FEATURE_CATEGORIES).length;
+  // Stats DINÂMICOS
+  const totalFeatures = DYNAMIC_COUNTS.total;
+  const aiFeatures = DYNAMIC_COUNTS.totalAI;
+  const categories = DYNAMIC_COUNTS.totalCategories;
 
   return (
     <Layout title="Central de Recursos" userType="professional">

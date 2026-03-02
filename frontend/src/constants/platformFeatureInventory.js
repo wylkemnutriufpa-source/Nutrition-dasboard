@@ -326,6 +326,28 @@ export const PLATFORM_FEATURES = [
 
 export const TOTAL_FEATURES = PLATFORM_FEATURES.length;
 
+// Conjunto de keys que são IA
+const AI_FEATURE_KEYS = new Set([
+  'view_dashboard', 'view_risk_ranking', 'view_dynamic_tips', 'analyze_meal_photo',
+  'view_smart_recommendations', 'view_automations', 'create_automation',
+  'view_weekly_report', 'activate_automation_template'
+]);
+
+// Adicionar is_ai a cada feature dinamicamente
+PLATFORM_FEATURES.forEach(f => {
+  f.is_ai = AI_FEATURE_KEYS.has(f.key) || f.category === FEATURE_CATEGORIES.IA;
+});
+
+/**
+ * Contagens dinâmicas (NUNCA hardcoded)
+ */
+export const DYNAMIC_COUNTS = {
+  get total() { return PLATFORM_FEATURES.length; },
+  get totalAI() { return PLATFORM_FEATURES.filter(f => f.is_ai).length; },
+  get totalCategories() { return new Set(PLATFORM_FEATURES.map(f => f.category)).size; },
+  get totalActive() { return PLATFORM_FEATURES.filter(f => f.is_active !== false).length; }
+};
+
 /**
  * Retorna features agrupadas por categoria
  */

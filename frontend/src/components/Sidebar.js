@@ -76,7 +76,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
     { to: '/professional/automations', icon: Bot, label: 'Automações', premium: true },
-    { to: '/professional/reports', icon: BarChart3, label: 'Relatórios', premium: true },
+    { to: '/professional/reports', icon: BarChart3, label: 'Relatórios Inteligentes', premium: true },
     { to: '/professional/guide', icon: Book, label: 'Central de Recursos', premium: true }
   ];
 
