@@ -154,8 +154,41 @@ const FeedbacksList = () => {
 
   return (
     <Layout title="Feedbacks dos Pacientes" showBack userType="professional">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6 pb-8">
         
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-rose-900 to-pink-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                  <MessageCircle className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight">Central de Feedbacks</h1>
+                  <p className="text-rose-300 text-sm">Acompanhe feedbacks e emergencias dos seus pacientes</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 max-w-lg">
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{feedbacks.length}</p>
+                  <p className="text-xs text-white/60">Feedbacks</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{openEmergencyCount}</p>
+                  <p className="text-xs text-white/60">SOS Abertos</p>
+                </div>
+                <div className="text-center bg-white/10 rounded-xl p-3">
+                  <p className="text-2xl font-black">{emergencies.filter(e => e.status === 'resolved').length}</p>
+                  <p className="text-xs text-white/60">Resolvidos</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Alerta de Emergências Abertas */}
         {openEmergencyCount > 0 && (
           <Card className="border-red-500 border-2 bg-red-50 animate-pulse">
