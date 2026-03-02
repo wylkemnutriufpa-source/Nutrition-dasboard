@@ -68,8 +68,8 @@ const ProfessionalDashboard = () => {
         navigate('/professional/feedbacks');
         break;
       case 'createChecklist':
-        navigate('/professional/patients');
-        toast.info('Selecione um paciente para configurar checklist');
+        navigate('/professional/templates');
+        toast.info('Crie ou gerencie seus templates de checklist');
         break;
       case 'duplicatePlan':
         navigate('/professional/patients');
