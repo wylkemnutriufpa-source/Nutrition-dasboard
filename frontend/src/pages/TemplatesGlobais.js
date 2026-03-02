@@ -446,9 +446,6 @@ const TemplatesGlobais = () => {
                               <Badge className={getTypeColor(template.type)}>
                                 {getTypeLabel(template.type)}
                               </Badge>
-                              {template.priority === 'high' && (
-                                <Badge variant="destructive">Alta Prioridade</Badge>
-                              )}
                             </div>
                             {template.description && (
                               <p className="text-sm text-gray-600 mt-1 line-clamp-1">
