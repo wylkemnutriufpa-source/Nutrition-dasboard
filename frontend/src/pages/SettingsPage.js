@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Lock, User, Mail } from 'lucide-react';
+import { Lock, User, Mail, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
 import { updatePassword } from '@/lib/supabase';
