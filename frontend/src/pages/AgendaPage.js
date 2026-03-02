@@ -400,7 +400,61 @@ const AgendaPage = () => {
           </div>
         </div>
 
-        {/* Modal */}
+        {/* Modal de Detalhes do Dia */}
+        <Dialog open={showDayModal} onOpenChange={setShowDayModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+              {selectedDayAppointments.length === 0 ? (
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">Nenhuma consulta neste dia</p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => { setShowDayModal(false); openAddModal(selectedDate); }} 
+                    className="mt-4 bg-teal-600 hover:bg-teal-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Agendar Consulta
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500 font-medium">
+                      {selectedDayAppointments.length} evento{selectedDayAppointments.length > 1 ? 's' : ''}
+                    </span>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => { setShowDayModal(false); openAddModal(selectedDate); }}
+                      className="text-teal-600 border-teal-300 hover:bg-teal-50"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Adicionar
+                    </Button>
+                  </div>
+                  {selectedDayAppointments
+                    .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+                    .map(appt => (
+                    <AppointmentCard
+                      key={appt.id}
+                      appt={appt}
+                      onEdit={() => { setShowDayModal(false); openEditModal(appt); }}
+                      onDelete={() => { handleDelete(appt.id); }}
+                      onStatusChange={(s) => handleStatusChange(appt, s)}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Criar/Editar Consulta */}
         <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogContent className="max-w-md">
             <DialogHeader>
