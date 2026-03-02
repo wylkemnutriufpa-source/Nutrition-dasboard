@@ -38,7 +38,8 @@ const ProfessionalJourneyBanner = ({ professionalId }) => {
     suggestedFeatures,
     featuresUntilNextLevel,
     medals,
-    monthlyGoal
+    monthlyGoal,
+    activatedFeatures
   } = useProfessionalJourney(professionalId);
 
   if (loading) {
