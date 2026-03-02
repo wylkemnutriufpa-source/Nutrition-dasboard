@@ -229,6 +229,7 @@ const MealPhotoAnalysis = () => {
 
   React.useEffect(() => {
     loadHistory();
+    trackProfessionalFeature('use_meal_photo_analysis');
   }, [loadHistory]);
 
   // Badges desbloqueados
