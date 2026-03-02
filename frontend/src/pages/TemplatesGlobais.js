@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { 
@@ -254,6 +254,7 @@ const TemplatesGlobais = () => {
                       <Plus size={20} />
                       Novo Template Global
                     </DialogTitle>
+                    <DialogDescription>Crie um template para atribuir aos seus pacientes</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div>
@@ -496,6 +497,7 @@ const TemplatesGlobais = () => {
                 <Edit size={20} />
                 Editar Template
               </DialogTitle>
+              <DialogDescription>Modifique os dados do template</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>

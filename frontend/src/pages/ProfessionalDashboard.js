@@ -59,7 +59,7 @@ const ProfessionalDashboard = () => {
     if (recommendations?.length > 0) trackProfessionalFeature('view_smart_recommendations');
   }, [riskRanking, chartData, recommendations]);
 
-  // Executar motor de automação ao carregar dashboard
+  // Executar motor de automação ao carregar dashboard (silencioso)
   React.useEffect(() => {
     const runAutomations = async () => {
       if (!profile?.id || !patientsWithScore?.length || loading) return;
@@ -68,11 +68,11 @@ const ProfessionalDashboard = () => {
         if (rules?.length > 0) {
           const { executed } = await runAutomationEngine(rules, patientsWithScore, profile.id);
           if (executed > 0) {
-            console.log(`🤖 Automação: ${executed} ações executadas no carregamento do dashboard`);
+            console.log(`🤖 Automação: ${executed} ações executadas`);
           }
         }
       } catch (err) {
-        console.error('Erro ao executar automações:', err);
+        // Silencioso - automações são opcionais
       }
     };
     runAutomations();

@@ -2244,18 +2244,35 @@ export const deleteNotification = async (notificationId) => {
  */
 export const createNotification = async (userId, { title, message, type = 'general', link = null }) => {
   try {
+    const payload = {
+      user_id: userId,
+      title,
+      message,
+      type,
+      is_read: false
+    };
+    // Adicionar link apenas se fornecido (campo pode não existir em todas as instalações)
+    if (link) payload.link = link;
+
     const { data, error } = await supabase
       .from('notifications')
-      .insert({
-        user_id: userId,
-        title,
-        message,
-        type,
-        link,
-        is_read: false
-      })
+      .insert(payload)
       .select()
       .single();
+    
+    if (error) {
+      // Se falhou com link, tentar sem
+      if (link && error.message?.includes('link')) {
+        const { link: _removed, ...safePayload } = payload;
+        const { data: d2, error: e2 } = await supabase
+          .from('notifications')
+          .insert(safePayload)
+          .select()
+          .single();
+        return { data: d2, error: e2 };
+      }
+      console.error('Erro ao criar notificação:', error);
+    }
     return { data, error };
   } catch (error) {
     console.error('Erro ao criar notificação:', error);
@@ -2472,7 +2489,7 @@ export const getRecipeVisibility = async (recipeId) => {
     .from('recipe_patient_visibility')
     .select(`
       *,
-      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, full_name, email)
+      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, name, email)
     `)
     .eq('recipe_id', recipeId);
   return { data, error };
@@ -2485,7 +2502,7 @@ export const getRecipeVisibilityByProfessional = async (professionalId) => {
     .select(`
       *,
       recipe:recipes(id, name, category),
-      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, full_name, email)
+      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, name, email)
     `)
     .eq('professional_id', professionalId);
   return { data, error };
@@ -2558,7 +2575,7 @@ export const getPatientsWithRecipeAccess = async (recipeId) => {
     .select(`
       patient_id,
       visible,
-      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, full_name, email)
+      patient:profiles!recipe_patient_visibility_patient_id_fkey(id, name, email)
     `)
     .eq('recipe_id', recipeId)
     .eq('visible', true);
@@ -3235,9 +3252,15 @@ export const syncTemplatesForPatient = async (patientId) => {
       p_patient_id: patientId
     });
 
+    if (error) {
+      console.warn('⚠️ sync_templates_for_patient:', error.message || 'RPC indisponível');
+      return { data: null, error };
+    }
+
+    console.log('✅ Templates sincronizados para o paciente');
     return { data, error };
   } catch (error) {
-    console.error('Erro ao sincronizar templates:', error);
+    console.warn('⚠️ sync_templates_for_patient: RPC não disponível');
     return { data: null, error };
   }
 };
@@ -3354,11 +3377,11 @@ export const createEmergencyFeedback = async (patientId, professionalId, feedbac
       // Buscar nome do paciente
       const { data: patientProfile } = await supabase
         .from('profiles')
-        .select('name, full_name')
+        .select('name')
         .eq('id', patientId)
         .maybeSingle();
       
-      const patientName = patientProfile?.full_name || patientProfile?.name || 'Paciente';
+      const patientName = patientProfile?.name || 'Paciente';
       
       await createNotification(professionalId, {
         title: `🆘 SOS - ${patientName}`,
@@ -3696,10 +3719,17 @@ export const getAutomationRules = async (professionalId) => {
       .select('*')
       .eq('professional_id', professionalId)
       .order('created_at', { ascending: false });
+    if (error) {
+      // Tabela pode não existir ainda
+      if (error.code === '42P01' || error.message?.includes('does not exist') || error.code === 'PGRST204') {
+        console.warn('⚠️ Tabela automation_rules não existe. Execute o SQL de setup.');
+        return { data: [], error: null };
+      }
+      return { data: [], error };
+    }
     return { data: data || [], error };
   } catch (error) {
-    console.error('Erro ao buscar automações:', error);
-    return { data: [], error };
+    return { data: [], error: null };
   }
 };
 
@@ -3796,10 +3826,15 @@ export const getAutomationLogs = async (professionalId, limit = 100) => {
       .eq('professional_id', professionalId)
       .order('created_at', { ascending: false })
       .limit(limit);
+    if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist') || error.code === 'PGRST204') {
+        return { data: [], error: null };
+      }
+      return { data: [], error };
+    }
     return { data: data || [], error };
   } catch (error) {
-    console.error('Erro ao buscar logs:', error);
-    return { data: [], error };
+    return { data: [], error: null };
   }
 };
 
@@ -3831,8 +3866,9 @@ export const countTodayExecutions = async (professionalId) => {
       .select('*', { count: 'exact', head: true })
       .eq('professional_id', professionalId)
       .gte('created_at', today + 'T00:00:00');
+    if (error) return { count: 0, error: null };
     return { count: count || 0, error };
   } catch (error) {
-    return { count: 0, error };
+    return { count: 0, error: null };
   }
 };

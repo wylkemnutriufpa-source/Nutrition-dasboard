@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import {
   ChevronLeft, ChevronRight, Plus, Calendar, Clock, User,
@@ -408,6 +408,7 @@ const AgendaPage = () => {
                 <Calendar className="h-5 w-5 text-teal-600" />
                 {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
               </DialogTitle>
+              <DialogDescription>Eventos e consultas do dia</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               {selectedDayAppointments.length === 0 ? (
@@ -461,6 +462,7 @@ const AgendaPage = () => {
               <DialogTitle>
                 {editingAppointment ? 'Editar Consulta' : 'Nova Consulta'}
               </DialogTitle>
+              <DialogDescription>Preencha os dados da consulta</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>

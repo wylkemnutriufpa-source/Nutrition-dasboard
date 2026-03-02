@@ -687,7 +687,7 @@ const RecipesManager = () => {
                         />
                         <div className="flex-1">
                           <p className="font-medium text-gray-800">
-                            {patient.full_name || 'Sem nome'}
+                            {patient.name || patient.full_name || 'Sem nome'}
                           </p>
                           <p className="text-sm text-gray-500">{patient.email}</p>
                         </div>
