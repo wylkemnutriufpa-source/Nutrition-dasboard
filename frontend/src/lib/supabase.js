@@ -1970,8 +1970,7 @@ export const createPlanExpirationReminder = async (patientId, professionalId, ex
     date: expirationDate,
     type: 'vencimento',
     status: 'scheduled',
-    notes: 'Verificar se paciente deseja renovar ou ajustar o plano',
-    is_reminder: true
+    notes: 'Verificar se paciente deseja renovar ou ajustar o plano'
   });
 };
 
