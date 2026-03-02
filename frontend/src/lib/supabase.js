@@ -1955,8 +1955,7 @@ export const createFeedbackReminder = async (patientId, professionalId, schedule
     date: scheduledDate,
     type: 'feedback',
     status: 'scheduled',
-    notes: notes || 'Solicitar feedback sobre o plano alimentar',
-    is_reminder: true
+    notes: notes || 'Solicitar feedback sobre o plano alimentar'
   });
 };
 
