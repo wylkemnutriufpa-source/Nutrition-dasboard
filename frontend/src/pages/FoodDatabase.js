@@ -394,6 +394,8 @@ const FoodDatabase = () => {
             </Dialog>
           </div>
         </div>
+      </div>
+    </div>
 
         <Tabs defaultValue="custom" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
