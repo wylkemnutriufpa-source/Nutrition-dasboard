@@ -2438,36 +2438,29 @@ export const getRecipeVisibilityByProfessional = async (professionalId) => {
 
 // Definir visibilidade de uma receita para um paciente
 export const setRecipeVisibility = async (recipeId, patientId, professionalId, visible = true) => {
-  // Verificar se já existe
-  const { data: existing } = await supabase
-    .from('recipe_patient_visibility')
-    .select('id')
-    .eq('recipe_id', recipeId)
-    .eq('patient_id', patientId)
-    .maybeSingle();
-  
-  if (existing) {
-    // Atualizar
+  try {
+    // Usar upsert para evitar conflitos (409)
     const { data, error } = await supabase
       .from('recipe_patient_visibility')
-      .update({ visible, updated_at: new Date().toISOString() })
-      .eq('id', existing.id)
+      .upsert(
+        {
+          recipe_id: recipeId,
+          patient_id: patientId,
+          professional_id: professionalId,
+          visible,
+          updated_at: new Date().toISOString()
+        },
+        { 
+          onConflict: 'recipe_id,patient_id',
+          ignoreDuplicates: false 
+        }
+      )
       .select()
       .single();
     return { data, error };
-  } else {
-    // Criar novo
-    const { data, error } = await supabase
-      .from('recipe_patient_visibility')
-      .insert({
-        recipe_id: recipeId,
-        patient_id: patientId,
-        professional_id: professionalId,
-        visible
-      })
-      .select()
-      .single();
-    return { data, error };
+  } catch (error) {
+    console.error('Erro ao definir visibilidade:', error);
+    return { data: null, error };
   }
 };
 
