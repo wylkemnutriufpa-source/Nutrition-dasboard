@@ -164,7 +164,6 @@ const TemplatesGlobais = () => {
       title: '',
       description: '',
       type: 'checklist',
-      priority: 'normal',
       category: ''
     });
   };
