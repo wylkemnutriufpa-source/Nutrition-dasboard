@@ -42,6 +42,7 @@ import FinanceiroPage from '@/pages/FinanceiroPage';
 import FeedbacksList from '@/pages/FeedbacksList';
 import RecipesManager from '@/pages/RecipesManager';
 import TemplatesGlobais from '@/pages/TemplatesGlobais';
+import TestimonialsModeration from '@/pages/TestimonialsModeration';
 
 // Rota protegida com suporte a admin override
 const ProtectedRoute = ({ children, allowedTypes }) => {
