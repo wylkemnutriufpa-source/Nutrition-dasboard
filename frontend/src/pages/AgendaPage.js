@@ -47,6 +47,7 @@ const AgendaPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [saving, setSaving] = useState(false);
 
