@@ -54,7 +54,26 @@ const SettingsPage = () => {
 
   return (
     <Layout title="Configurações" userType="professional">
-      <div data-testid="settings-page" className="max-w-3xl mx-auto space-y-6">
+      <div data-testid="settings-page" className="max-w-3xl mx-auto space-y-6 pb-8">
+        {/* Premium Header */}
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl">
+          <div className="bg-gradient-to-br from-slate-900 via-gray-800 to-zinc-900 p-6 md:p-8 text-white relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-20 -translate-x-20" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                  <Settings className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight">Configuracoes</h1>
+                  <p className="text-gray-400 text-sm">Gerencie sua conta e preferencias</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <Card>
           <CardHeader>
             <div className="flex items-center space-x-2">
