@@ -1903,12 +1903,13 @@ export const deleteAppointment = async (id) => {
  * Cria um lembrete programado (feedback, vencimento de plano, etc)
  */
 export const createReminder = async (reminderData) => {
+  // Remove is_reminder pois coluna não existe na tabela appointments
+  const { is_reminder, ...cleanData } = reminderData;
   const { data, error } = await supabase
     .from('appointments')
     .insert({
-      ...reminderData,
-      type: reminderData.type || 'lembrete',
-      is_reminder: true
+      ...cleanData,
+      type: cleanData.type || 'lembrete'
     })
     .select()
     .single();
