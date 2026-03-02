@@ -339,39 +339,7 @@ const AgendaPage = () => {
               </CardContent>
             </Card>
 
-            {/* Selected day details */}
-            {selectedDate && (
-              <Card className="mt-4">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-teal-600" />
-                      {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-                    </span>
-                    <Button size="sm" onClick={() => openAddModal(selectedDate)} className="bg-teal-600 hover:bg-teal-700">
-                      <Plus className="h-3 w-3 mr-1" /> Adicionar
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedDayAppointments.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4">Nenhuma consulta neste dia</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedDayAppointments.map(appt => (
-                        <AppointmentCard
-                          key={appt.id}
-                          appt={appt}
-                          onEdit={() => openEditModal(appt)}
-                          onDelete={() => handleDelete(appt.id)}
-                          onStatusChange={(s) => handleStatusChange(appt, s)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Selected day details inline removido - agora usa modal */}
           </div>
 
           {/* Sidebar: Próximas consultas */}
