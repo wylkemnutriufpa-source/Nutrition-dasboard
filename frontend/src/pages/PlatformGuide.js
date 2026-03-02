@@ -749,28 +749,29 @@ const PlatformGuide = () => {
       <div className="max-w-5xl mx-auto space-y-6 pb-8" data-testid="platform-guide-page">
 
         {/* ==================== HEADER PREMIUM ==================== */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 p-8 text-white shadow-2xl">
-          <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/10 rounded-full -translate-y-36 translate-x-36" />
-          <div className="absolute bottom-0 left-0 w-56 h-56 bg-purple-500/10 rounded-full translate-y-28 -translate-x-28" />
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-600 via-pink-500 to-rose-500 p-8 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -translate-y-36 translate-x-36" />
+          <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-28 -translate-x-28" />
           <div className="absolute top-1/2 left-1/3 w-32 h-32 bg-white/5 rounded-full" />
           
           <div className="relative z-10">
+            <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold mb-4">Central de Recursos</span>
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg border border-white/10">
+                  <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-lg">
                     <Gem className="h-7 w-7" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h1 className="text-3xl font-black tracking-tight">HUB Interativo</h1>
-                      <Badge className="bg-white/15 text-white border-0 text-[10px] font-bold backdrop-blur-sm">PREMIUM</Badge>
+                      <h1 className="text-3xl font-black tracking-tight">Central de Recursos</h1>
+                      <Badge className="bg-white/20 text-white border-0 text-[10px] font-bold backdrop-blur-sm">PREMIUM</Badge>
                     </div>
-                    <p className="text-indigo-300 text-sm">Sua jornada profissional na FitJourney</p>
+                    <p className="text-white/80 text-sm">Tudo que a FitJourney pode fazer por voce e seus pacientes</p>
                   </div>
                 </div>
-                <p className="text-indigo-200/80 max-w-xl text-sm leading-relaxed mb-6">
-                  Descubra tudo que a plataforma oferece, acompanhe seu progresso, desbloqueie medalhas e torne-se um Profissional Elite.
+                <p className="text-white/70 max-w-xl text-sm leading-relaxed mb-6">
+                  Explore funcionalidades, aprenda com tutoriais interativos, descubra dicas pro e acompanhe as novidades da plataforma.
                 </p>
               </div>
             </div>
@@ -784,11 +785,11 @@ const PlatformGuide = () => {
                 const Icon = stat.icon;
                 return (
                   <div key={i} className="text-center">
-                    <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/5">
+                    <div className="w-12 h-12 mx-auto mb-2 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                       <Icon className="h-6 w-6 text-white" />
                     </div>
                     <p className="text-3xl font-black text-white">{stat.value}</p>
-                    <p className="text-sm text-white/60 font-medium">{stat.label}</p>
+                    <p className="text-sm text-white/70 font-medium">{stat.label}</p>
                   </div>
                 );
               })}
