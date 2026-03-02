@@ -231,6 +231,7 @@ const MinhaJornada = () => {
     setSendingReply(true);
     try {
       await sendFeedbackReply(selectedFeedback.id, replyText);
+      trackProfessionalFeature('reply_feedback');
       toast.success('Resposta enviada!');
       setShowFeedbackModal(false);
       loadAllData();
