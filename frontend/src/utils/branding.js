@@ -10,27 +10,54 @@ import {
 
 export const DEFAULT_BRANDING = {
   logo_url: null,
-  primary_color: '#059669', // green-600
-  secondary_color: '#10b981', // green-500
-  accent_color: '#34d399', // green-400
+  primary_color: '#059669',
+  secondary_color: '#10b981',
+  accent_color: '#34d399',
   // Nome da marca e textos da tela de login
   brand_name: 'FitJourney',
   brand_initials: 'FJ',
-  login_title: 'Sua jornada para uma vida mais saudável começa aqui',
-  login_footer: 'Sistema de Nutrição Premium',
+  login_title: 'Sua jornada para uma vida mais saudavel comeca aqui',
+  login_footer: 'Sistema de Nutricao Premium',
+  // Login - Aparencia
+  login_bg_color: '#f8fafc',
+  login_bg_gradient_from: '#f8fafc',
+  login_bg_gradient_to: '#f0fdfa',
+  login_card_style: 'glass',
+  login_effect: 'floating',
+  login_show_stats: true,
+  login_stats: [
+    { label: 'Profissionais', value: '500+' },
+    { label: 'Pacientes', value: '10k+' },
+    { label: 'Sucesso', value: '98%' }
+  ],
+  // Footer editavel
+  footer_copyright: '2025 FitJourney. Todos os direitos reservados.',
+  footer_about: 'Plataforma completa de nutricao para profissionais e pacientes.',
+  footer_faq_items: [
+    { question: 'Como funciona?', answer: 'Cadastre-se como profissional ou paciente e acesse todas as ferramentas.' },
+    { question: 'E gratuito?', answer: 'Oferecemos planos gratuitos e premium para profissionais.' },
+    { question: 'Como faco contato?', answer: 'Envie um email para suporte@fitjourney.com' }
+  ],
+  footer_links: [
+    { label: 'Termos de Uso', url: '#' },
+    { label: 'Politica de Privacidade', url: '#' },
+    { label: 'Contato', url: '#' }
+  ],
+  footer_show_about: true,
+  footer_show_faq: true,
+  footer_show_links: true,
   // Tipografia
   font_family: 'Inter, system-ui, -apple-system, sans-serif',
-  font_size_base: '16px', // Tamanho base
-  font_size_heading: '2rem', // Títulos (h1)
-  font_size_subheading: '1.5rem', // Subtítulos (h2)
-  font_size_body: '1rem', // Texto normal
-  font_size_small: '0.875rem', // Texto pequeno
+  font_size_base: '16px',
+  font_size_heading: '2rem',
+  font_size_subheading: '1.5rem',
+  font_size_body: '1rem',
+  font_size_small: '0.875rem',
   font_weight_normal: '400',
   font_weight_medium: '500',
   font_weight_bold: '700',
-  // Componentes específicos
-  badge_size: '0.75rem', // Tamanho de badges
-  button_size: '1rem' // Tamanho de botões
+  badge_size: '0.75rem',
+  button_size: '1rem'
 };
 
 // ==================== FUNÇÕES PRINCIPAIS ====================
