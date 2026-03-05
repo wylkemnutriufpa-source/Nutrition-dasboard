@@ -30,6 +30,19 @@ Detector B: Plan Expiring Soon
 
   Current heuristic: active plans not updated in >= threshold days
   (signals a possibly stale / forgotten plan).
+
+─────────────────────────────────────────────────
+Detector C: Low Checklist Completion
+  event type : "checklist.low_detected"
+  payload    : { checklist_pct, patient_name, patient_status,
+                 total_tasks, completed_tasks }
+  trigger    : patient's checklist_pct < threshold_pct
+
+  Source table: checklist_tasks
+    - Count active tasks  : is_disabled IS DISTINCT FROM true
+    - Count completed     : completed = true AND is_disabled IS DISTINCT FROM true
+    - pct = completed / total * 100  (skip patients with 0 active tasks)
+  dedupe_key  : "checklist.low_detected:{patient_id}:{YYYY-MM-DD}"
 ─────────────────────────────────────────────────
 """
 from __future__ import annotations
@@ -404,6 +417,190 @@ async def run_plan_expiry_detector(
 
 
 # ─────────────────────────────────────────────────────────────
+# Detector C – Low Checklist Completion
+# ─────────────────────────────────────────────────────────────
+
+async def detect_low_checklist(
+    supabase_url: str,
+    service_role_key: str,
+    org_id: str,
+    threshold_pct: int = 40,
+) -> Dict[str, Any]:
+    """
+    Scan active patients for *org_id* and emit 'checklist.low_detected'
+    for each patient whose checklist completion is below *threshold_pct*.
+
+    Computation
+    ───────────
+    Source   : checklist_tasks
+    Active   : is_disabled IS DISTINCT FROM true
+    Completed: completed = true  AND  is_disabled IS DISTINCT FROM true
+    pct      : round(completed / total * 100)
+    Skip     : patients with 0 active tasks (no data → no event)
+
+    Returns a summary dict.
+    """
+    key = service_role_key
+    headers = _headers(key)
+    summary: Dict[str, Any] = {
+        "detector":        "checklist_low",
+        "org_id":          org_id,
+        "threshold_pct":   threshold_pct,
+        "patients_scanned": 0,
+        "events_emitted":  0,
+        "errors":          [],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+
+            # ── Step 1: patients for this org ──────────────────────
+            patients_resp = await client.get(
+                f"{supabase_url}/rest/v1/patient_profiles",
+                headers=headers,
+                params={
+                    "professional_id": f"eq.{org_id}",
+                    "select":          "patient_id",
+                    "limit":           str(BATCH_SIZE),
+                },
+            )
+            if patients_resp.status_code != 200:
+                err = f"patients query failed {patients_resp.status_code}"
+                logger.error("Checklist detector: %s", err)
+                summary["errors"].append(err)
+                return summary
+
+            patient_links = patients_resp.json() or []
+            if not patient_links:
+                logger.info("Checklist detector: no patients for org=%s", org_id)
+                return summary
+
+            patient_ids = [p["patient_id"] for p in patient_links]
+            summary["patients_scanned"] = len(patient_ids)
+
+            # ── Step 2: profile info (name, status) ────────────────
+            profiles_resp = await client.get(
+                f"{supabase_url}/rest/v1/profiles",
+                headers=headers,
+                params={
+                    "id":     f"in.({','.join(patient_ids)})",
+                    "select": "id,name,status",
+                },
+            )
+            profiles: Dict[str, Dict[str, Any]] = {}
+            if profiles_resp.status_code == 200:
+                for p in (profiles_resp.json() or []):
+                    profiles[p["id"]] = p
+
+            # ── Step 3: fetch all active checklist tasks in one call
+            tasks_resp = await client.get(
+                f"{supabase_url}/rest/v1/checklist_tasks",
+                headers=headers,
+                params={
+                    "patient_id": f"in.({','.join(patient_ids)})",
+                    "is_disabled": "is.false",        # active tasks only
+                    "select":      "patient_id,completed",
+                    "limit":       str(BATCH_SIZE * 50),
+                },
+            )
+            # Also fetch tasks where is_disabled IS NULL (not set)
+            tasks_null_resp = await client.get(
+                f"{supabase_url}/rest/v1/checklist_tasks",
+                headers=headers,
+                params={
+                    "patient_id": f"in.({','.join(patient_ids)})",
+                    "is_disabled": "is.null",
+                    "select":      "patient_id,completed",
+                    "limit":       str(BATCH_SIZE * 50),
+                },
+            )
+
+        all_tasks: List[Dict[str, Any]] = []
+        if tasks_resp.status_code == 200:
+            all_tasks += tasks_resp.json() or []
+        if tasks_null_resp.status_code == 200:
+            all_tasks += tasks_null_resp.json() or []
+
+        # ── Step 4: aggregate pct per patient ──────────────────────
+        from collections import defaultdict
+        counts: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "done": 0})
+        for task in all_tasks:
+            pid = task.get("patient_id")
+            if not pid:
+                continue
+            counts[pid]["total"] += 1
+            if task.get("completed"):
+                counts[pid]["done"] += 1
+
+        # ── Step 5: evaluate threshold ─────────────────────────────
+        events_to_emit: List[Dict[str, Any]] = []
+
+        for patient_id in patient_ids:
+            profile = profiles.get(patient_id, {})
+            patient_status = profile.get("status", "active")
+
+            if patient_status not in ("active", None, ""):
+                continue
+
+            c = counts.get(patient_id)
+            if not c or c["total"] == 0:
+                # No tasks → no data → skip (avoid false positives)
+                logger.debug(
+                    "Checklist detector: patient=%s has no active tasks – skip",
+                    patient_id
+                )
+                continue
+
+            pct = round(c["done"] / c["total"] * 100)
+
+            if pct < threshold_pct:
+                events_to_emit.append({
+                    "org_id":     org_id,
+                    "patient_id": patient_id,
+                    "type":       "checklist.low_detected",
+                    "dedupe_key": make_daily_dedupe_key(
+                        "checklist.low_detected", patient_id
+                    ),
+                    "payload": {
+                        "checklist_pct":    pct,
+                        "patient_name":     profile.get("name") or "",
+                        "patient_status":   patient_status or "active",
+                        "total_tasks":      c["total"],
+                        "completed_tasks":  c["done"],
+                    },
+                })
+                logger.debug(
+                    "Checklist low: patient=%s pct=%d%% (%d/%d tasks)",
+                    patient_id, pct, c["done"], c["total"]
+                )
+
+        # ── Step 6: emit in one batch ──────────────────────────────
+        if events_to_emit:
+            emitted = await emit_events_batch(
+                events_to_emit,
+                supabase_url=supabase_url,
+                service_role_key=service_role_key,
+            )
+            summary["events_emitted"] = emitted
+            logger.info(
+                "Checklist detector: org=%s scanned=%d low_pct=%d emitted=%d",
+                org_id, summary["patients_scanned"],
+                len(events_to_emit), emitted,
+            )
+        else:
+            logger.info(
+                "Checklist detector: org=%s scanned=%d — no patients below %d%%",
+                org_id, summary["patients_scanned"], threshold_pct,
+            )
+
+    except Exception as exc:
+        logger.error("Checklist detector error: %s", exc)
+        summary["errors"].append(str(exc))
+
+    return summary
+
+
+# ─────────────────────────────────────────────────────────────
 # Convenience: run all detectors for one org
 # ─────────────────────────────────────────────────────────────
 
@@ -413,9 +610,10 @@ async def run_all_detectors(
     org_id: str,
     inactive_days_threshold: int = 5,
     plan_stale_days: int = 30,
+    checklist_threshold_pct: int = 40,
 ) -> Dict[str, Any]:
     """
-    Run both detectors for *org_id* and return combined summary.
+    Run all three detectors for *org_id* and return combined summary.
     Safe to call repeatedly – detectors only emit events, never delete.
     """
     inactivity = await run_inactivity_detector(
@@ -424,10 +622,18 @@ async def run_all_detectors(
     plan_expiry = await run_plan_expiry_detector(
         supabase_url, service_role_key, org_id, plan_stale_days
     )
+    checklist = await detect_low_checklist(
+        supabase_url, service_role_key, org_id, checklist_threshold_pct
+    )
     return {
         "org_id":           org_id,
-        "detectors_run":    2,
-        "total_emitted":    inactivity["events_emitted"] + plan_expiry["events_emitted"],
-        "inactivity":       inactivity,
-        "plan_expiry":      plan_expiry,
+        "detectors_run":    3,
+        "total_emitted": (
+            inactivity["events_emitted"]
+            + plan_expiry["events_emitted"]
+            + checklist["events_emitted"]
+        ),
+        "inactivity":   inactivity,
+        "plan_expiry":  plan_expiry,
+        "checklist":    checklist,
     }
