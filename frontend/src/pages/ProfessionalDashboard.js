@@ -1,0 +1,363 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import Layout from '@/components/Layout';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  Users, UserX, AlertTriangle, ShieldAlert, TrendingUp,
+  RefreshCw, Activity, Clock
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfessionalDashboard } from '@/hooks/useProfessionalDashboard';
+import { useTrialCheck } from '@/hooks/useTrialCheck';
+import MetricCard from '@/components/dashboard/MetricCard';
+import AttentionAlert from '@/components/dashboard/AttentionAlert';
+import QuickActionsGrid from '@/components/dashboard/QuickActionsGrid';
+import SimpleEngagementChart from '@/components/dashboard/SimpleEngagementChart';
+import RiskRankingList from '@/components/dashboard/RiskRankingList';
+import RecommendationsSection from '@/components/dashboard/RecommendationsSection';
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton';
+import MealAnalysisSection from '@/components/dashboard/MealAnalysisSection';
+import BodyAnalysisSection from '@/components/dashboard/BodyAnalysisSection';
+import ProfessionalJourneyBanner from '@/components/dashboard/ProfessionalJourneyBanner';
+import TrialExpirationModal from '@/components/TrialExpirationModal';
+import { trackProfessionalFeature } from '@/utils/featureTracking';
+import { getAutomationRules } from '@/lib/supabase';
+import { runAutomationEngine } from '@/utils/automationEngine';
+
+/** Wrapper de animação com delay escalonado */
+const AnimatedSection = ({ children, delay = 0, className = '' }) => (
+  <div
+    className={`opacity-0 animate-fade-in-up ${className}`}
+    style={{ animationDelay: `${delay}ms`, animationFillMode: 'forwards' }}
+  >
+    {children}
+  </div>
+);
+
+const ProfessionalDashboard = () => {
+  const { profile, user } = useAuth();
+  const navigate = useNavigate();
+  const { expired, daysLeft, showModal, setShowModal } = useTrialCheck();
+
+  const {
+    loading,
+    error,
+    metrics,
+    attentionAlerts,
+    riskRanking,
+    chartData,
+    recommendations,
+    sosCount,
+    patientsWithScore,
+    refresh
+  } = useProfessionalDashboard(profile?.id);
+
+  // Track dashboard view
+  React.useEffect(() => {
+    trackProfessionalFeature('view_dashboard');
+    if (riskRanking?.length > 0) trackProfessionalFeature('view_risk_ranking');
+    if (chartData?.length > 0) trackProfessionalFeature('view_engagement_chart');
+    if (recommendations?.length > 0) trackProfessionalFeature('view_smart_recommendations');
+  }, [riskRanking, chartData, recommendations]);
+
+  // Executar motor de automação ao carregar dashboard (silencioso)
+  React.useEffect(() => {
+    const runAutomations = async () => {
+      if (!profile?.id || !patientsWithScore?.length || loading) return;
+      try {
+        const { data: rules } = await getAutomationRules(profile.id);
+        if (rules?.length > 0) {
+          const { executed } = await runAutomationEngine(rules, patientsWithScore, profile.id);
+          if (executed > 0) {
+            console.log(`🤖 Automação: ${executed} ações executadas`);
+          }
+        }
+      } catch (err) {
+        // Silencioso - automações são opcionais
+      }
+    };
+    runAutomations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, loading]);
+
+  // Handlers de ações rápidas
+  const handleQuickAction = (action) => {
+    switch (action) {
+      case 'createPlan':
+        navigate('/professional/patients');
+        toast.info('Selecione um paciente para criar o plano');
+        break;
+      case 'sendFeedback':
+        navigate('/professional/feedbacks');
+        break;
+      case 'createChecklist':
+        navigate('/professional/templates');
+        toast.info('Crie ou gerencie seus templates de checklist');
+        break;
+      case 'duplicatePlan':
+        navigate('/professional/patients');
+        toast.info('Selecione um paciente com plano para duplicar');
+        break;
+      case 'viewReports':
+        toast.info('Relatórios em breve!');
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Handler de alertas
+  const handleAlertAction = (action, patientId) => {
+    switch (action) {
+      case 'sendReminder':
+        toast.success('Lembrete enviado!');
+        break;
+      case 'sendFeedback':
+        navigate(`/professional/patient/${patientId}?tab=feedbacks`);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Saudação dinâmica
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
+
+  // ========== LOADING: Skeleton Premium ==========
+  if (loading) {
+    return (
+      <Layout title="Dashboard" userType="professional">
+        <DashboardSkeleton />
+      </Layout>
+    );
+  }
+
+  // ========== ERRO ==========
+  if (error) {
+    return (
+      <Layout title="Dashboard" userType="professional">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-6 text-center">
+            <p className="text-red-700">Erro ao carregar dashboard: {error}</p>
+            <Button onClick={refresh} className="mt-4">
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout title="Central de Comando" userType="professional">
+      <div className="max-w-7xl mx-auto space-y-6 pb-8">
+        
+        {/* ========== MODAL DE EXPIRAÇÃO DO TRIAL ========== */}
+        <TrialExpirationModal 
+          open={showModal}
+          userId={user?.id}
+          onClose={() => setShowModal(false)}
+          onUpgrade={() => {
+            toast.success('Plano atualizado! Recarregando...');
+            setTimeout(() => refresh(), 1000);
+          }}
+        />
+
+        {/* ========== BANNER DE TRIAL (se ainda não expirou) ========== */}
+        {profile?.plan_type === 'trial' && daysLeft !== null && daysLeft > 0 && (
+          <AnimatedSection delay={0}>
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-4 flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Clock className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  Período de Teste
+                  <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+                    {daysLeft} {daysLeft === 1 ? 'dia restante' : 'dias restantes'}
+                  </span>
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Aproveite todos os recursos PRO durante o trial. Após {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'}, escolha entre Basic (gratuito) ou PRO (completo).
+                </p>
+              </div>
+            </div>
+          </AnimatedSection>
+        )}
+        
+        {/* ========== 1) HEADER PREMIUM ========== */}
+        <AnimatedSection delay={0}>
+          <div className="bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-800 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+            {/* Elementos decorativos */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between relative z-10 gap-4">
+              <div>
+                <p className="text-teal-200 text-sm font-medium mb-1">
+                  {getGreeting()},
+                </p>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2">
+                  {profile?.name?.split(' ')[0] || 'Profissional'} 👋
+                </h1>
+                <p className="text-teal-100 text-sm md:text-base">
+                  {patientsWithScore.length > 0 
+                    ? `Você tem ${patientsWithScore.length} paciente${patientsWithScore.length > 1 ? 's' : ''} sob acompanhamento`
+                    : 'Sua central de comando está pronta'}
+                </p>
+                {sosCount > 0 && (
+                  <div className="mt-3 inline-flex items-center gap-2 bg-red-500/25 border border-red-300/40 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-300 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-400" />
+                    </span>
+                    {sosCount} SOS pendente{sosCount > 1 ? 's' : ''} — Ação imediata
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={() => {
+                  refresh();
+                  toast.success('Atualizando dados...');
+                }}
+                variant="outline"
+                className="bg-white/10 text-white hover:bg-white/20 border-white/20 backdrop-blur-sm shadow-lg transition-all hover:scale-105"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Atualizar
+              </Button>
+            </div>
+          </div>
+        </AnimatedSection>
+
+        {/* ========== 1.5) JORNADA PROFISSIONAL ========== */}
+        <AnimatedSection delay={50}>
+          <ProfessionalJourneyBanner professionalId={profile?.id} />
+        </AnimatedSection>
+
+        {/* ========== 2) AÇÕES RÁPIDAS (movido para cima) ========== */}
+        <AnimatedSection delay={60}>
+          <Card className="border-gray-200">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-teal-600" />
+                Ações Rápidas
+              </h3>
+              <QuickActionsGrid onAction={handleQuickAction} />
+            </CardContent>
+          </Card>
+        </AnimatedSection>
+
+        {/* ========== 3) CARDS EXECUTIVOS (com stagger) ========== */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+          <AnimatedSection delay={80}>
+            <MetricCard
+              title="Pacientes Ativos"
+              value={metrics.activePatients}
+              subtitle="Últimos 7 dias"
+              icon={Users}
+              iconColor="text-green-600"
+              iconBg="bg-green-100"
+            />
+          </AnimatedSection>
+          
+          <AnimatedSection delay={140}>
+            <MetricCard
+              title="Inativos"
+              value={metrics.inactivePatients}
+              subtitle="7+ dias sem login"
+              icon={UserX}
+              iconColor="text-red-600"
+              iconBg="bg-red-100"
+            />
+          </AnimatedSection>
+          
+          <AnimatedSection delay={200}>
+            <MetricCard
+              title="SOS Abertas"
+              value={metrics.sosOpen}
+              subtitle="Emergências pendentes"
+              icon={ShieldAlert}
+              iconColor={metrics.sosOpen > 0 ? "text-red-600" : "text-gray-400"}
+              iconBg={metrics.sosOpen > 0 ? "bg-red-100" : "bg-gray-100"}
+              urgent={metrics.sosOpen > 0}
+            />
+          </AnimatedSection>
+          
+          <AnimatedSection delay={260}>
+            <MetricCard
+              title="Em Risco"
+              value={metrics.patientsAtRisk}
+              subtitle="Score ≥ 70"
+              icon={AlertTriangle}
+              iconColor={metrics.patientsAtRisk > 0 ? "text-orange-600" : "text-gray-400"}
+              iconBg={metrics.patientsAtRisk > 0 ? "bg-orange-100" : "bg-gray-100"}
+            />
+          </AnimatedSection>
+          
+          <AnimatedSection delay={320}>
+            <MetricCard
+              title="Engajamento"
+              value={`${metrics.avgEngagement}%`}
+              subtitle="Média dos pacientes"
+              icon={TrendingUp}
+              iconColor="text-blue-600"
+              iconBg="bg-blue-100"
+            />
+          </AnimatedSection>
+        </div>
+
+        {/* ========== 3) ATENÇÃO HOJE ========== */}
+        <AnimatedSection delay={400}>
+          <AttentionAlert 
+            alerts={attentionAlerts} 
+            onAction={handleAlertAction}
+          />
+        </AnimatedSection>
+
+        {/* ========== 4) RANKING DE RISCO + ANÁLISES DE PRATOS ========== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection delay={500}>
+            <RiskRankingList 
+              patients={riskRanking}
+              onViewAll={() => navigate('/professional/patients')}
+            />
+          </AnimatedSection>
+          <AnimatedSection delay={550}>
+            <MealAnalysisSection professionalId={profile?.id} />
+          </AnimatedSection>
+        </div>
+
+        {/* ========== 5) GRÁFICO + RECOMENDAÇÕES ========== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection delay={600}>
+            <SimpleEngagementChart 
+              data={chartData}
+              title="Adesão ao Checklist (7 dias)"
+            />
+          </AnimatedSection>
+          <AnimatedSection delay={700}>
+            <RecommendationsSection 
+              recommendations={recommendations}
+            />
+          </AnimatedSection>
+        </div>
+
+        {/* ========== 6) ANÁLISES CORPORAIS ========== */}
+        <AnimatedSection delay={750}>
+          <BodyAnalysisSection professionalId={profile?.id} />
+        </AnimatedSection>
+
+      </div>
+    </Layout>
+  );
+};
+
+export default ProfessionalDashboard;
