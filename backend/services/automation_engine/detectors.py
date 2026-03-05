@@ -40,7 +40,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from .emitter import emit_events_batch
+from .emitter import emit_events_batch, make_daily_dedupe_key
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +237,9 @@ async def run_inactivity_detector(
                         "org_id":     org_id,
                         "patient_id": patient_id,
                         "type":       "patient.inactive_detected",
+                        "dedupe_key": make_daily_dedupe_key(
+                            "patient.inactive_detected", patient_id
+                        ),
                         "payload": {
                             "inactive_days":  days_inactive,
                             "patient_status": patient_status or "active",
@@ -363,6 +366,9 @@ async def run_plan_expiry_detector(
                     "org_id":     org_id,
                     "patient_id": plan.get("patient_id"),
                     "type":       "plan.expires_soon",
+                    "dedupe_key": make_daily_dedupe_key(
+                        "plan.expires_soon", plan["id"]
+                    ),
                     "payload": {
                         # TODO: replace days_since_update with days_to_expire
                         # once end_date column is added to meal_plans
