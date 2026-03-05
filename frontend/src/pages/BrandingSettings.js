@@ -346,29 +346,29 @@ const BrandingSettings = () => {
 
   return (
     <Layout title="Personalizacao da Marca" showBack userType="professional">
-      <div data-testid="branding-settings" className="max-w-7xl mx-auto pb-8">
+      <div data-testid="branding-settings" className="max-w-6xl mx-auto pb-8 px-4">
         {/* Header */}
-        <div className="relative overflow-hidden rounded-3xl shadow-2xl mb-6">
-          <div className="bg-gradient-to-br from-pink-500 via-rose-500 to-red-400 p-6 text-white relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32" />
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                  <Palette className="h-6 w-6 text-white" />
+        <div className="relative overflow-hidden rounded-2xl shadow-xl mb-6">
+          <div className="bg-gradient-to-br from-pink-500 via-rose-500 to-red-400 p-4 md:p-6 text-white relative">
+            <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32" />
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 md:gap-4">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                  <Palette className="h-5 w-5 md:h-6 md:w-6 text-white" />
                 </div>
                 <div>
-                  <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold mb-1">White-Label</span>
-                  <h1 className="text-2xl font-black tracking-tight">Personalizacao da Marca</h1>
-                  <p className="text-white/80 text-sm">Personalize toda a aparencia do sistema com sua identidade visual</p>
+                  <span className="inline-block px-2 md:px-3 py-0.5 md:py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold mb-1">White-Label</span>
+                  <h1 className="text-xl md:text-2xl font-black tracking-tight">Personalizacao da Marca</h1>
+                  <p className="text-white/80 text-xs md:text-sm">Personalize toda a aparencia do sistema</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleReset} className="bg-white/20 text-white hover:bg-white/30 border border-white/20" size="sm" disabled={loading}>
+              <div className="flex gap-2 w-full md:w-auto">
+                <Button onClick={handleReset} className="bg-white/20 text-white hover:bg-white/30 border border-white/20 flex-1 md:flex-none" size="sm" disabled={loading}>
                   <RotateCcw size={14} className="mr-1" /> Restaurar
                 </Button>
-                <Button onClick={handleSave} className="bg-white text-rose-600 hover:bg-white/90 font-bold" size="sm" disabled={loading || !professionalId}>
+                <Button onClick={handleSave} className="bg-white text-rose-600 hover:bg-white/90 font-bold flex-1 md:flex-none" size="sm" disabled={loading || !professionalId}>
                   {loading ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Save size={14} className="mr-1" />}
-                  {loading ? 'Salvando...' : 'Salvar Tudo'}
+                  {loading ? 'Salvando...' : 'Salvar'}
                 </Button>
               </div>
             </div>
@@ -376,17 +376,17 @@ const BrandingSettings = () => {
         </div>
 
         {/* Layout: Editor + Preview lado a lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 md:gap-6">
           {/* Editor - 3 colunas */}
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid grid-cols-6 w-full">
-                <TabsTrigger value="templates" className="text-xs"><Star size={14} className="mr-1" /> Temas</TabsTrigger>
-                <TabsTrigger value="identity" className="text-xs"><Sparkles size={14} className="mr-1" /> Marca</TabsTrigger>
-                <TabsTrigger value="colors" className="text-xs"><Palette size={14} className="mr-1" /> Cores</TabsTrigger>
-                <TabsTrigger value="login" className="text-xs"><Monitor size={14} className="mr-1" /> Login</TabsTrigger>
-                <TabsTrigger value="typography" className="text-xs"><Type size={14} className="mr-1" /> Fontes</TabsTrigger>
-                <TabsTrigger value="footer" className="text-xs"><Globe size={14} className="mr-1" /> Rodape</TabsTrigger>
+              <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full gap-1">
+                <TabsTrigger value="templates" className="text-[10px] md:text-xs px-1 md:px-3"><Star size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Temas</span><span className="md:hidden">🎨</span></TabsTrigger>
+                <TabsTrigger value="identity" className="text-[10px] md:text-xs px-1 md:px-3"><Sparkles size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Marca</span><span className="md:hidden">✨</span></TabsTrigger>
+                <TabsTrigger value="colors" className="text-[10px] md:text-xs px-1 md:px-3"><Palette size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Cores</span><span className="md:hidden">🎨</span></TabsTrigger>
+                <TabsTrigger value="login" className="text-[10px] md:text-xs px-1 md:px-3"><Monitor size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Login</span><span className="md:hidden">📊</span></TabsTrigger>
+                <TabsTrigger value="typography" className="text-[10px] md:text-xs px-1 md:px-3"><Type size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Fontes</span><span className="md:hidden">Aa</span></TabsTrigger>
+                <TabsTrigger value="footer" className="text-[10px] md:text-xs px-1 md:px-3"><Globe size={12} className="mr-0 md:mr-1" /> <span className="hidden md:inline">Rodape</span><span className="md:hidden">🌐</span></TabsTrigger>
               </TabsList>
 
               {/* ====== TAB: TEMPLATES ====== */}
@@ -576,17 +576,26 @@ const BrandingSettings = () => {
                     {/* Estatisticas */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <Label className="text-sm font-semibold">Estatisticas no Login</Label>
+                        <Label className="text-sm font-semibold flex items-center gap-2">
+                          <Activity size={16} className="text-blue-500" />
+                          Estatisticas no Login
+                        </Label>
                         <Switch checked={formData.login_show_stats} onCheckedChange={(v) => updateField('login_show_stats', v)} />
                       </div>
                       {formData.login_show_stats && (
-                        <div className="grid grid-cols-3 gap-3">
-                          {(formData.login_stats || DEFAULT_BRANDING.login_stats).map((stat, i) => (
-                            <div key={i} className="space-y-1">
-                              <Input value={stat.value} onChange={(e) => updateStat(i, 'value', e.target.value)} placeholder="500+" className="text-sm" />
-                              <Input value={stat.label} onChange={(e) => updateStat(i, 'label', e.target.value)} placeholder="Label" className="text-xs" />
-                            </div>
-                          ))}
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                            💡 <strong>Edite aqui:</strong> os números e textos que aparecem na tela de login
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {(formData.login_stats || DEFAULT_BRANDING.login_stats).map((stat, i) => (
+                              <div key={i} className="space-y-1 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                <Label className="text-[10px] text-gray-600">Estatística {i + 1}</Label>
+                                <Input value={stat.value} onChange={(e) => updateStat(i, 'value', e.target.value)} placeholder="500+" className="text-sm font-bold" />
+                                <Input value={stat.label} onChange={(e) => updateStat(i, 'label', e.target.value)} placeholder="Profissionais" className="text-xs" />
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -735,7 +744,7 @@ const BrandingSettings = () => {
           </div>
 
           {/* Preview - 2 colunas (sticky) */}
-          <div className="lg:col-span-2">
+          <div className="xl:col-span-2">
             <div className="sticky top-4 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Eye size={16} className="text-gray-500" />
@@ -744,7 +753,7 @@ const BrandingSettings = () => {
               <LoginPreview formData={formData} />
 
               {/* Botao salvar flutuante */}
-              <Button onClick={handleSave} className="w-full bg-teal-700 hover:bg-teal-800 text-white py-5" disabled={loading || !professionalId}>
+              <Button onClick={handleSave} className="w-full bg-teal-700 hover:bg-teal-800 text-white py-4 md:py-5" disabled={loading || !professionalId}>
                 {loading ? <><Loader2 size={16} className="mr-2 animate-spin" /> Salvando...</> : <><Save size={16} className="mr-2" /> Salvar Configuracoes</>}
               </Button>
             </div>
