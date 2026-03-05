@@ -30,13 +30,19 @@ import {
   getProfessionalDashboardData
 } from '@/lib/supabase';
 import { AUTOMATION_TEMPLATES, runAutomationEngine } from '@/utils/automationEngine';
+import {
+  listRules, createRule, patchRule, deleteRule, toggleRule,
+  listRuns, runEngineBatch, getEngineHealth, runDetectors
+} from '@/utils/automationEngineApi';
 
 // ==================== TABS ====================
 const TABS = [
   { id: 'rules', label: 'Minhas Automações', icon: Zap },
   { id: 'templates', label: 'Templates', icon: Sparkles },
   { id: 'advanced', label: 'Plano Programado', icon: Calendar },
-  { id: 'logs', label: 'Histórico', icon: History }
+  { id: 'logs', label: 'Histórico', icon: History },
+  { id: 'engine_rules', label: 'Motor de Regras', icon: Bot },
+  { id: 'diagnostico', label: 'Diagnóstico', icon: Activity },
 ];
 
 const TRIGGER_LABELS = {
@@ -589,6 +595,490 @@ const SimpleConditionsEditor = ({ config, onChange }) => {
   );
 };
 
+// ==================== ENGINE RULES TAB ====================
+
+const ACTION_TYPE_OPTIONS = [
+  { value: 'notify_user',         label: 'Notificar Paciente' },
+  { value: 'notify_professional', label: 'Notificar Profissional' },
+  { value: 'create_task',         label: 'Criar Tarefa' },
+];
+
+const TRIGGER_TYPE_OPTIONS = [
+  { value: 'patient.inactive_detected', label: 'Paciente Inativo' },
+  { value: 'plan.expires_soon',          label: 'Plano Expirando' },
+  { value: 'patient.high_risk',          label: 'Alto Risco' },
+  { value: 'patient.new',                label: 'Novo Paciente' },
+  { value: 'checklist.low',              label: 'Checklist Baixo' },
+];
+
+const RUN_STATUS_CONFIG = {
+  success:  { label: 'Sucesso',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  failed:   { label: 'Falhou',   cls: 'bg-red-100 text-red-700 border-red-200' },
+  skipped:  { label: 'Ignorado', cls: 'bg-gray-100 text-gray-600 border-gray-200' },
+  cooldown: { label: 'Cooldown', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+};
+
+const BLANK_RULE_FORM = {
+  name: '',
+  trigger_type: 'patient.inactive_detected',
+  conditions: '{\n  "and": [\n    { "payload.inactive_days": { "gte": 5 } },\n    { "payload.patient_status": { "eq": "active" } }\n  ]\n}',
+  actions: '[\n  {\n    "type": "notify_professional",\n    "user_id": "{professional_id}",\n    "title": "Paciente inativo",\n    "body": "Paciente {patient_name} está inativo há {inactive_days} dias."\n  }\n]',
+  cooldown_hours: 24,
+  priority: 0,
+  enabled: true,
+};
+
+const EngineRuleCard = ({ rule, onToggle, onDelete, toggling }) => {
+  const statusCfg = rule.enabled
+    ? { label: 'Ativa',  cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+    : { label: 'Pausada', cls: 'bg-gray-100 text-gray-500 border-gray-200' };
+
+  return (
+    <Card className="border border-violet-100 hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="font-semibold text-gray-900 truncate">{rule.name}</span>
+              <Badge variant="outline" className={`text-xs border ${statusCfg.cls}`}>{statusCfg.label}</Badge>
+              {rule.priority > 0 && (
+                <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200">
+                  Prioridade {rule.priority}
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+              <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> {rule.trigger_type}</span>
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Cooldown {rule.cooldown_hours}h</span>
+              <span className="flex items-center gap-1"><ChevronRight className="h-3 w-3" /> {(rule.actions || []).length} ação(ões)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Switch
+              checked={!!rule.enabled}
+              onCheckedChange={v => onToggle(rule.id, v)}
+              disabled={toggling === rule.id}
+              className="data-[state=checked]:bg-violet-600"
+            />
+            <Button variant="ghost" size="sm" onClick={() => onDelete(rule.id)}
+              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const EngineRulesTab = ({ orgId }) => {
+  const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(BLANK_RULE_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const load = useCallback(async () => {
+    if (!orgId) return;
+    setLoading(true);
+    try {
+      const res = await listRules(orgId);
+      setRules(res.rules || []);
+    } catch (e) {
+      toast.error('Erro ao carregar regras do motor');
+    } finally {
+      setLoading(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleToggle = async (id, enabled) => {
+    setToggling(id);
+    try {
+      await toggleRule(id, enabled);
+      setRules(prev => prev.map(r => r.id === id ? { ...r, enabled } : r));
+      toast.success(enabled ? 'Regra ativada' : 'Regra pausada');
+    } catch (e) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setToggling(null);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Remover esta regra do motor?')) return;
+    try {
+      await deleteRule(id);
+      setRules(prev => prev.filter(r => r.id !== id));
+      toast.success('Regra removida');
+    } catch (e) {
+      toast.error(`Erro: ${e.message}`);
+    }
+  };
+
+  const handleSave = async () => {
+    setFormError('');
+    if (!form.name.trim()) { setFormError('Nome é obrigatório'); return; }
+    if (!form.trigger_type.trim()) { setFormError('Trigger type é obrigatório'); return; }
+
+    let conditions, actions;
+    try { conditions = JSON.parse(form.conditions); } catch { setFormError('Conditions: JSON inválido'); return; }
+    try { actions = JSON.parse(form.actions); } catch { setFormError('Actions: JSON inválido'); return; }
+
+    setSaving(true);
+    try {
+      const res = await createRule({
+        org_id:         orgId,
+        name:           form.name.trim(),
+        trigger_type:   form.trigger_type.trim(),
+        conditions,
+        actions,
+        cooldown_hours: Number(form.cooldown_hours) || 24,
+        priority:       Number(form.priority) || 0,
+        enabled:        form.enabled,
+      });
+      toast.success('Regra criada!');
+      setShowForm(false);
+      setForm(BLANK_RULE_FORM);
+      setRules(prev => [res.rule, ...prev]);
+    } catch (e) {
+      setFormError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!orgId) return (
+    <Card><CardContent className="py-12 text-center text-gray-400">
+      Usuário não identificado
+    </CardContent></Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">Motor de Regras</h3>
+          <p className="text-sm text-gray-500">
+            {rules.length} regra(s) · avaliadas pelo engine ao processar eventos
+          </p>
+        </div>
+        <Button onClick={() => { setShowForm(true); setFormError(''); setForm(BLANK_RULE_FORM); }}
+          className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+          <Plus className="h-4 w-4 mr-2" /> Nova Regra
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+        </div>
+      ) : rules.length === 0 ? (
+        <Card className="border-dashed border-2 border-violet-200">
+          <CardContent className="py-12 text-center">
+            <Bot className="h-14 w-14 text-violet-200 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">Nenhuma regra no motor</p>
+            <p className="text-xs text-gray-400 mt-1 mb-4">
+              Regras do motor processam eventos como &quot;paciente.inativo&quot; e disparam ações automáticas.
+            </p>
+            <Button size="sm" onClick={() => setShowForm(true)}
+              className="bg-violet-600 text-white">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeira regra
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {rules.map(rule => (
+            <EngineRuleCard
+              key={rule.id}
+              rule={rule}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+              toggling={toggling}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Create Rule Dialog ── */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-violet-600" /> Nova Regra do Motor
+            </DialogTitle>
+            <DialogDescription>
+              Define quando disparar e qual ação executar automaticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            {/* Name */}
+            <div>
+              <Label>Nome *</Label>
+              <Input value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Notificar profissional sobre paciente inativo" />
+            </div>
+
+            {/* Trigger type */}
+            <div>
+              <Label>Trigger Type *</Label>
+              <Select value={form.trigger_type}
+                onValueChange={v => setForm(f => ({ ...f, trigger_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TRIGGER_TYPE_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label} ({o.value})</SelectItem>
+                  ))}
+                  <SelectItem value="_custom">Personalizado (digitar abaixo)</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.trigger_type === '_custom' && (
+                <Input className="mt-2"
+                  placeholder="ex: patient.inactive_detected"
+                  onChange={e => setForm(f => ({ ...f, trigger_type: e.target.value }))} />
+              )}
+            </div>
+
+            {/* Conditions */}
+            <div>
+              <Label className="flex items-center gap-1">
+                Conditions (JSON)
+                <span className="text-xs text-gray-400 font-normal ml-1">
+                  — operadores: eq, neq, gt, gte, lt, lte, contains, in, exists
+                </span>
+              </Label>
+              <Textarea
+                value={form.conditions}
+                onChange={e => setForm(f => ({ ...f, conditions: e.target.value }))}
+                rows={6}
+                className="font-mono text-xs"
+                placeholder={'{\n  "and": [\n    { "payload.inactive_days": { "gte": 5 } }\n  ]\n}'}
+              />
+            </div>
+
+            {/* Actions */}
+            <div>
+              <Label className="flex items-center gap-1">
+                Actions (JSON array)
+                <span className="text-xs text-gray-400 font-normal ml-1">
+                  — tipos: {ACTION_TYPE_OPTIONS.map(a => a.value).join(', ')}
+                </span>
+              </Label>
+              <Textarea
+                value={form.actions}
+                onChange={e => setForm(f => ({ ...f, actions: e.target.value }))}
+                rows={8}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            {/* Cooldown + Priority */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Cooldown (horas)</Label>
+                <Input type="number" min={0} value={form.cooldown_hours}
+                  onChange={e => setForm(f => ({ ...f, cooldown_hours: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Prioridade</Label>
+                <Input type="number" value={form.priority}
+                  onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* Enabled */}
+            <div className="flex items-center gap-2">
+              <Switch checked={form.enabled}
+                onCheckedChange={v => setForm(f => ({ ...f, enabled: v }))}
+                className="data-[state=checked]:bg-violet-600" />
+              <Label className="cursor-pointer">Ativar imediatamente</Label>
+            </div>
+
+            {formError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <XCircle className="h-4 w-4 shrink-0" /> {formError}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button onClick={handleSave} disabled={saving}
+                className="bg-violet-600 text-white">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                Salvar Regra
+              </Button>
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ==================== DIAGNÓSTICO TAB ====================
+
+const RunRow = ({ run }) => {
+  const cfg = RUN_STATUS_CONFIG[run.status] || { label: run.status, cls: 'bg-gray-100 text-gray-600' };
+  const ruleName = run.automation_engine_rules?.name || run.rule_id?.slice(0, 8) + '…';
+  const eventType = run.automation_engine_events?.type || '—';
+  const ts = run.started_at ? new Date(run.started_at).toLocaleString('pt-BR') : '—';
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors">
+      <Badge variant="outline" className={`text-xs border shrink-0 ${cfg.cls}`}>{cfg.label}</Badge>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-800 truncate">{ruleName}</p>
+        <p className="text-xs text-gray-400 truncate">{eventType}</p>
+      </div>
+      {run.error && (
+        <span className="text-xs text-red-500 truncate max-w-[160px]" title={run.error}>
+          {run.error.slice(0, 40)}…
+        </span>
+      )}
+      <span className="text-xs text-gray-400 shrink-0 hidden sm:block">{ts}</span>
+    </div>
+  );
+};
+
+const DiagnosticoTab = ({ orgId }) => {
+  const [health, setHealth] = useState(null);
+  const [recentRuns, setRecentRuns] = useState([]);
+  const [failures, setFailures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!orgId) return;
+    setLoading(true);
+    try {
+      const [healthRes, runsRes, failRes] = await Promise.all([
+        getEngineHealth(),
+        listRuns(orgId, { limit: 20 }),
+        listRuns(orgId, { status: 'failed', limit: 20 }),
+      ]);
+      setHealth(healthRes);
+      setRecentRuns(runsRes.runs || []);
+      setFailures(failRes.runs || []);
+    } catch (e) {
+      toast.error('Erro ao carregar diagnóstico');
+    } finally {
+      setLoading(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleRunEngine = async () => {
+    setRunning(true);
+    try {
+      const res = await runEngineBatch();
+      toast.success(`✅ Engine processou ${res.processed_events} evento(s) · ${res.total_rules_triggered} regra(s) disparada(s)`);
+      load();
+    } catch (e) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex justify-center py-14">
+      <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      {/* ── Status Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Eventos Pendentes',  value: health?.pending_events ?? '—',          icon: Clock,         cls: 'text-amber-600 bg-amber-50' },
+          { label: 'Runs (24h)',          value: health?.runs_last_24h ?? '—',            icon: Activity,      cls: 'text-violet-600 bg-violet-50' },
+          { label: 'Falhas (24h)',        value: health?.failures_last_24h ?? '—',        icon: AlertTriangle, cls: 'text-red-600 bg-red-50' },
+          { label: 'Eventos Criados (24h)', value: health?.events_created_last_24h ?? '—', icon: Zap,           cls: 'text-emerald-600 bg-emerald-50' },
+        ].map(({ label, value, icon: Icon, cls }) => (
+          <Card key={label} className="border-0 shadow-sm">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${cls}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900">{value}</p>
+                <p className="text-xs text-gray-500 leading-tight">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── Run Engine Button ── */}
+      <div className="flex items-center gap-3">
+        <Button onClick={handleRunEngine} disabled={running}
+          className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+          {running
+            ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            : <Play className="h-4 w-4 mr-2" />}
+          Processar Eventos Agora
+        </Button>
+        <Button variant="outline" onClick={load} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Atualizar
+        </Button>
+        <span className={`flex items-center gap-1 text-xs font-medium ${health?.supabase_reachable ? 'text-emerald-600' : 'text-red-500'}`}>
+          <span className={`h-2 w-2 rounded-full ${health?.supabase_reachable ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          Supabase {health?.supabase_reachable ? 'conectado' : 'offline'}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Recent Runs ── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4 text-violet-600" /> Últimas 20 Execuções
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recentRuns.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Nenhuma execução registrada</p>
+            ) : (
+              <div className="divide-y divide-gray-50 px-2 pb-2">
+                {recentRuns.map(r => <RunRow key={r.id} run={r} />)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Recent Failures ── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-red-500" /> Últimas 20 Falhas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {failures.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="h-8 w-8 text-emerald-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Nenhuma falha registrada</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50 px-2 pb-2">
+                {failures.map(r => <RunRow key={r.id} run={r} />)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
 // ==================== PÁGINA PRINCIPAL ====================
 const AutomationCenter = () => {
   const { user, profile } = useAuth();
@@ -1110,6 +1600,16 @@ const AutomationCenter = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* ========== TAB: MOTOR DE REGRAS ========== */}
+        {activeTab === 'engine_rules' && (
+          <EngineRulesTab orgId={professionalId} />
+        )}
+
+        {/* ========== TAB: DIAGNÓSTICO ========== */}
+        {activeTab === 'diagnostico' && (
+          <DiagnosticoTab orgId={professionalId} />
         )}
 
         {/* ========== MODAL CRIAR/EDITAR ========== */}

@@ -308,3 +308,236 @@ async def run_detectors(body: DetectRequest):
     except Exception as exc:
         logger.error("Detect endpoint error: %s", exc)
         raise HTTPException(status_code=500, detail=f"Detector error: {exc}")
+
+
+# ─────────────────────────────────────────────────────────────
+# RULES CRUD
+# ─────────────────────────────────────────────────────────────
+
+ALLOWED_ACTION_TYPES = {"notify_user", "notify_professional", "create_task"}
+
+
+class RuleCreateRequest(BaseModel):
+    org_id:         str
+    name:           str
+    trigger_type:   str
+    conditions:     Dict[str, Any]       = {}
+    actions:        List[Dict[str, Any]] = []
+    cooldown_hours: int                  = 24
+    priority:       int                  = 0
+    enabled:        bool                 = True
+
+
+class RulePatchRequest(BaseModel):
+    name:           Optional[str]              = None
+    enabled:        Optional[bool]             = None
+    conditions:     Optional[Dict[str, Any]]   = None
+    actions:        Optional[List[Dict[str, Any]]] = None
+    cooldown_hours: Optional[int]              = None
+    priority:       Optional[int]              = None
+    trigger_type:   Optional[str]              = None
+
+
+def _validate_rule_actions(actions: List[Dict[str, Any]]) -> Optional[str]:
+    """Return an error string if any action type is invalid, else None."""
+    for i, action in enumerate(actions):
+        atype = action.get("type", "")
+        if atype not in ALLOWED_ACTION_TYPES:
+            return (
+                f"Action [{i}] has invalid type '{atype}'. "
+                f"Allowed: {sorted(ALLOWED_ACTION_TYPES)}"
+            )
+    return None
+
+
+@router.get("/rules")
+async def list_rules(org_id: Optional[str] = None, limit: int = 100):
+    """
+    List automation engine rules.
+    Filter by org_id if provided.
+    """
+    supabase_url, service_role_key = _get_config()
+    headers = {**_sb_headers(service_role_key), "Prefer": "return=representation"}  # noqa: F841
+    params: Dict[str, str] = {
+        "select": "*",
+        "order":  "priority.desc,created_at.desc",
+        "limit":  str(min(limit, 200)),
+    }
+    if org_id:
+        params["org_id"] = f"eq.{org_id}"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/automation_engine_rules",
+            headers=_sb_headers(service_role_key),
+            params=params,
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text[:300])
+
+    return {"ok": True, "rules": resp.json() or [], "count": len(resp.json() or [])}
+
+
+@router.post("/rules")
+async def create_rule(body: RuleCreateRequest):
+    """
+    Create a new automation engine rule.
+
+    Validates:
+    - name and trigger_type are required
+    - actions use only allowed types: notify_user, notify_professional, create_task
+    """
+    if not body.name.strip():
+        raise HTTPException(status_code=422, detail="name is required")
+    if not body.trigger_type.strip():
+        raise HTTPException(status_code=422, detail="trigger_type is required")
+
+    err = _validate_rule_actions(body.actions)
+    if err:
+        raise HTTPException(status_code=422, detail=err)
+
+    supabase_url, service_role_key = _get_config()
+
+    row = {
+        "org_id":         body.org_id,
+        "name":           body.name.strip(),
+        "enabled":        body.enabled,
+        "trigger_type":   body.trigger_type.strip(),
+        "conditions":     body.conditions,
+        "actions":        body.actions,
+        "cooldown_hours": body.cooldown_hours,
+        "priority":       body.priority,
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{supabase_url}/rest/v1/automation_engine_rules",
+            headers={**_sb_headers(service_role_key), "Prefer": "return=representation"},
+            json=row,
+        )
+
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=resp.status_code, detail=resp.text[:300])
+
+    data = resp.json()
+    rule = data[0] if isinstance(data, list) else data
+    logger.info("Rule created: id=%s name=%s", rule.get("id"), rule.get("name"))
+    return {"ok": True, "rule": rule}
+
+
+@router.patch("/rules/{rule_id}")
+async def patch_rule(rule_id: str, body: RulePatchRequest):
+    """
+    Partially update a rule.
+    Supports: enable/disable, rename, update conditions/actions/cooldown/priority/trigger_type.
+    """
+    if body.actions is not None:
+        err = _validate_rule_actions(body.actions)
+        if err:
+            raise HTTPException(status_code=422, detail=err)
+
+    # Only include fields that were explicitly provided
+    updates: Dict[str, Any] = {}
+    if body.name is not None:
+        if not body.name.strip():
+            raise HTTPException(status_code=422, detail="name cannot be empty")
+        updates["name"] = body.name.strip()
+    if body.enabled is not None:
+        updates["enabled"] = body.enabled
+    if body.trigger_type is not None:
+        updates["trigger_type"] = body.trigger_type.strip()
+    if body.conditions is not None:
+        updates["conditions"] = body.conditions
+    if body.actions is not None:
+        updates["actions"] = body.actions
+    if body.cooldown_hours is not None:
+        updates["cooldown_hours"] = body.cooldown_hours
+    if body.priority is not None:
+        updates["priority"] = body.priority
+
+    if not updates:
+        raise HTTPException(status_code=422, detail="No fields to update")
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    supabase_url, service_role_key = _get_config()
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.patch(
+            f"{supabase_url}/rest/v1/automation_engine_rules",
+            headers={**_sb_headers(service_role_key), "Prefer": "return=representation"},
+            params={"id": f"eq.{rule_id}"},
+            json=updates,
+        )
+
+    if resp.status_code not in (200, 204):
+        raise HTTPException(status_code=resp.status_code, detail=resp.text[:300])
+
+    data = resp.json()
+    rule = (data[0] if isinstance(data, list) else data) if data else {"id": rule_id, **updates}
+    logger.info("Rule patched: id=%s fields=%s", rule_id, list(updates.keys()))
+    return {"ok": True, "rule": rule}
+
+
+@router.delete("/rules/{rule_id}")
+async def delete_rule(rule_id: str):
+    """Permanently delete a rule."""
+    supabase_url, service_role_key = _get_config()
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.delete(
+            f"{supabase_url}/rest/v1/automation_engine_rules",
+            headers=_sb_headers(service_role_key),
+            params={"id": f"eq.{rule_id}"},
+        )
+
+    if resp.status_code not in (200, 204):
+        raise HTTPException(status_code=resp.status_code, detail=resp.text[:300])
+
+    logger.info("Rule deleted: id=%s", rule_id)
+    return {"ok": True, "deleted_id": rule_id}
+
+
+# ─────────────────────────────────────────────────────────────
+# RUNS listing
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/runs")
+async def list_runs(
+    org_id:   Optional[str] = None,
+    status:   Optional[str] = None,
+    limit:    int           = 50,
+):
+    """
+    List automation engine runs.
+
+    Query params:
+      org_id : filter by org
+      status : filter by status (success|failed|skipped|cooldown)
+      limit  : max rows (default 50, max 200)
+    """
+    supabase_url, service_role_key = _get_config()
+
+    params: Dict[str, str] = {
+        "select": "*, automation_engine_events(type,patient_id), automation_engine_rules(name,trigger_type)",
+        "order":  "started_at.desc",
+        "limit":  str(min(limit, 200)),
+    }
+    if org_id:
+        params["org_id"] = f"eq.{org_id}"
+    if status:
+        params["status"] = f"eq.{status}"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{supabase_url}/rest/v1/automation_engine_runs",
+            headers=_sb_headers(service_role_key),
+            params=params,
+        )
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=resp.status_code, detail=resp.text[:300])
+
+    runs = resp.json() or []
+    return {"ok": True, "runs": runs, "count": len(runs)}
