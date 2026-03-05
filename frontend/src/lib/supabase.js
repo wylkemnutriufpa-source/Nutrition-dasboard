@@ -1929,23 +1929,23 @@ export const getPatientStats = async (patientId) => {
 };
 
 // ==================== BRANDING ====================
+// DEPRECATED: Funções antigas usando branding_configs (tabela não existe mais)
+// Use as funções getProfessionalBranding, upsertProfessionalBranding, etc. mais abaixo
 
+/**
+ * @deprecated Use getProfessionalBranding() ou getCurrentProfessionalBranding()
+ */
 export const getBranding = async (userId) => {
-  const { data, error } = await supabase
-    .from('branding_configs')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return { data, error };
+  console.warn('getBranding() is deprecated. Use getProfessionalBranding() instead.');
+  return await getProfessionalBranding(userId);
 };
 
+/**
+ * @deprecated Use upsertProfessionalBranding()
+ */
 export const saveBranding = async (userId, brandingData) => {
-  const { data, error } = await supabase
-    .from('branding_configs')
-    .upsert({ user_id: userId, ...brandingData })
-    .select()
-    .single();
-  return { data, error };
+  console.warn('saveBranding() is deprecated. Use upsertProfessionalBranding() instead.');
+  return await upsertProfessionalBranding(userId, brandingData);
 };
 
 // ==================== CHECKLIST SIMPLES (MVP) ====================
