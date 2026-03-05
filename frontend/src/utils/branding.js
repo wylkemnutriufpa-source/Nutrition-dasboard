@@ -71,14 +71,24 @@ export const DEFAULT_BRANDING = {
 export const getActiveBranding = async () => {
   try {
     const userType = localStorage.getItem('fitjourney_user_type');
+    console.log('🔍 [BRANDING DEBUG] User Type:', userType);
     
     if (userType === 'professional') {
       const { data, error } = await getCurrentProfessionalBranding();
+      console.log('🔍 [BRANDING DEBUG] Professional Branding:', { data, error });
+      
       if (error) {
-        console.error('Erro ao buscar branding profissional:', error);
+        console.error('❌ [BRANDING DEBUG] Erro ao buscar branding profissional:', error);
         return DEFAULT_BRANDING;
       }
-      return data || DEFAULT_BRANDING;
+      
+      if (!data) {
+        console.warn('⚠️ [BRANDING DEBUG] Nenhum branding encontrado, usando DEFAULT');
+        return DEFAULT_BRANDING;
+      }
+      
+      console.log('✅ [BRANDING DEBUG] Branding carregado com sucesso:', data);
+      return data;
     }
     
     if (userType === 'patient') {
@@ -105,14 +115,19 @@ export const getActiveBranding = async () => {
  */
 export const saveProfessionalBranding = async (professionalId, branding) => {
   try {
+    console.log('💾 [BRANDING DEBUG] Salvando branding:', { professionalId, branding });
+    
     const { data, error } = await upsertProfessionalBranding(professionalId, branding);
+    
     if (error) {
-      console.error('Erro ao salvar branding:', error);
+      console.error('❌ [BRANDING DEBUG] Erro ao salvar branding:', error);
       return { success: false, error };
     }
+    
+    console.log('✅ [BRANDING DEBUG] Branding salvo com sucesso:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('Erro ao salvar branding:', error);
+    console.error('❌ [BRANDING DEBUG] Exceção ao salvar branding:', error);
     return { success: false, error };
   }
 };

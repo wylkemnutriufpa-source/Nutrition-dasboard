@@ -2504,11 +2504,16 @@ export const upsertPatientPlan = async (patientId, planData) => {
  * @returns {Promise<{data: Object|null, error: Object|null}>}
  */
 export const getProfessionalBranding = async (professionalId) => {
+  console.log('🔍 [SUPABASE DEBUG] getProfessionalBranding chamado com ID:', professionalId);
+  
   const { data, error } = await supabase
     .from('professional_branding')
     .select('*')
     .eq('professional_id', professionalId)
     .maybeSingle();
+  
+  console.log('🔍 [SUPABASE DEBUG] Resultado:', { data, error });
+  
   return { data, error };
 };
 
