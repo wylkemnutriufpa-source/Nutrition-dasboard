@@ -50,6 +50,7 @@ import PlanSchedulerSidebar from '@/components/PlanSchedulerSidebar';
 import { MealTemplatesPanel, SaveTemplateDialog } from '@/components/MealTemplatesPanel';
 import { createMealTemplate } from '@/lib/supabase';
 import PatientSmartDashboard from '@/components/PatientSmartDashboard';
+import EnergyCalculatorModal from '@/components/EnergyCalculatorModal';
 
 // ============ COMPONENTE: ITEM DE ALIMENTO ============
 const FoodItemRow = ({ food, allFoods, onUpdate, onRemove }) => {
@@ -292,6 +293,8 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
   // Estado para salvar template
   const [saveTemplateDialog, setSaveTemplateDialog] = useState(false);
   const [mealToSaveAsTemplate, setMealToSaveAsTemplate] = useState(null);
+  // Estado para calculadora energetica
+  const [showEnergyCalculator, setShowEnergyCalculator] = useState(false);
 
   // Carregar dados
   const loadInitialData = useCallback(async () => {
@@ -440,13 +443,13 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
         })
       }));
       if (currentPlan) {
-        const { data, error } = await updateMealPlan(currentPlan.id, { name: planName, description: planNotes, plan_data: { meals: cleanedMeals }, daily_targets: dayTotals });
+        const { data, error } = await updateMealPlan(currentPlan.id, { name: planName, description: planNotes, plan_data: { meals: cleanedMeals }, daily_targets: currentPlan.daily_targets || dayTotals });
         if (error) throw error;
         toast.success('Plano atualizado!');
         trackProfessionalFeature('edit_meal_plan');
         setCurrentPlan(data);
       } else {
-        const { data, error } = await createMealPlan({ patient_id: selectedPatient.id, professional_id: user.id, name: planName, description: planNotes, plan_data: { meals: cleanedMeals }, daily_targets: dayTotals, is_active: true });
+        const { data, error } = await createMealPlan({ patient_id: selectedPatient.id, professional_id: user.id, name: planName, description: planNotes, plan_data: { meals: cleanedMeals }, daily_targets: currentPlan?.daily_targets || dayTotals, is_active: true });
         if (error) throw error;
         setCurrentPlan(data);
         toast.success('Plano criado!');
@@ -598,10 +601,16 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
               <span className="text-sm font-semibold">Duplicar Plano</span>
             </button>
             
+            <button onClick={() => setShowEnergyCalculator(true)} disabled={!selectedPatient}
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50">
+              <BarChart3 size={28} className="mb-2" />
+              <span className="text-sm font-semibold">Calculo Energetico</span>
+            </button>
+            
             <button onClick={() => navigate('/professional/reports')}
-              className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all">
               <LineChart size={28} className="mb-2" />
-              <span className="text-sm font-semibold">Ver Relatórios</span>
+              <span className="text-sm font-semibold">Ver Relatorios</span>
             </button>
           </div>
         </div>
@@ -675,117 +684,96 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
         </div>
 
         {/* ========== PAINEL METAS vs PLANO (TEMPO REAL) ========== */}
-        {currentPlan?.daily_targets?.kcal && (
-          <Card className="border-2 border-emerald-200 shadow-md overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Target size={18} className="text-emerald-600" />
-                  <h3 className="font-bold text-gray-900 text-sm">Metas vs Plano Atual</h3>
+        {(() => {
+          const targets = currentPlan?.daily_targets;
+          const hasTargets = targets && (targets.kcal || targets.protein_g || targets.carbs_g || targets.fat_g);
+          if (!hasTargets) return (
+            <Card className="border-2 border-dashed border-gray-200">
+              <CardContent className="p-4 text-center">
+                <Target className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                <p className="text-sm text-gray-500 font-medium">Nenhuma meta definida</p>
+                <p className="text-xs text-gray-400 mt-1">Use o Calculo Energetico para definir metas de kcal e macros</p>
+                {selectedPatient && (
+                  <Button size="sm" variant="outline" className="mt-3 text-teal-600 border-teal-300" onClick={() => setShowEnergyCalculator(true)}>
+                    <BarChart3 size={14} className="mr-1" /> Definir Metas
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+
+          const macroItems = [
+            { key: 'kcal', tKey: 'kcal', label: 'Calorias', actual: dayTotals.kcal, target: targets.kcal || 0, unit: 'kcal', color: 'emerald', bgColor: 'bg-emerald-500' },
+            { key: 'protein', tKey: 'protein_g', label: 'Proteina', actual: dayTotals.protein, target: targets.protein_g || 0, unit: 'g', color: 'blue', bgColor: 'bg-blue-500' },
+            { key: 'carbs', tKey: 'carbs_g', label: 'Carboidratos', actual: dayTotals.carbs, target: targets.carbs_g || 0, unit: 'g', color: 'amber', bgColor: 'bg-amber-500' },
+            { key: 'fat', tKey: 'fat_g', label: 'Gordura', actual: dayTotals.fat, target: targets.fat_g || 0, unit: 'g', color: 'rose', bgColor: 'bg-rose-500' },
+            ...(targets.fiber_g ? [{ key: 'fiber', tKey: 'fiber_g', label: 'Fibras', actual: dayTotals.fiber, target: targets.fiber_g || 0, unit: 'g', color: 'green', bgColor: 'bg-green-500' }] : [])
+          ];
+
+          return (
+            <Card data-testid="targets-vs-plan" className="border-2 border-emerald-200 shadow-md overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <Target size={16} className="text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm">Metas vs Plano Atual</h3>
+                      <p className="text-[10px] text-gray-500">Atualizacao em tempo real conforme edita o plano</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {targets.created_from === 'calculator' && (
+                      <Badge className="bg-teal-100 text-teal-700 border-0 text-[10px]">Via Calculadora</Badge>
+                    )}
+                    <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs animate-pulse">Tempo real</Badge>
+                  </div>
                 </div>
-                <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">
-                  Em tempo real
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {/* Calorias */}
-                {(() => {
-                  const target = currentPlan.daily_targets.kcal || 0;
-                  const actual = dayTotals.kcal || 0;
-                  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-                  const over = pct > 110;
-                  const under = pct < 80;
-                  return (
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-500 mb-1">Calorias</p>
-                      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`absolute left-0 top-0 h-full rounded-full transition-all ${over ? 'bg-red-500' : under ? 'bg-amber-400' : 'bg-emerald-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <p className={`text-xs font-bold mt-1 ${over ? 'text-red-600' : under ? 'text-amber-600' : 'text-emerald-600'}`}>
-                        {actual} / {target} kcal
-                      </p>
-                      <p className="text-[10px] text-gray-400">{pct}%{over && ' ⚠️'}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Proteína */}
-                {(() => {
-                  const target = currentPlan.daily_targets.protein_g || 0;
-                  const actual = dayTotals.protein || 0;
-                  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-                  const over = pct > 110;
-                  return (
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-500 mb-1">Proteína</p>
-                      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`absolute left-0 top-0 h-full rounded-full transition-all ${over ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <p className="text-xs font-bold mt-1 text-blue-600">{actual}g / {target}g</p>
-                      <p className="text-[10px] text-gray-400">{pct}%{over && ' ⚠️'}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Carboidratos */}
-                {(() => {
-                  const target = currentPlan.daily_targets.carbs_g || 0;
-                  const actual = dayTotals.carbs || 0;
-                  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-                  const over = pct > 110;
-                  return (
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-500 mb-1">Carboidratos</p>
-                      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`absolute left-0 top-0 h-full rounded-full transition-all ${over ? 'bg-red-500' : 'bg-amber-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <p className="text-xs font-bold mt-1 text-amber-600">{actual}g / {target}g</p>
-                      <p className="text-[10px] text-gray-400">{pct}%{over && ' ⚠️'}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Gordura */}
-                {(() => {
-                  const target = currentPlan.daily_targets.fat_g || 0;
-                  const actual = dayTotals.fat || 0;
-                  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-                  const over = pct > 110;
-                  return (
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-500 mb-1">Gordura</p>
-                      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`absolute left-0 top-0 h-full rounded-full transition-all ${over ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                      </div>
-                      <p className="text-xs font-bold mt-1 text-yellow-600">{actual}g / {target}g</p>
-                      <p className="text-[10px] text-gray-400">{pct}%{over && ' ⚠️'}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Fibras (se definido) */}
-                {currentPlan.daily_targets.fiber_g && (
-                  (() => {
-                    const target = currentPlan.daily_targets.fiber_g || 0;
-                    const actual = dayTotals.fiber || 0;
-                    const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
+                
+                <div className="space-y-3">
+                  {macroItems.map(item => {
+                    const pct = item.target > 0 ? Math.round((item.actual / item.target) * 100) : 0;
+                    const over = pct > 110;
+                    const under = pct < 80;
+                    const statusColor = over ? 'text-red-600' : under ? 'text-amber-600' : `text-${item.color}-600`;
+                    const barColor = over ? 'bg-red-500' : under ? 'bg-amber-400' : item.bgColor;
                     return (
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-500 mb-1">Fibras</p>
-                        <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="absolute left-0 top-0 h-full rounded-full bg-green-500 transition-all" style={{ width: `${Math.min(pct, 100)}%` }} />
+                      <div key={item.key} className="flex items-center gap-3">
+                        <div className="w-20 text-right">
+                          <p className="text-[10px] text-gray-500">{item.label}</p>
                         </div>
-                        <p className="text-xs font-bold mt-1 text-green-600">{actual}g / {target}g</p>
-                        <p className="text-[10px] text-gray-400">{pct}%</p>
+                        <div className="flex-1">
+                          <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${barColor}`} 
+                              style={{ width: `${Math.min(pct, 100)}%` }} />
+                          </div>
+                        </div>
+                        <div className="w-36 text-right">
+                          <span className={`text-xs font-bold ${over ? 'text-red-600' : under ? 'text-amber-600' : 'text-gray-900'}`}>
+                            {item.actual}{item.unit}
+                          </span>
+                          <span className="text-[10px] text-gray-400"> / {item.target}{item.unit}</span>
+                          <span className={`ml-1 text-[10px] font-bold ${over ? 'text-red-600' : under ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            ({pct}%){over ? ' !' : ''}
+                          </span>
+                        </div>
                       </div>
                     );
-                  })()
+                  })}
+                </div>
+
+                {/* Water if defined */}
+                {targets.water_ml && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Agua recomendada:</span>
+                    <span className="font-bold text-cyan-600">{targets.water_ml} ml/dia ({(targets.water_ml / 1000).toFixed(1)}L)</span>
+                  </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* ========== LAYOUT PRINCIPAL: EDITOR + SIDEBAR ========== */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -917,6 +905,77 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
         open={saveTemplateDialog}
         onOpenChange={setSaveTemplateDialog}
         onSaved={() => { setMealToSaveAsTemplate(null); }}
+      />
+
+      {/* MODAL CALCULO ENERGETICO */}
+      <EnergyCalculatorModal
+        open={showEnergyCalculator}
+        onClose={() => setShowEnergyCalculator(false)}
+        patient={selectedPatient}
+        anamnesis={patientAnamnesis}
+        physicalAssessment={null}
+        onApplyCalories={async (results) => {
+          const dailyTargets = {
+            kcal: results.tdee,
+            protein_g: results.macros?.protein?.grams || 0,
+            carbs_g: results.macros?.carbs?.grams || 0,
+            fat_g: results.macros?.fat?.grams || 0,
+            fiber_g: 25,
+            water_ml: Math.round((parseFloat(results.weight) || 70) * 35),
+            bmr: results.bmr,
+            created_from: 'calculator',
+            formula: results.formula || 'mifflin',
+            updated_at: new Date().toISOString()
+          };
+
+          try {
+            if (currentPlan?.id) {
+              const { data, error } = await updateMealPlan(currentPlan.id, { daily_targets: dailyTargets });
+              if (error) throw error;
+              setCurrentPlan(prev => ({ ...prev, daily_targets: dailyTargets }));
+              toast.success(`Metas aplicadas! ${results.tdee} kcal/dia`);
+            } else if (selectedPatient) {
+              const { data: activePlan } = await supabase
+                .from('meal_plans')
+                .select('id')
+                .eq('patient_id', selectedPatient.id)
+                .eq('is_active', true)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (activePlan) {
+                const { error } = await supabase
+                  .from('meal_plans')
+                  .update({ daily_targets: dailyTargets, updated_at: new Date().toISOString() })
+                  .eq('id', activePlan.id);
+                if (error) throw error;
+                setCurrentPlan(prev => prev ? { ...prev, daily_targets: dailyTargets } : { id: activePlan.id, daily_targets: dailyTargets });
+                toast.success(`Metas aplicadas ao plano ativo! ${results.tdee} kcal/dia`);
+              } else {
+                const { data: newPlan, error } = await supabase
+                  .from('meal_plans')
+                  .insert({
+                    patient_id: selectedPatient.id,
+                    professional_id: user.id,
+                    name: 'Plano Atual',
+                    plan_status: 'draft',
+                    is_active: true,
+                    daily_targets: dailyTargets,
+                    plan_data: { meals: [] }
+                  })
+                  .select()
+                  .single();
+                if (error) throw error;
+                setCurrentPlan(newPlan);
+                toast.success(`Plano criado com metas! ${results.tdee} kcal/dia`);
+              }
+            }
+          } catch (err) {
+            console.error('Erro ao aplicar metas:', err);
+            toast.error('Erro ao salvar metas no plano');
+          }
+        }}
       />
     </Layout>
   );

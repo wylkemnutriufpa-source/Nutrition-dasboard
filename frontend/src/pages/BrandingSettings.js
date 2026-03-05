@@ -19,6 +19,82 @@ import { useBranding } from '@/contexts/BrandingContext';
 import { saveProfessionalBranding, DEFAULT_BRANDING } from '@/utils/branding';
 import { getCurrentUser, supabase } from '@/lib/supabase';
 
+// ==================== TEMPLATES DE BRANDING ====================
+const BRANDING_TEMPLATES = [
+  {
+    id: 'minimalista',
+    name: 'Minimalista',
+    description: 'Limpo, moderno e profissional',
+    preview_colors: ['#1a1a2e', '#16213e', '#0f3460'],
+    values: {
+      primary_color: '#1a1a2e', secondary_color: '#16213e', accent_color: '#0f3460',
+      login_bg_gradient_from: '#f8f9fa', login_bg_gradient_to: '#e9ecef',
+      login_card_style: 'solid', login_effect: 'none',
+      font_family: 'Inter, system-ui, sans-serif'
+    }
+  },
+  {
+    id: 'corporativo',
+    name: 'Corporativo',
+    description: 'Elegante e serio para clinicas',
+    preview_colors: ['#1e3a5f', '#2563eb', '#3b82f6'],
+    values: {
+      primary_color: '#1e3a5f', secondary_color: '#2563eb', accent_color: '#3b82f6',
+      login_bg_gradient_from: '#f0f4f8', login_bg_gradient_to: '#dbeafe',
+      login_card_style: 'solid', login_effect: 'gradient_wave',
+      font_family: 'Montserrat, sans-serif'
+    }
+  },
+  {
+    id: 'natural',
+    name: 'Natural',
+    description: 'Tons terrosos e organicos',
+    preview_colors: ['#5c4033', '#8b6914', '#a0522d'],
+    values: {
+      primary_color: '#5c4033', secondary_color: '#8b6914', accent_color: '#a0522d',
+      login_bg_gradient_from: '#fefce8', login_bg_gradient_to: '#fef3c7',
+      login_card_style: 'glass', login_effect: 'floating',
+      font_family: 'Georgia, serif'
+    }
+  },
+  {
+    id: 'vibrante',
+    name: 'Vibrante',
+    description: 'Energetico e colorido',
+    preview_colors: ['#7c3aed', '#ec4899', '#f59e0b'],
+    values: {
+      primary_color: '#7c3aed', secondary_color: '#ec4899', accent_color: '#f59e0b',
+      login_bg_gradient_from: '#fdf4ff', login_bg_gradient_to: '#fce7f3',
+      login_card_style: 'glass', login_effect: 'particles',
+      font_family: 'Poppins, sans-serif'
+    }
+  },
+  {
+    id: 'saude_verde',
+    name: 'Saude Verde',
+    description: 'Padrao FitJourney classico',
+    preview_colors: ['#059669', '#10b981', '#34d399'],
+    values: {
+      primary_color: '#059669', secondary_color: '#10b981', accent_color: '#34d399',
+      login_bg_gradient_from: '#f8fafc', login_bg_gradient_to: '#f0fdfa',
+      login_card_style: 'glass', login_effect: 'floating',
+      font_family: 'Inter, system-ui, sans-serif'
+    }
+  },
+  {
+    id: 'oceano',
+    name: 'Oceano',
+    description: 'Calmo e profissional',
+    preview_colors: ['#0e7490', '#06b6d4', '#67e8f9'],
+    values: {
+      primary_color: '#0e7490', secondary_color: '#06b6d4', accent_color: '#67e8f9',
+      login_bg_gradient_from: '#f0fdfa', login_bg_gradient_to: '#ecfeff',
+      login_card_style: 'gradient', login_effect: 'gradient_wave',
+      font_family: 'Nunito, sans-serif'
+    }
+  }
+];
+
 // ==================== MINI LOGIN PREVIEW ====================
 const LoginPreview = ({ formData }) => {
   const bgStyle = {
@@ -134,7 +210,7 @@ const BrandingSettings = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [professionalId, setProfessionalId] = useState(null);
-  const [activeTab, setActiveTab] = useState('identity');
+  const [activeTab, setActiveTab] = useState('templates');
 
   const [formData, setFormData] = useState(() => ({
     ...DEFAULT_BRANDING,
@@ -304,13 +380,47 @@ const BrandingSettings = () => {
           {/* Editor - 3 colunas */}
           <div className="lg:col-span-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid grid-cols-5 w-full">
+              <TabsList className="grid grid-cols-6 w-full">
+                <TabsTrigger value="templates" className="text-xs"><Star size={14} className="mr-1" /> Temas</TabsTrigger>
                 <TabsTrigger value="identity" className="text-xs"><Sparkles size={14} className="mr-1" /> Marca</TabsTrigger>
                 <TabsTrigger value="colors" className="text-xs"><Palette size={14} className="mr-1" /> Cores</TabsTrigger>
                 <TabsTrigger value="login" className="text-xs"><Monitor size={14} className="mr-1" /> Login</TabsTrigger>
                 <TabsTrigger value="typography" className="text-xs"><Type size={14} className="mr-1" /> Fontes</TabsTrigger>
                 <TabsTrigger value="footer" className="text-xs"><Globe size={14} className="mr-1" /> Rodape</TabsTrigger>
               </TabsList>
+
+              {/* ====== TAB: TEMPLATES ====== */}
+              <TabsContent value="templates">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center"><Star className="mr-2 text-amber-500" size={20} /> Temas Prontos</CardTitle>
+                    <CardDescription>Aplique um visual completo com 1 clique. Voce pode personalizar depois.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                      {BRANDING_TEMPLATES.map((template) => (
+                        <button key={template.id} data-testid={`template-${template.id}`}
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, ...template.values }));
+                            toast.success(`Tema "${template.name}" aplicado! Clique em Salvar para confirmar.`);
+                          }}
+                          className="group p-4 rounded-xl border-2 border-gray-200 hover:border-amber-400 hover:shadow-lg transition-all text-left">
+                          <div className="flex gap-1 mb-3">
+                            {template.preview_colors.map((color, i) => (
+                              <div key={i} className="w-8 h-8 rounded-lg shadow-sm" style={{ backgroundColor: color }} />
+                            ))}
+                          </div>
+                          <p className="font-bold text-gray-900 text-sm">{template.name}</p>
+                          <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                          <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-xs font-semibold text-amber-600">Clique para aplicar</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
               {/* ====== TAB: IDENTIDADE ====== */}
               <TabsContent value="identity">
