@@ -278,9 +278,13 @@ const BrandingSettings = () => {
         });
       
       console.log('🖼️ [LOGO UPLOAD] Resultado do upload:', { uploadData, uploadError });
+      console.log('🖼️ [LOGO UPLOAD] Erro detalhado:', JSON.stringify(uploadError, null, 2));
       
       if (uploadError) {
-        console.error('❌ [LOGO UPLOAD] Erro:', uploadError);
+        console.error('❌ [LOGO UPLOAD] Erro completo:', uploadError);
+        console.error('❌ [LOGO UPLOAD] Mensagem:', uploadError.message);
+        console.error('❌ [LOGO UPLOAD] Status:', uploadError.statusCode);
+        console.error('❌ [LOGO UPLOAD] Error object:', uploadError.error);
         
         // Verificar se o bucket existe
         if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
