@@ -4,7 +4,7 @@ import {
   Database, Palette, Shield, ClipboardList, MessageSquare, Stethoscope,
   UserCog, Activity, ShoppingCart, ChefHat, Pill, Lightbulb, TrendingUp,
   Sparkles, DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User,
-  Bot, BarChart3, Globe
+  Bot, BarChart3, Globe, Droplets
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBranding } from '@/contexts/BrandingContext';
@@ -17,7 +17,7 @@ const iconMap = {
   ChefHat, Pill, Lightbulb, TrendingUp, Calculator, Settings,
   Users, Database, Palette, Shield, UserCog, Activity, Sparkles,
   DollarSign, CalendarDays, Bell, Rocket, Book, Utensils, Camera, User,
-  Bot, BarChart3, Globe
+  Bot, BarChart3, Globe, Droplets
 };
 
 const Sidebar = ({ userType, onLogout, patientId }) => {

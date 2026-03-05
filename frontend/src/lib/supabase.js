@@ -2048,7 +2048,8 @@ export const DEFAULT_PATIENT_MENU = [
   { id: 'lista-compras', name: 'Lista de Compras', icon: 'ShoppingCart', route: '/patient/lista-compras', visible: false, order: 11 },
   { id: 'suplementos', name: 'Suplementos', icon: 'Pill', route: '/patient/suplementos', visible: false, order: 12 },
   { id: 'dicas', name: 'Dicas', icon: 'Lightbulb', route: '/patient/dicas', visible: false, order: 13 },
-  { id: 'calculadoras', name: 'Calculadoras', icon: 'Calculator', route: '/patient/calculadoras', visible: false, order: 14 }
+  { id: 'calculadoras', name: 'Calculadoras', icon: 'Calculator', route: '/patient/calculadoras', visible: false, order: 14 },
+  { id: 'calculadora-agua', name: 'Calculadora de Agua', icon: 'Droplets', route: '/patient/calculator/water', visible: true, order: 8 }
 ];
 
 // Buscar configuração do menu do paciente
