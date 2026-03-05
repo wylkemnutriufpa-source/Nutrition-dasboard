@@ -6,6 +6,7 @@ Supported action types (MVP)
   notify_user          → INSERT INTO public.notifications  (user_id = patient)
   notify_professional  → INSERT INTO public.notifications  (user_id = professional)
   create_task          → INSERT INTO public.tasks
+  create_pre_plan_draft → INSERT INTO public.meal_plan_drafts
 
 notify_professional supports dynamic targeting via the `target` field:
   { "type": "notify_professional", "target": "org_owner" }
@@ -112,6 +113,10 @@ async def execute_actions(
                     )
                 elif action_type == ActionType.CREATE_TASK:
                     result = await _action_create_task(
+                        client, supabase_url, service_role_key, action, ctx
+                    )
+                elif action_type == "create_pre_plan_draft":
+                    result = await _action_create_pre_plan_draft(
                         client, supabase_url, service_role_key, action, ctx
                     )
                 else:
@@ -268,4 +273,148 @@ async def _action_create_task(
         "ok":        record is not None,
         "record_id": record.get("id") if record else None,
         "table":     "tasks",
+    }
+
+
+def _choose_template_from_conditions(payload: Dict[str, Any]) -> str:
+    """
+    Deterministically choose a meal plan template based on anamnesis conditions.
+    
+    Priority:
+      1. diabetes → "diabetes"
+      2. hipertensao → "dash"
+      3. renal → "renal"
+      4. gastrite or refluxo → "gastrite"
+      5. default → "classico_br"
+    """
+    conditions = payload.get("conditions_detected", [])
+    restrictions = payload.get("restrictions", [])
+    
+    # Normalize to lowercase for matching
+    all_items = []
+    if isinstance(conditions, list):
+        all_items.extend([str(c).lower() for c in conditions])
+    if isinstance(restrictions, list):
+        all_items.extend([str(r).lower() for r in restrictions])
+    
+    # Priority matching
+    if any("diabet" in item for item in all_items):
+        return "diabetes"
+    if any("hipertens" in item or "pressao" in item for item in all_items):
+        return "dash"
+    if any("renal" in item or "rim" in item for item in all_items):
+        return "renal"
+    if any("gastri" in item or "reflux" in item for item in all_items):
+        return "gastrite"
+    
+    return "classico_br"
+
+
+async def _action_create_pre_plan_draft(
+    client: httpx.AsyncClient,
+    supabase_url: str,
+    service_role_key: str,
+    action: Dict[str, Any],
+    ctx: ActionContext,
+) -> Dict[str, Any]:
+    """
+    Create a pre-plan draft in meal_plan_drafts table.
+    
+    This draft will be picked up by the IA PLAN screen for review.
+    The template is chosen deterministically based on anamnesis conditions.
+    
+    Deduplication: Only one draft per patient per day (enforced by checking latest).
+    """
+    patient_id = ctx.event.patient_id
+    if not patient_id:
+        return {
+            "action": "create_pre_plan_draft",
+            "ok": False,
+            "error": "patient_id is required",
+        }
+    
+    org_id = ctx.event.org_id
+    
+    # Check if a draft already exists today
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+    }
+    
+    # Check for existing draft today
+    check_resp = await client.get(
+        f"{supabase_url}/rest/v1/meal_plan_drafts",
+        headers=headers,
+        params={
+            "patient_id": f"eq.{patient_id}",
+            "created_at": f"gte.{today_start}",
+            "select": "id",
+            "limit": "1",
+        },
+        timeout=10.0,
+    )
+    
+    if check_resp.status_code == 200:
+        existing = check_resp.json()
+        if existing:
+            logger.info(
+                f"Draft already exists for patient {patient_id} today - skipping"
+            )
+            return {
+                "action": "create_pre_plan_draft",
+                "ok": True,
+                "skipped": True,
+                "reason": "draft_already_exists_today",
+                "existing_id": existing[0].get("id"),
+            }
+    
+    # Choose template based on conditions
+    template_key = _choose_template_from_conditions(ctx.payload)
+    
+    # Create anamnesis snapshot (use full payload or subset)
+    anamnesis_snapshot = {
+        "patient_name": ctx.payload.get("patient_name", ""),
+        "conditions_detected": ctx.payload.get("conditions_detected", []),
+        "restrictions": ctx.payload.get("restrictions", []),
+        "goals": ctx.payload.get("goals", []),
+        "weight": ctx.payload.get("weight"),
+        "height": ctx.payload.get("height"),
+        "age": ctx.payload.get("age"),
+        "activity_level": ctx.payload.get("activity_level"),
+        # Include any other relevant fields
+        **{k: v for k, v in ctx.payload.items() if k not in [
+            "patient_name", "conditions_detected", "restrictions", "goals"
+        ]},
+    }
+    
+    row = {
+        "id": str(uuid.uuid4()),
+        "org_id": org_id,
+        "patient_id": patient_id,
+        "source_event_id": ctx.event.id,
+        "template_key": template_key,
+        "anamnesis_snapshot": anamnesis_snapshot,
+        "status": "draft",
+        "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+    }
+    
+    record = await _insert_row(
+        client, supabase_url, service_role_key, "meal_plan_drafts", row
+    )
+    
+    if record:
+        logger.info(
+            f"Created pre-plan draft for patient {patient_id}: "
+            f"template={template_key} draft_id={record.get('id')}"
+        )
+    
+    return {
+        "action": "create_pre_plan_draft",
+        "ok": record is not None,
+        "record_id": record.get("id") if record else None,
+        "table": "meal_plan_drafts",
+        "template_key": template_key,
     }
