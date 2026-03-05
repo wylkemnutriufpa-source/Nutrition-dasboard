@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { generateMealPlanPDF } from '@/utils/pdfGenerator';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const MealIcon = ({ mealName }) => {
   const name = mealName?.toLowerCase() || '';
@@ -22,7 +23,7 @@ const MealIcon = ({ mealName }) => {
   return <Utensils className="text-teal-600" size={18} />;
 };
 
-const MealCard = ({ meal, isLast }) => {
+const MealCard = ({ meal, isLast, mealIndex, isCompleted, onToggleComplete, readOnly }) => {
   const [expanded, setExpanded] = useState(true);
   
   const calculateMealTotals = () => {
@@ -43,13 +44,29 @@ const MealCard = ({ meal, isLast }) => {
       style={{ borderLeftColor: meal.color || '#0F766E', borderLeftWidth: '4px' }}
     >
       <div 
-        className="p-4 flex items-center justify-between cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        className="p-4 flex items-center justify-between"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-1" onClick={() => setExpanded(!expanded)} style={{ cursor: 'pointer' }}>
+          {!readOnly && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <Checkbox 
+                checked={isCompleted}
+                onCheckedChange={onToggleComplete}
+                className="h-5 w-5"
+              />
+            </div>
+          )}
           <MealIcon mealName={meal.name} />
           <div>
-            <h4 className="font-semibold text-gray-900">{meal.name}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold text-gray-900">{meal.name}</h4>
+              {isCompleted && (
+                <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                  <CheckCircle2 size={12} className="mr-1" />
+                  Feito ✔️
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Clock size={14} />
               <span>{meal.time || 'Horário não definido'}</span>
@@ -146,6 +163,106 @@ const MealPlanViewerModal = ({
   readOnly = false
 }) => {
   const [activeTab, setActiveTab] = useState('refeicoes');
+  const [mealCompletions, setMealCompletions] = useState({});
+  const [adherenceData, setAdherenceData] = useState(null);
+  const [loadingCompletion, setLoadingCompletion] = useState(false);
+
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://rules-event-executor.preview.emergentagent.com';
+  const today = new Date().toISOString().split('T')[0];
+
+  // Fetch meal completions and adherence on modal open
+  useEffect(() => {
+    if (isOpen && patient?.id && !readOnly) {
+      fetchMealCompletions();
+      fetchAdherence();
+    }
+  }, [isOpen, patient?.id, readOnly]);
+
+  const fetchMealCompletions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('checklist_entries')
+        .select('task_key, status')
+        .eq('patient_id', patient.id)
+        .eq('date', today)
+        .eq('task_type', 'meal');
+
+      if (!error && data) {
+        const completions = {};
+        data.forEach(entry => {
+          completions[entry.task_key] = entry.status === 'completed';
+        });
+        setMealCompletions(completions);
+      }
+    } catch (error) {
+      console.error('Error fetching meal completions:', error);
+    }
+  };
+
+  const fetchAdherence = async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/checklist/meals/adherence/${patient.id}/${today}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdherenceData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching adherence:', error);
+    }
+  };
+
+  const getMealKey = (meal, index) => {
+    const name = meal.name?.toLowerCase() || '';
+    if (name.includes('café') || name.includes('desjejum')) return 'breakfast';
+    if (name.includes('almoço') || name.includes('almoco')) return 'lunch';
+    if (name.includes('jantar')) return 'dinner';
+    if (name.includes('lanche')) return `snack${index}`;
+    return `meal${index}`;
+  };
+
+  const handleToggleMealComplete = async (mealIndex) => {
+    const meals = mealPlan.plan_data?.meals || mealPlan.meals || [];
+    const meal = meals[mealIndex];
+    const mealKey = getMealKey(meal, mealIndex);
+    const isCurrentlyCompleted = mealCompletions[mealKey] || false;
+    const newStatus = !isCurrentlyCompleted;
+
+    // Optimistic update
+    setMealCompletions(prev => ({ ...prev, [mealKey]: newStatus }));
+
+    setLoadingCompletion(true);
+    try {
+      const response = await fetch(`${API_URL}/api/checklist/meals/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patient.id,
+          date: today,
+          task_key: mealKey,
+          status: newStatus ? 'completed' : 'pending',
+          metadata: { meal_name: meal.name }
+        })
+      });
+
+      if (response.ok) {
+        toast.success(newStatus ? '✓ Refeição marcada como concluída!' : 'Refeição desmarcada');
+        await fetchAdherence(); // Refresh adherence
+      } else {
+        // Revert on error
+        setMealCompletions(prev => ({ ...prev, [mealKey]: isCurrentlyCompleted }));
+        toast.error('Erro ao atualizar conclusão');
+      }
+    } catch (error) {
+      console.error('Error toggling meal completion:', error);
+      setMealCompletions(prev => ({ ...prev, [mealKey]: isCurrentlyCompleted }));
+      toast.error('Erro ao salvar');
+    } finally {
+      setLoadingCompletion(false);
+    }
+  };
   
   if (!mealPlan) return null;
   
@@ -204,6 +321,30 @@ const MealPlanViewerModal = ({
               </DialogDescription>
               {mealPlan.description && (
                 <p className="text-sm text-teal-200 mt-2">{mealPlan.description}</p>
+              )}
+              
+              {/* Progress Bar - Adherence */}
+              {!readOnly && adherenceData && (
+                <div className="mt-4 p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={16} className="text-white" />
+                      <span className="text-sm text-white font-medium">
+                        {adherenceData.completed_meals}/{adherenceData.total_meals} refeições concluídas hoje
+                      </span>
+                    </div>
+                    <Badge className="bg-white/20 text-white border-0">
+                      {adherenceData.adherence_pct}%
+                    </Badge>
+                  </div>
+                  <Progress value={adherenceData.adherence_pct} className="h-2 bg-white/20" />
+                  {adherenceData.status === 'very_low' && (
+                    <p className="text-xs text-amber-200 mt-2 flex items-center gap-1">
+                      <AlertCircle size={12} />
+                      Aderência baixa - Tente completar mais refeições
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             <Badge className="bg-white/20 text-white border-0 text-sm">
