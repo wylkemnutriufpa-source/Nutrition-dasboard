@@ -323,7 +323,13 @@ async def _action_create_pre_plan_draft(
     This draft will be picked up by the IA PLAN screen for review.
     The template is chosen deterministically based on anamnesis conditions.
     
-    Deduplication: Only one draft per patient per day (enforced by checking latest).
+    Schema:
+      - template_key: text (chosen template name)
+      - plan_json: jsonb (contains draft_type, template_key, anamnesis_snapshot, source_event_type)
+      - status: text (default 'draft')
+      - dedupe_key: text (daily deduplication key)
+    
+    Deduplication: Only one draft per patient per day (enforced by dedupe_key).
     """
     patient_id = ctx.event.patient_id
     if not patient_id:
@@ -335,21 +341,21 @@ async def _action_create_pre_plan_draft(
     
     org_id = ctx.event.org_id
     
-    # Check if a draft already exists today
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    # Create daily dedupe key
+    today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    dedupe_key = f"pre_plan_draft:{patient_id}:{today_date}"
     
+    # Check if a draft with this dedupe_key already exists
     headers = {
         "apikey": service_role_key,
         "Authorization": f"Bearer {service_role_key}",
     }
     
-    # Check for existing draft today
     check_resp = await client.get(
         f"{supabase_url}/rest/v1/meal_plan_drafts",
         headers=headers,
         params={
-            "patient_id": f"eq.{patient_id}",
-            "created_at": f"gte.{today_start}",
+            "dedupe_key": f"eq.{dedupe_key}",
             "select": "id",
             "limit": "1",
         },
@@ -360,7 +366,7 @@ async def _action_create_pre_plan_draft(
         existing = check_resp.json()
         if existing:
             logger.info(
-                f"Draft already exists for patient {patient_id} today - skipping"
+                f"Draft already exists for patient {patient_id} today (dedupe_key={dedupe_key}) - skipping"
             )
             return {
                 "action": "create_pre_plan_draft",
@@ -368,12 +374,13 @@ async def _action_create_pre_plan_draft(
                 "skipped": True,
                 "reason": "draft_already_exists_today",
                 "existing_id": existing[0].get("id"),
+                "dedupe_key": dedupe_key,
             }
     
     # Choose template based on conditions
     template_key = _choose_template_from_conditions(ctx.payload)
     
-    # Create anamnesis snapshot (use full payload or subset)
+    # Build anamnesis snapshot
     anamnesis_snapshot = {
         "patient_name": ctx.payload.get("patient_name", ""),
         "conditions_detected": ctx.payload.get("conditions_detected", []),
@@ -385,18 +392,29 @@ async def _action_create_pre_plan_draft(
         "activity_level": ctx.payload.get("activity_level"),
         # Include any other relevant fields
         **{k: v for k, v in ctx.payload.items() if k not in [
-            "patient_name", "conditions_detected", "restrictions", "goals"
+            "patient_name", "conditions_detected", "restrictions", "goals",
+            "weight", "height", "age", "activity_level"
         ]},
+    }
+    
+    # Build plan_json structure
+    plan_json = {
+        "draft_type": "pre_plan",
+        "template_key": template_key,
+        "anamnesis_snapshot": anamnesis_snapshot,
+        "source_event_type": ctx.event.type,
+        "source_event_id": ctx.event.id,
+        "generated_at": _now_iso(),
     }
     
     row = {
         "id": str(uuid.uuid4()),
         "org_id": org_id,
         "patient_id": patient_id,
-        "source_event_id": ctx.event.id,
         "template_key": template_key,
-        "anamnesis_snapshot": anamnesis_snapshot,
+        "plan_json": plan_json,
         "status": "draft",
+        "dedupe_key": dedupe_key,
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
     }
@@ -408,7 +426,7 @@ async def _action_create_pre_plan_draft(
     if record:
         logger.info(
             f"Created pre-plan draft for patient {patient_id}: "
-            f"template={template_key} draft_id={record.get('id')}"
+            f"template={template_key} draft_id={record.get('id')} dedupe_key={dedupe_key}"
         )
     
     return {
@@ -417,4 +435,5 @@ async def _action_create_pre_plan_draft(
         "record_id": record.get("id") if record else None,
         "table": "meal_plan_drafts",
         "template_key": template_key,
+        "dedupe_key": dedupe_key,
     }
