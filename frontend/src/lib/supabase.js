@@ -298,481 +298,75 @@ export const getPatientById = async (patientId) => {
   }
 };
 
+/**
+ * Criar paciente via backend (método correto)
+ * Usa Supabase Auth Admin API via FastAPI
+ */
 export const createPatientByProfessional = async (professionalId, patientData) => {
-  console.log('🆕 Criando paciente...');
-  
-  const patientId = crypto.randomUUID();
+  console.log('🆕 Criando paciente via backend...');
   
   try {
-    // WORKAROUND: Se Supabase Auth estiver falhando, criar paciente SEM login
-    // Isso permite que o profissional gerencie o paciente, mas o paciente não consegue fazer login
-    const USE_BYPASS = true; // Alterar para false quando Auth estiver funcionando
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
     
-    if (USE_BYPASS) {
-      console.log('🔄 Usando bypass do Supabase Auth (criando paciente sem login)');
-      console.log('📧 Email para criar:', patientData.email);
-      
-      // NÃO verificar email duplicado aqui (RLS bloqueia SELECT genérico)
-      // O banco vai retornar erro 23505 se email já existir
-      
-      // Criar profile diretamente (sem auth)
-      const newPatientId = crypto.randomUUID();
-      
-      console.log('🔨 Tentando criar profile com ID:', newPatientId);
-      console.log('📝 Dados:', {
-        id: newPatientId,
-        email: patientData.email,
+    // Chamar endpoint do backend
+    const response = await fetch(`${backendUrl}/api/admin/patients/create`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         name: patientData.name,
-        role: 'patient'
+        email: patientData.email,
+        professional_id: professionalId,
+        phone: patientData.phone,
+        birth_date: patientData.birth_date
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Erro ao criar paciente');
+    }
+    
+    const result = await response.json();
+    console.log('✅ Paciente criado:', result);
+    
+    // Enviar magic link automaticamente
+    try {
+      const inviteResponse = await fetch(`${backendUrl}/api/admin/patients/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: patientData.email,
+          redirect_to: `${window.location.origin}/patient/home`
+        })
       });
       
-      try {
-        console.log('⏳ Enviando INSERT para Supabase...');
-        
-        const { data: createdProfile, error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: newPatientId,
-            email: patientData.email,
-            name: patientData.name,
-            phone: patientData.phone || null,
-            role: 'patient',
-            status: 'active',
-            plan_type: 'basic'
-          })
-          .select()
-          .single();
-        
-        console.log('📬 Resposta recebida do Supabase');
-        console.log('📊 createdProfile:', createdProfile);
-        console.log('📊 profileError:', profileError);
-        
-        if (profileError) {
-          console.error('❌ Erro ao criar profile');
-          
-          // NÃO acessar NENHUMA propriedade que cause body stream read
-          // Usar apenas toString() ou type checking básico
-          const errorString = String(profileError);
-          const isAuthError = profileError?.__isAuthError === true;
-          
-          console.error('📊 Erro (string):', errorString);
-          console.error('📊 É AuthError?:', isAuthError);
-          
-          // Verificar padrões na string sem acessar propriedades
-          if (errorString.includes('duplicate') || errorString.includes('23505')) {
-            return { 
-              data: null, 
-              error: { 
-                message: '❌ Email já cadastrado no sistema.',
-                code: 'EMAIL_EXISTS'
-              } 
-            };
-          }
-          
-          if (errorString.includes('permission') || errorString.includes('policy') || errorString.includes('42501')) {
-            return { 
-              data: null, 
-              error: { 
-                message: `❌ Erro de permissão RLS.
-
-Execute no Supabase Dashboard → SQL Editor:
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
-
-Depois teste novamente.`,
-                code: 'PERMISSION_DENIED'
-              } 
-            };
-          }
-          
-          // Erro genérico SEM acessar propriedades
-          return { 
-            data: null, 
-            error: { 
-              message: `❌ Erro ao criar perfil no banco de dados.
-
-Possível causa: RLS (Row Level Security) bloqueando INSERT.
-
-Solução: Desabilite RLS temporariamente:
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;`,
-              code: 'INSERT_ERROR'
-            } 
-          };
-        }
-        
-        console.log('✅ Profile criado (modo bypass):', newPatientId);
-      } catch (profileException) {
-        console.error('❌ EXCEÇÃO ao criar profile:', profileException);
-        console.error('📋 Exception name:', profileException.name);
-        console.error('📋 Exception message:', profileException.message);
-        console.error('📋 Exception stack:', profileException.stack);
-        
-        return {
-          data: null,
-          error: {
-            message: `❌ Exceção ao criar perfil: ${profileException.message}`,
-            code: 'EXCEPTION'
-          }
-        };
+      if (inviteResponse.ok) {
+        const inviteData = await inviteResponse.json();
+        console.log('📧 Magic link gerado:', inviteData.action_link);
       }
-      
-      // Criar vínculo
-      try {
-        await supabase
-          .from('patient_profiles')
-          .insert({
-            patient_id: newPatientId,
-            professional_id: professionalId
-          });
-        console.log('✅ Vínculo criado');
-      } catch (linkErr) {
-        console.warn('⚠️ Vínculo não criado:', linkErr);
-      }
-      
-      // Criar anamnese se tiver dados
-      if (patientData.birth_date || patientData.gender || patientData.height) {
-        try {
-          await supabase.from('anamnesis').insert({
-            patient_id: newPatientId,
-            professional_id: professionalId,
-            birth_date: patientData.birth_date,
-            gender: patientData.gender,
-            height: patientData.height,
-            current_weight: patientData.current_weight,
-            goal_weight: patientData.goal_weight,
-            goal: patientData.goal,
-            notes: patientData.notes
-          });
-          console.log('✅ Anamnese criada');
-        } catch (anamErr) {
-          console.warn('⚠️ Anamnese não criada:', anamErr);
-        }
-      }
-      
-      // Criar assinatura se dados foram fornecidos
-      if (patientData.packageType || patientData.tier) {
-        try {
-          await upsertPatientSubscription(newPatientId, professionalId, {
-            package_type: patientData.packageType || 'mensal',
-            tier: patientData.tier || 'basic',
-            start_date: patientData.startDate || new Date().toISOString().split('T')[0],
-            end_date: patientData.endDate || null,
-            amount_paid: patientData.amountPaid || null,
-            status: 'active',
-            current_plan_name: 'Plano Inicial'
-          });
-          console.log('✅ Assinatura criada');
-        } catch (subscErr) {
-          console.warn('⚠️ Assinatura não criada:', subscErr);
-        }
-      }
-      
-      return {
-        data: {
-          id: newPatientId,
-          email: patientData.email,
-          name: patientData.name,
-          bypass_mode: true // Indica que foi criado sem auth
-        },
-        error: null
-      };
+    } catch (inviteError) {
+      console.warn('⚠️ Erro ao enviar invite (não crítico):', inviteError);
     }
     
-    // MODO NORMAL: Criar usuário no Supabase Auth (com senha)
-    if (patientData.password) {
-      let authUserId = null;
-      
-      try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: patientData.email,
-          password: patientData.password,
-          options: {
-            data: {
-              name: patientData.name,
-              role: 'patient'
-            }
-          }
-        });
-
-        if (authError) {
-          console.error('❌ Erro auth detectado');
-          console.error('📊 authError completo:', authError);
-          console.error('📊 authError.message:', authError?.message);
-          console.error('📊 authError.status:', authError?.status);
-          console.error('📊 authError.__isAuthError:', authError?.__isAuthError);
-          
-          const errorMsg = String(authError?.message || '').toLowerCase();
-          
-          // CASO 1: Body stream already read = Erro 500 do Supabase (SDK já consumiu o body)
-          if (errorMsg.includes('body stream already read')) {
-            console.error('🔍 DIAGNÓSTICO: Erro 500 do Supabase Auth (body já lido pelo SDK)');
-            console.error('💡 CAUSA PROVÁVEL: Email já existe OU configuração de Auth incorreta');
-            
-            return { 
-              data: null, 
-              error: { 
-                message: `⚠️ Erro ao criar conta. Possíveis causas:
-                
-1. Este email já está cadastrado no sistema
-2. Configuração de confirmação de email no Supabase
-3. Problema temporário do servidor Supabase
-
-🔧 Solução sugerida: Tente com um email diferente ou verifique as configurações de Auth no Supabase Dashboard.`,
-                details: 'Supabase Auth retornou erro 500 (Internal Server Error)',
-                code: 'AUTH_500_BODY_CONSUMED'
-              } 
-            };
-          }
-          
-          // CASO 2: Erro 500 com status definido
-          if (authError.status === 500 || errorMsg.includes('500') || errorMsg.includes('internal server')) {
-            return { 
-              data: null, 
-              error: { 
-                message: 'Erro do servidor Supabase. Tente novamente em alguns segundos ou use um email diferente.',
-                details: authError.message || 'Erro 500 do Supabase Auth',
-                code: 'AUTH_500_ERROR'
-              } 
-            };
-          }
-          
-          // CASO 3: Email já existe
-          if (errorMsg.includes('already registered') || errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
-            return {
-              data: null,
-              error: {
-                message: 'Este email já está cadastrado no sistema.',
-                code: 'EMAIL_EXISTS'
-              }
-            };
-          }
-          
-          // CASO 4: Senha fraca
-          if (errorMsg.includes('password') && (errorMsg.includes('short') || errorMsg.includes('weak') || errorMsg.includes('length'))) {
-            return {
-              data: null,
-              error: {
-                message: 'Senha muito curta. Use pelo menos 6 caracteres.',
-                code: 'WEAK_PASSWORD'
-              }
-            };
-          }
-          
-          // CASO 5: Rate limit
-          if (errorMsg.includes('rate') || errorMsg.includes('too many')) {
-            return {
-              data: null,
-              error: {
-                message: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
-                code: 'RATE_LIMIT'
-              }
-            };
-          }
-          
-          // CASO 6: Erro genérico
-          const safeError = extractSafeError(authError);
-          return { data: null, error: safeError };
-        } else {
-          console.log('✅ Auth criado:', authData.user?.id);
-          authUserId = authData.user?.id;
-        }
-      } catch (authException) {
-        console.error('❌ Exceção no Auth:', authException);
-        console.error('📋 Exception stack:', authException.stack);
-        
-        // Retornar erro em vez de fallback silencioso
-        return {
-          data: null,
-          error: {
-            message: 'Erro inesperado ao criar conta. Tente novamente.',
-            details: authException.message,
-            code: 'AUTH_EXCEPTION'
-          }
-        };
-      }
-      
-      if (authUserId) {
-        // 2. Atualizar/criar profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: authUserId,
-            email: patientData.email,
-            name: patientData.name,
-            phone: patientData.phone || null,
-            role: 'patient',
-            status: 'active'
-          });
-        
-        if (profileError) {
-          console.error('❌ Erro profile:', profileError);
-          return { data: null, error: { message: 'Erro ao criar perfil' } };
-        }
-        
-        console.log('✅ Profile criado/atualizado');
-        
-        // 3. Criar vínculo
-        try {
-          await supabase
-            .from('patient_profiles')
-            .insert({
-              patient_id: authUserId,
-              professional_id: professionalId
-            });
-          console.log('✅ Vínculo criado');
-        } catch (linkErr) {
-          console.warn('⚠️ Vínculo não criado');
-        }
-        
-        // 4. Anamnese (opcional)
-        try {
-          await supabase.from('anamnesis').insert({
-            patient_id: authUserId,
-            professional_id: professionalId,
-            birth_date: patientData.birth_date,
-            gender: patientData.gender,
-            height: patientData.height,
-            current_weight: patientData.current_weight,
-            goal_weight: patientData.goal_weight,
-            goal: patientData.goal,
-            notes: patientData.notes
-          });
-          console.log('✅ Anamnese criada');
-        } catch (anamErr) {
-          console.warn('⚠️ Anamnese não criada');
-        }
-        
-        // 5. Criar assinatura se dados foram fornecidos
-        if (patientData.packageType || patientData.tier) {
-          try {
-            await upsertPatientSubscription(authUserId, professionalId, {
-              package_type: patientData.packageType || 'mensal',
-              tier: patientData.tier || 'basic',
-              start_date: patientData.startDate || new Date().toISOString().split('T')[0],
-              end_date: patientData.endDate || null,
-              amount_paid: patientData.amountPaid || null,
-              status: 'active',
-              current_plan_name: 'Plano Inicial'
-            });
-            console.log('✅ Assinatura criada');
-          } catch (subscErr) {
-            console.warn('⚠️ Assinatura não criada:', subscErr);
-          }
-        }
-        
-        return { 
-          data: { 
-            id: authUserId, 
-            email: patientData.email, 
-            name: patientData.name 
-          }, 
-          error: null 
-        };
-      }
-    }
-    
-    return { data: null, error: { message: 'Senha é obrigatória' } };
-    
+    return {
+      data: {
+        patient_id: result.patient_id,
+        email: result.email
+      },
+      error: null
+    };
   } catch (error) {
-    console.error('❌ Erro geral:', error);
-    return { data: null, error: { message: error.message || 'Erro ao criar paciente' } };
+    console.error('❌ Erro ao criar paciente:', error);
+    return {
+      data: null,
+      error: { message: error.message || 'Erro desconhecido' }
+    };
   }
 };
-
-export const updatePatient = async (patientId, updates) => {
-  console.log('✏️ Atualizando paciente...', { patientId });
-  
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', patientId)
-      .select()
-      .maybeSingle();
-    
-    if (error) {
-      console.error('❌ Erro ao atualizar paciente');
-      return { data: null, error: { message: 'Erro ao atualizar paciente' } };
-    }
-    
-    console.log('✅ Paciente atualizado');
-    return { data, error: null };
-  } catch (error) {
-    console.error('❌ Erro fatal ao atualizar paciente');
-    return { data: null, error: { message: 'Erro fatal ao atualizar paciente' } };
-  }
-};
-
-// Soft delete
-export const archivePatient = async (patientId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ deleted_at: new Date().toISOString(), status: 'inactive' })
-    .eq('id', patientId)
-    .select()
-    .single();
-  return { data, error };
-};
-
-// Restaurar paciente
-export const restorePatient = async (patientId) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ deleted_at: null, status: 'active' })
-    .eq('id', patientId)
-    .select()
-    .single();
-  return { data, error };
-};
-
-// ==================== ANAMNESIS ====================
-
-export const getAnamnesis = async (patientId) => {
-  const { data, error } = await supabase
-    .from('anamnesis')
-    .select('*')
-    .eq('patient_id', patientId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return { data, error };
-};
-
-// Whitelist centralizada de campos da tabela anamnesis
-const VALID_ANAMNESIS_FIELDS = [
-  'patient_id', 'professional_id', 'medical_conditions', 'allergies',
-  'food_intolerances', 'smoking', 'alcohol', 'sleep_hours', 'stress_level', 'water_intake',
-  'meals_per_day', 'food_preference', 'favorite_foods',
-  'exercises_regularly', 'physical_activity_level', 'sports_goal',
-  'status', 'last_edited_by', 'updated_at', 'created_at',
-  'medications', 'supplements', 'digestive_issues', 'menstrual_cycle',
-  'pregnancy', 'breastfeeding', 'chronic_diseases', 'surgeries',
-  'family_history', 'eating_habits', 'dietary_restrictions',
-  'cooking_skills', 'budget', 'meal_prep_time', 'dining_out_frequency',
-  'main_goal', 'notes', 'disliked_foods', 'breakfast_habits',
-  'lunch_habits', 'dinner_habits', 'snack_habits', 'weekend_eating',
-  'work_schedule', 'appetite', 'bowel_frequency', 'constipation',
-  'bloating', 'heartburn', 'nausea', 'food_cravings', 'emotional_eating'
-];
-
-// Campos que NÃO pertencem à tabela anamnesis
-const IGNORED_ANAMNESIS_FIELDS = [
-  'current_weight', 'height', 'goal_weight', 'goal', 'birth_date', 
-  'gender', 'phone', 'id', 'name', 'email'
-];
-
-/**
- * Limpa payload removendo campos inválidos para a tabela anamnesis
- */
-const cleanAnamnesisPayload = (data) => {
-  return Object.keys(data)
-    .filter(key => VALID_ANAMNESIS_FIELDS.includes(key) && !IGNORED_ANAMNESIS_FIELDS.includes(key))
-    .reduce((obj, key) => { obj[key] = data[key]; return obj; }, {});
-};
-
-/**
- * Extrai erro seguro sem acessar body do Response (previne "body stream already read")
- */
-const extractSafeError = (error) => {
   if (!error) return { message: 'Erro desconhecido' };
   // NUNCA acessar response.text() ou response.json() - usar apenas propriedades diretas
   const safe = { message: 'Erro ao salvar', code: '', details: '', hint: '' };

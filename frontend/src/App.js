@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { BrandingProvider, useBranding } from '@/contexts/BrandingContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { BlockPatientGuard, AdminOnlyGuard, PatientOnlyGuard } from '@/guards/RoleGuard';
 import AdminBar from '@/components/AdminBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
@@ -90,12 +91,23 @@ const ProtectedRoute = ({ children, allowedTypes }) => {
     return <Navigate to="/" replace />;
   }
   
-  // Admin tem acesso a TUDO (override) - mantém sua role
+  // Admin tem acesso a TUDO
   if (userType === 'admin') {
     return children;
   }
   
+  // CRÍTICO: Bloquear paciente de acessar rotas não permitidas
   if (allowedTypes && !allowedTypes.includes(userType)) {
+    console.warn(`🚫 Acesso negado: ${userType} tentou acessar rota que requer ${allowedTypes.join(' ou ')}`);
+    
+    // Redirecionar para dashboard apropriado
+    if (userType === 'patient') {
+      return <Navigate to="/patient/home" replace />;
+    }
+    if (userType === 'professional') {
+      return <Navigate to="/professional/dashboard" replace />;
+    }
+    
     return <Navigate to="/" replace />;
   }
   
