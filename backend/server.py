@@ -378,6 +378,10 @@ async def analyze_body(request: BodyAnalysisRequest):
 from routes.recipes import router as recipes_router
 api_router.include_router(recipes_router, prefix="/recipes", tags=["recipes"])
 
+# ==================== AUTOMATION ENGINE ====================
+from routes.automation_engine import router as automation_engine_router
+api_router.include_router(automation_engine_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 

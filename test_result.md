@@ -101,3 +101,123 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Implement Automation Engine Worker (FastAPI + Supabase).
+  New engine tables: automation_engine_events, automation_engine_rules, automation_engine_runs.
+  Conditions DSL (eq/neq/gt/gte/lt/lte/contains/in/exists + and/or).
+  Actions: notify_user, notify_professional, create_task.
+  Cooldown by org+rule+patient.
+  Endpoints: POST /api/admin/automation-engine/run, GET /api/admin/automation-engine/health.
+
+backend:
+  - task: "Automation Engine – types.py (Pydantic models)"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/types.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "AutomationEvent, AutomationRule, AutomationRun, ActionContext models created. Lint clean."
+
+  - task: "Automation Engine – evaluator.py (conditions DSL)"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/evaluator.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Supports eq/neq/gt/gte/lt/lte/contains/in/exists + and/or. Dot-path resolution. Lint clean."
+
+  - task: "Automation Engine – templates.py (mustache renderer)"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/templates.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "{token} replacement with nested dict flattening. Lint clean."
+
+  - task: "Automation Engine – cooldown.py"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/cooldown.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Cooldown check via Supabase REST. Scope: org+rule+patient. Fail-open on error."
+
+  - task: "Automation Engine – actions.py (notify_user, notify_professional, create_task)"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/actions.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "All 3 action types implemented. Uses httpx + service role key. Lint clean."
+
+  - task: "Automation Engine – worker.py (batch loop)"
+    implemented: true
+    working: true
+    file: "backend/services/automation_engine/worker.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Full batch loop: fetch→process→evaluate→cooldown→actions→runs→mark done. Lint clean."
+
+  - task: "Automation Engine – API routes (run + health)"
+    implemented: true
+    working: true
+    file: "backend/routes/automation_engine.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "POST /api/admin/automation-engine/run and GET /api/admin/automation-engine/health. Health returns 503 until SUPABASE_SERVICE_ROLE_KEY is set (expected)."
+
+frontend: []
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Automation Engine – API routes (run + health)"
+    - "Automation Engine – worker.py (batch loop)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Automation Engine fully implemented (backend only, additive).
+      Files created:
+        - /app/sql/automation_engine_setup.sql  (DDL for 3 engine tables + notifications + tasks)
+        - /app/backend/services/automation_engine/{types,evaluator,templates,cooldown,actions,worker}.py
+        - /app/backend/routes/automation_engine.py
+      Registered in server.py. Backend running cleanly.
+      PENDING: User must provide SUPABASE_SERVICE_ROLE_KEY and run the SQL setup in Supabase Dashboard.
