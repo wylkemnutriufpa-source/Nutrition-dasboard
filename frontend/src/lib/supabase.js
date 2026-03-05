@@ -367,6 +367,11 @@ export const createPatientByProfessional = async (professionalId, patientData) =
     };
   }
 };
+
+/**
+ * Extrai informações seguras de erro (evita body stream already read)
+ */
+const extractSafeError = (error) => {
   if (!error) return { message: 'Erro desconhecido' };
   // NUNCA acessar response.text() ou response.json() - usar apenas propriedades diretas
   const safe = { message: 'Erro ao salvar', code: '', details: '', hint: '' };
