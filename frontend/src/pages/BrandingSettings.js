@@ -252,20 +252,59 @@ const BrandingSettings = () => {
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { toast.error('Imagem muito grande! Maximo 2MB'); return; }
-    if (!file.type.startsWith('image/')) { toast.error('Apenas imagens sao permitidas'); return; }
+    
+    console.log('🖼️ [LOGO UPLOAD] Arquivo selecionado:', file.name, file.size, file.type);
+    
+    if (file.size > 2 * 1024 * 1024) { 
+      toast.error('Imagem muito grande! Maximo 2MB'); 
+      return; 
+    }
+    if (!file.type.startsWith('image/')) { 
+      toast.error('Apenas imagens sao permitidas'); 
+      return; 
+    }
 
     setUploading(true);
     try {
       const fileName = `${professionalId}-${Date.now()}.${file.name.split('.').pop()}`;
-      const { error } = await supabase.storage.from('branding').upload(`logos/${fileName}`, file, { cacheControl: '3600', upsert: true });
-      if (error) throw error;
+      console.log('🖼️ [LOGO UPLOAD] Nome do arquivo:', fileName);
+      console.log('🖼️ [LOGO UPLOAD] Tentando upload no bucket "branding"...');
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('branding')
+        .upload(`logos/${fileName}`, file, { 
+          cacheControl: '3600', 
+          upsert: true 
+        });
+      
+      console.log('🖼️ [LOGO UPLOAD] Resultado do upload:', { uploadData, uploadError });
+      
+      if (uploadError) {
+        console.error('❌ [LOGO UPLOAD] Erro:', uploadError);
+        
+        // Verificar se o bucket existe
+        if (uploadError.message?.includes('not found') || uploadError.message?.includes('does not exist')) {
+          toast.error('Bucket "branding" nao existe. Crie no Supabase Storage primeiro!');
+          return;
+        }
+        
+        // Verificar se é problema de permissão
+        if (uploadError.message?.includes('permission') || uploadError.message?.includes('policy')) {
+          toast.error('Sem permissao para upload. Verifique as policies do bucket!');
+          return;
+        }
+        
+        throw uploadError;
+      }
+      
       const { data: publicData } = supabase.storage.from('branding').getPublicUrl(`logos/${fileName}`);
+      console.log('✅ [LOGO UPLOAD] URL pública:', publicData.publicUrl);
+      
       updateField('logo_url', publicData.publicUrl);
       toast.success('Logo carregada! Clique em Salvar para aplicar');
     } catch (error) {
-      console.error('Erro upload:', error);
-      toast.error('Erro ao fazer upload da imagem');
+      console.error('❌ [LOGO UPLOAD] Erro geral:', error);
+      toast.error(`Erro ao fazer upload: ${error.message || 'Desconhecido'}`);
     } finally {
       setUploading(false);
     }
