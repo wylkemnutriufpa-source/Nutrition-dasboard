@@ -169,9 +169,10 @@ async def _action_notify(
         "org_id":     action.get("org_id") or ctx.event.org_id,
         "user_id":    user_id,
         "title":      action.get("title", "Notificação automática"),
-        "body":       action.get("body", ""),
-        "meta":       action.get("meta") or {},
-        "read":       False,
+        "message":    action.get("body") or action.get("message", ""),
+        "type":       action.get("notification_type", "automation"),
+        "metadata":   action.get("meta") or action.get("metadata") or {},
+        "is_read":    False,
         "created_at": _now_iso(),
     }
 
