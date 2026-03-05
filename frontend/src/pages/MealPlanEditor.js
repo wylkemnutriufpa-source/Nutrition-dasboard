@@ -325,6 +325,15 @@ const MealPlanEditor = ({ userType = 'professional' }) => {
             setPlanNotes(planData.description || '');
             if (planData.plan_data?.meals) setMeals(planData.plan_data.meals);
           }
+        } else if (!fromDraftParam) {
+          // Buscar plano ativo do paciente (se nao tem planId especifico)
+          const activePlan = allPlans?.find(p => p.is_active);
+          if (activePlan) {
+            setCurrentPlan(activePlan);
+            setPlanName(activePlan.name || 'Plano Alimentar');
+            setPlanNotes(activePlan.description || '');
+            if (activePlan.plan_data?.meals?.length > 0) setMeals(activePlan.plan_data.meals);
+          }
         }
       }
       if (fromDraftParam) {
