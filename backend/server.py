@@ -400,6 +400,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ==================== AUTOMATION SCHEDULER ====================
+from services.automation_engine.scheduler import automation_scheduler
+
+@app.on_event("startup")
+async def startup_automation_scheduler():
+    """Start the automation engine scheduler on app startup."""
+    await automation_scheduler.start()
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    """Cleanup on app shutdown."""
+    await automation_scheduler.stop()
     client.close()
