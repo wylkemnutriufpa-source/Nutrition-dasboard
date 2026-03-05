@@ -504,6 +504,51 @@ const BrandingSettings = () => {
                       </div>
                     </div>
 
+                    {/* Formato da Logo */}
+                    <div>
+                      <Label>Formato da Logo</Label>
+                      <select 
+                        value={formData.logo_shape || 'rounded'} 
+                        onChange={(e) => updateField('logo_shape', e.target.value)} 
+                        className="w-full mt-1 p-2 border rounded-md text-sm"
+                      >
+                        <option value="rounded">🔲 Arredondada (padrão)</option>
+                        <option value="square">⬜ Quadrada</option>
+                        <option value="circle">⭕ Circular</option>
+                        <option value="rectangular">▭ Retangular</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Como a logo será exibida no sistema</p>
+                    </div>
+
+                    {/* Tamanhos da Logo */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Tamanho no Menu</Label>
+                        <select 
+                          value={formData.logo_size_sidebar || 'medium'} 
+                          onChange={(e) => updateField('logo_size_sidebar', e.target.value)} 
+                          className="w-full mt-1 p-2 border rounded-md text-sm"
+                        >
+                          <option value="small">Pequeno (48px)</option>
+                          <option value="medium">Médio (64px)</option>
+                          <option value="large">Grande (80px)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label>Tamanho no Login</Label>
+                        <select 
+                          value={formData.logo_size_login || 'large'} 
+                          onChange={(e) => updateField('logo_size_login', e.target.value)} 
+                          className="w-full mt-1 p-2 border rounded-md text-sm"
+                        >
+                          <option value="small">Pequeno (80px)</option>
+                          <option value="medium">Médio (120px)</option>
+                          <option value="large">Grande (160px)</option>
+                          <option value="xlarge">Extra Grande (200px)</option>
+                        </select>
+                      </div>
+                    </div>
+
                     {/* Slogan */}
                     <div>
                       <Label>Slogan / Subtitulo</Label>

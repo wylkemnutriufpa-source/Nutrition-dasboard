@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBranding } from '@/contexts/BrandingContext';
+import { getLogoShapeClass, getLogoSizeClass } from '@/utils/branding';
 import { useState, useEffect } from 'react';
 import { getPatientMenuConfig, DEFAULT_PATIENT_MENU } from '@/lib/supabase';
 
@@ -150,11 +151,11 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
             <img 
               src={branding.logo_url} 
               alt={branding.brand_name || branding.brandName || 'FitJourney'} 
-              className="w-16 h-16 rounded-xl object-cover shadow-md" 
+              className={`${getLogoSizeClass(branding.logo_size_sidebar, 'sidebar')} ${getLogoShapeClass(branding.logo_shape)} object-cover shadow-md`}
             />
           ) : (
             <div 
-              className="w-16 h-16 rounded-xl flex items-center justify-center shadow-md"
+              className={`${getLogoSizeClass(branding.logo_size_sidebar, 'sidebar')} ${getLogoShapeClass(branding.logo_shape)} flex items-center justify-center shadow-md`}
               style={{ background: `linear-gradient(to br, ${getPrimaryColor()}, ${branding.accent_color || branding.accentColor || '#059669'})` }}
             >
               <span className="text-white font-bold text-2xl">

@@ -10,6 +10,9 @@ import {
 
 export const DEFAULT_BRANDING = {
   logo_url: null,
+  logo_shape: 'rounded', // rounded, square, circle, rectangular
+  logo_size_sidebar: 'medium', // small(48px), medium(64px), large(80px)
+  logo_size_login: 'large', // small(80px), medium(120px), large(160px), xlarge(200px)
   primary_color: '#059669',
   secondary_color: '#10b981',
   accent_color: '#34d399',
@@ -252,4 +255,43 @@ export const imageToBase64 = (file) => {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
+
+/**
+ * Retorna classes CSS para formato de logo
+ */
+export const getLogoShapeClass = (shape) => {
+  const shapes = {
+    rounded: 'rounded-xl',
+    square: 'rounded-none',
+    circle: 'rounded-full',
+    rectangular: 'rounded-md'
+  };
+  return shapes[shape] || shapes.rounded;
+};
+
+/**
+ * Retorna classes CSS para tamanho da logo
+ */
+export const getLogoSizeClass = (size, context = 'sidebar') => {
+  if (context === 'sidebar') {
+    const sizes = {
+      small: 'w-12 h-12',
+      medium: 'w-16 h-16',
+      large: 'w-20 h-20'
+    };
+    return sizes[size] || sizes.medium;
+  }
+  
+  if (context === 'login') {
+    const sizes = {
+      small: 'w-20 h-20',
+      medium: 'w-32 h-32',
+      large: 'w-40 h-40',
+      xlarge: 'w-52 h-52'
+    };
+    return sizes[size] || sizes.large;
+  }
+  
+  return 'w-16 h-16';
 };

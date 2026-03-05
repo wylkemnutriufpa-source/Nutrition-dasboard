@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { signIn, signOut } from '@/lib/supabase';
-import { DEFAULT_BRANDING } from '@/utils/branding';
+import { DEFAULT_BRANDING, getLogoShapeClass, getLogoSizeClass } from '@/utils/branding';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -186,10 +186,18 @@ const LoginPage = () => {
           <div className="text-center mb-10 md:mb-14">
             <div className="relative inline-block mb-6">
               <div className="absolute inset-0 rounded-3xl blur-xl opacity-40 animate-pulse" style={{ backgroundColor: `${b.primary_color}40` }} />
-              <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300"
+              <div className={`relative ${getLogoSizeClass(b.logo_size_login, 'login')} ${getLogoShapeClass(b.logo_shape)} flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300`}
                 style={{ background: `linear-gradient(135deg, ${b.primary_color}, ${b.secondary_color})`, boxShadow: `0 20px 60px ${b.primary_color}30` }}>
-                {b.logo_url ? <img src={b.logo_url} alt={b.brand_name} className="w-16 h-16 md:w-20 md:h-20 object-contain" /> :
-                  <span className="text-white font-black text-4xl md:text-5xl tracking-tight">{b.brand_initials || 'FJ'}</span>}
+                {b.logo_url ? (
+                  <img 
+                    src={b.logo_url} 
+                    alt={b.brand_name} 
+                    className={`object-contain p-4`}
+                    style={{ width: '90%', height: '90%' }}
+                  />
+                ) : (
+                  <span className="text-white font-black text-5xl md:text-6xl tracking-tight">{b.brand_initials || 'FJ'}</span>
+                )}
                 <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
