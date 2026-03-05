@@ -73,12 +73,13 @@ export const getActiveBranding = async () => {
     const userType = localStorage.getItem('fitjourney_user_type');
     console.log('🔍 [BRANDING DEBUG] User Type:', userType);
     
-    if (userType === 'professional') {
+    // Profissional OU Admin (admin também pode ter branding personalizado)
+    if (userType === 'professional' || userType === 'admin') {
       const { data, error } = await getCurrentProfessionalBranding();
-      console.log('🔍 [BRANDING DEBUG] Professional Branding:', { data, error });
+      console.log('🔍 [BRANDING DEBUG] Professional/Admin Branding:', { data, error });
       
       if (error) {
-        console.error('❌ [BRANDING DEBUG] Erro ao buscar branding profissional:', error);
+        console.error('❌ [BRANDING DEBUG] Erro ao buscar branding:', error);
         return DEFAULT_BRANDING;
       }
       
@@ -93,17 +94,26 @@ export const getActiveBranding = async () => {
     
     if (userType === 'patient') {
       const { data, error } = await getPatientProfessionalBranding();
+      console.log('🔍 [BRANDING DEBUG] Patient Professional Branding:', { data, error });
+      
       if (error) {
-        console.error('Erro ao buscar branding do profissional:', error);
+        console.error('❌ [BRANDING DEBUG] Erro ao buscar branding do profissional:', error);
         return DEFAULT_BRANDING;
       }
-      return data || DEFAULT_BRANDING;
+      
+      if (!data) {
+        console.warn('⚠️ [BRANDING DEBUG] Nenhum branding encontrado para paciente, usando DEFAULT');
+        return DEFAULT_BRANDING;
+      }
+      
+      return data;
     }
     
-    // Admin ou visitante
+    // Visitante (não autenticado)
+    console.log('⚠️ [BRANDING DEBUG] Visitante - usando DEFAULT');
     return DEFAULT_BRANDING;
   } catch (error) {
-    console.error('Erro ao buscar branding:', error);
+    console.error('❌ [BRANDING DEBUG] Erro ao buscar branding:', error);
     return DEFAULT_BRANDING;
   }
 };
