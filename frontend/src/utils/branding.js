@@ -13,6 +13,7 @@ export const DEFAULT_BRANDING = {
   logo_shape: 'rounded', // rounded, square, circle, rectangular
   logo_size_sidebar: 'medium', // small(48px), medium(64px), large(80px)
   logo_size_login: 'large', // small(80px), medium(120px), large(160px), xlarge(200px)
+  login_card_width: 'medium', // narrow(400px), medium(500px), wide(600px), full(800px)
   primary_color: '#059669',
   secondary_color: '#10b981',
   accent_color: '#34d399',
@@ -271,8 +272,18 @@ export const getLogoShapeClass = (shape) => {
 };
 
 /**
- * Retorna classes CSS para tamanho da logo
+ * Retorna classes CSS para largura do card de login
  */
+export const getLoginCardWidthClass = (width) => {
+  const widths = {
+    narrow: 'max-w-md',    // 400px
+    medium: 'max-w-lg',    // 500px
+    wide: 'max-w-xl',      // 600px
+    full: 'max-w-3xl'      // 800px
+  };
+  return widths[width] || widths.medium;
+};
+
 export const getLogoSizeClass = (size, context = 'sidebar') => {
   if (context === 'sidebar') {
     const sizes = {

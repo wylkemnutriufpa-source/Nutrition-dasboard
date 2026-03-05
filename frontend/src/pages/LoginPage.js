@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useBranding } from '@/contexts/BrandingContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { signIn, signOut } from '@/lib/supabase';
-import { DEFAULT_BRANDING, getLogoShapeClass, getLogoSizeClass } from '@/utils/branding';
+import { DEFAULT_BRANDING, getLogoShapeClass, getLogoSizeClass, getLoginCardWidthClass } from '@/utils/branding';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -272,7 +272,7 @@ const LoginPage = () => {
     <div className="min-h-screen relative" style={bgStyle}>
       <FloatingEffects />
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
+        <div className={`${getLoginCardWidthClass(b.login_card_width)} w-full`}>
           <Button variant="ghost" onClick={() => { setLoginType(null); setEmail(''); setPassword(''); }}
             className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-white/50 backdrop-blur-sm">
             <ArrowLeft className="mr-2" size={18} /> Voltar para selecao

@@ -549,6 +549,22 @@ const BrandingSettings = () => {
                       </div>
                     </div>
 
+                    {/* Largura do Card de Login */}
+                    <div>
+                      <Label>Largura da Tela de Login</Label>
+                      <select 
+                        value={formData.login_card_width || 'medium'} 
+                        onChange={(e) => updateField('login_card_width', e.target.value)} 
+                        className="w-full mt-1 p-2 border rounded-md text-sm"
+                      >
+                        <option value="narrow">📱 Estreito (400px) - Compacto</option>
+                        <option value="medium">💻 Médio (500px) - Padrão</option>
+                        <option value="wide">🖥️ Largo (600px) - Confortável</option>
+                        <option value="full">📺 Extra Largo (800px) - Expansivo</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Tamanho do card de login na tela inicial</p>
+                    </div>
+
                     {/* Slogan */}
                     <div>
                       <Label>Slogan / Subtitulo</Label>
