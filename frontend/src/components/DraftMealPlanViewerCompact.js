@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Sparkles, Plus, Trash2, Edit, Save, X, Clock, Lightbulb, 
   AlertCircle, CheckCircle2, RefreshCw, ArrowRight, Download, Loader2, Heart,
-  ChevronDown, ChevronUp, Utensils, Calendar, History, Eye, FileText, Copy, Calculator
+  ChevronDown, ChevronUp, Utensils, Calendar, History, Eye, FileText, Copy, Calculator, Bot
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -63,8 +63,69 @@ const DraftMealPlanViewerCompact = ({
     3: null
   });
 
+  // === MEAL PLAN DRAFTS INTEGRATION ===
+  const [currentDraftId, setCurrentDraftId] = useState(null);
+  const [draftSnapshot, setDraftSnapshot] = useState(null);
+  const [loadingDraft, setLoadingDraft] = useState(false);
+
   const specialPlans = getAllSpecialPlans();
   const { detectedConditions, recommendations } = detectConditionsFromAnamnesis(anamnesis, null);
+
+  // === FETCH MEAL PLAN DRAFT ===
+  useEffect(() => {
+    const fetchDraft = async () => {
+      if (!patientId) return;
+      
+      setLoadingDraft(true);
+      try {
+        const { data: drafts, error } = await supabase
+          .from('meal_plan_drafts')
+          .select('id, template_key, plan_json, status, created_at')
+          .eq('patient_id', patientId)
+          .eq('status', 'draft')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!error && drafts && drafts.length > 0) {
+          const draft = drafts[0];
+          setCurrentDraftId(draft.id);
+          
+          const planJson = draft.plan_json || {};
+          const snapshot = planJson.anamnesis_snapshot || {};
+          setDraftSnapshot(snapshot);
+
+          // Auto-select template based on draft
+          const templateKey = draft.template_key;
+          
+          // Map template_key to planCategory
+          const categoryMap = {
+            'diabetes': 'diabetes',
+            'dash': 'hipertensao',
+            'renal': 'renal',
+            'gastrite': 'gastrite',
+            'classico_br': 'general'
+          };
+          
+          const category = categoryMap[templateKey] || 'general';
+          setPlanCategory(category);
+          
+          // Find and select the special plan if not general
+          if (category !== 'general') {
+            const plan = specialPlans.find(p => p.id === category);
+            if (plan) {
+              setSelectedSpecialPlan(plan);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching draft:', err);
+      } finally {
+        setLoadingDraft(false);
+      }
+    };
+
+    fetchDraft();
+  }, [patientId]);
 
   // Carregar planos salvos do localStorage
   useEffect(() => {
@@ -95,6 +156,96 @@ const DraftMealPlanViewerCompact = ({
       setCurrentVariation(draftPlan.variation || 1);
     }
   }, [draftPlan]);
+
+  // === PUBLISH DRAFT HANDLER ===
+  const handlePublishDraft = async () => {
+    if (!currentDraftId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('meal_plan_drafts')
+        .update({ 
+          status: 'published',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentDraftId);
+      
+      if (!error) {
+        toast.success('Pré-plano marcado como revisado!');
+        setCurrentDraftId(null);
+        setDraftSnapshot(null);
+      } else {
+        toast.error('Erro ao atualizar draft');
+      }
+    } catch (err) {
+      console.error('Error publishing draft:', err);
+      toast.error('Erro ao publicar draft');
+    }
+  };
+
+  // === ANAMNESIS SNAPSHOT SUMMARY COMPONENT ===
+  const AnamnesisSnapshotSummary = () => {
+    if (!draftSnapshot) return null;
+
+    const { patient_name, conditions_detected = [], restrictions = [], goals = [] } = draftSnapshot;
+
+    return (
+      <div className="mb-4 p-4 bg-purple-50 border-2 border-purple-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
+            <FileText className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-semibold text-gray-900 mb-2">
+              📋 Resumo da Anamnese
+              {patient_name && <span className="text-purple-600 ml-2">• {patient_name}</span>}
+            </h4>
+            
+            <div className="grid gap-2 text-sm">
+              {conditions_detected.length > 0 && (
+                <div>
+                  <span className="font-medium text-gray-700">Condições:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {conditions_detected.map((cond, i) => (
+                      <Badge key={i} variant="secondary" className="bg-red-100 text-red-700">
+                        {cond}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {restrictions.length > 0 && (
+                <div>
+                  <span className="font-medium text-gray-700">Restrições:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {restrictions.map((rest, i) => (
+                      <Badge key={i} variant="secondary" className="bg-orange-100 text-orange-700">
+                        {rest}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {goals.length > 0 && (
+                <div>
+                  <span className="font-medium text-gray-700">Objetivos:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {goals.map((goal, i) => (
+                      <Badge key={i} variant="secondary" className="bg-green-100 text-green-700">
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (!draftPlan) {
     return (
@@ -204,6 +355,32 @@ const DraftMealPlanViewerCompact = ({
 
   return (
     <div className="space-y-4">
+      {/* === DRAFT BADGE & SNAPSHOT === */}
+      {currentDraftId && (
+        <div className="flex items-center justify-between gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-2 bg-purple-600 text-white">
+              <Bot className="h-3 w-3" />
+              Pré-plano gerado automaticamente
+            </Badge>
+            {draftSnapshot?.patient_name && (
+              <span className="text-sm text-gray-600">• {draftSnapshot.patient_name}</span>
+            )}
+          </div>
+          <Button 
+            onClick={handlePublishDraft} 
+            size="sm"
+            variant="outline"
+            className="border-purple-400 hover:bg-purple-100"
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            Marcar como Revisado
+          </Button>
+        </div>
+      )}
+
+      {/* === ANAMNESIS SNAPSHOT SUMMARY === */}
+      {draftSnapshot && <AnamnesisSnapshotSummary />}
       
       {/* ========== HEADER COMPACTO ========== */}
       <div className="flex items-center justify-between gap-3">
