@@ -151,6 +151,20 @@ async def emit_event(
                 json=row,
             )
 
+        # If ON CONFLICT failed (no unique index yet), retry without dedupe enforcement
+        if resp.status_code == 400 and dedupe_key and "no unique or exclusion constraint" in resp.text:
+            logger.warning(
+                "dedupe_key constraint missing – retrying without ON CONFLICT (run migration SQL)"
+            )
+            plain_headers = {**headers, "Prefer": "return=minimal"}
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{url}/rest/v1/automation_engine_events",
+                    headers=plain_headers,
+                    params={},
+                    json=row,
+                )
+
         if resp.status_code in (200, 201):
             logger.debug(
                 "Event emitted: type=%s patient=%s id=%s dedupe=%s",
@@ -251,16 +265,27 @@ async def emit_events_batch(
             )
 
         if resp.status_code in (200, 201):
-            logger.info(
-                "Batch emitted %d event(s) (dedupe=%s)",
-                len(rows), has_dedupe
-            )
+            logger.info("Batch emitted %d event(s) (dedupe=%s)", len(rows), has_dedupe)
             return len(rows)
 
-        logger.error(
-            "emit_events_batch failed %d: %s",
-            resp.status_code, resp.text[:200],
-        )
+        # Graceful fallback: if unique index missing, retry without ON CONFLICT
+        if resp.status_code == 400 and has_dedupe and "no unique or exclusion constraint" in resp.text:
+            logger.warning(
+                "dedupe_key constraint missing – retrying batch without ON CONFLICT"
+            )
+            plain_headers = {**headers, "Prefer": "return=minimal"}
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{url}/rest/v1/automation_engine_events",
+                    headers=plain_headers,
+                    params={},
+                    json=rows,
+                )
+            if resp.status_code in (200, 201):
+                logger.info("Batch emitted %d event(s) (fallback, no dedupe)", len(rows))
+                return len(rows)
+
+        logger.error("emit_events_batch failed %d: %s", resp.status_code, resp.text[:200])
         return 0
 
     except Exception as exc:
