@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -188,6 +188,26 @@ async def _action_notify(
     }
 
 
+def _resolve_due_at(action: Dict[str, Any]) -> Any:
+    """
+    Resolve due_at for a task.
+    Supports:
+      - due_at   : ISO string passed directly
+      - due_in_days : int → now() + N days (e.g. due_in_days=1 → tomorrow)
+    Returns None if neither is set.
+    """
+    if action.get("due_at"):
+        return action["due_at"]
+    due_in_days = action.get("due_in_days")
+    if due_in_days is not None:
+        try:
+            days = int(due_in_days)
+            return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
 async def _action_create_task(
     client: httpx.AsyncClient,
     supabase_url: str,
@@ -214,7 +234,7 @@ async def _action_create_task(
         "type":                action.get("task_type") or action.get("type_value") or "general",
         "title":               action.get("title", "Tarefa automática"),
         "details":             action.get("details") or None,
-        "due_at":              action.get("due_at") or None,
+        "due_at":              _resolve_due_at(action),
         "status":              "open",
         "created_at":          _now_iso(),
         "updated_at":          _now_iso(),
