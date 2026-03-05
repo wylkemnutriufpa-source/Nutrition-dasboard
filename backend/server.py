@@ -382,6 +382,10 @@ api_router.include_router(recipes_router, prefix="/recipes", tags=["recipes"])
 from routes.automation_engine import router as automation_engine_router
 api_router.include_router(automation_engine_router)
 
+# ==================== MEAL COMPLETION TRACKING ====================
+from routes.meal_completion import router as meal_completion_router
+api_router.include_router(meal_completion_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 
