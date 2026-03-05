@@ -145,15 +145,19 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   return (
     <div data-testid="sidebar" className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col shadow-sm">
       <div className="p-6 border-b border-gray-200">
-        <Link to="/" className="flex items-center space-x-2">
+        <Link to="/" className="flex items-center space-x-3">
           {branding.logo_url ? (
-            <img src={branding.logo_url} alt={branding.brand_name || branding.brandName || 'FitJourney'} className="w-10 h-10 rounded-lg object-contain" />
+            <img 
+              src={branding.logo_url} 
+              alt={branding.brand_name || branding.brandName || 'FitJourney'} 
+              className="w-16 h-16 rounded-xl object-cover shadow-md" 
+            />
           ) : (
             <div 
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              className="w-16 h-16 rounded-xl flex items-center justify-center shadow-md"
               style={{ background: `linear-gradient(to br, ${getPrimaryColor()}, ${branding.accent_color || branding.accentColor || '#059669'})` }}
             >
-              <span className="text-white font-bold text-xl">
+              <span className="text-white font-bold text-2xl">
                 {userType === 'admin' ? 'AD' : (branding.brand_initials || (branding.brand_name || branding.brandName || 'FJ')?.substring(0, 2).toUpperCase())}
               </span>
             </div>
