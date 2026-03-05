@@ -7,30 +7,15 @@ Supported action types (MVP)
   notify_professional  → INSERT INTO public.notifications  (user_id = professional)
   create_task          → INSERT INTO public.tasks
 
-Each action dict comes from rule.actions[] and may contain {token} placeholders
-that are resolved via templates.render_dict() before insertion.
+notify_professional supports dynamic targeting via the `target` field:
+  { "type": "notify_professional", "target": "org_owner" }
+    → resolves user_id from org_id automatically
+  { "type": "notify_professional", "target": "assigned_professional" }
+    → resolves via patient → professional mapping, falls back to org_owner
+  { "type": "notify_professional", "user_id": "explicit-uuid" }
+    → backward compatible: uses user_id directly (target ignored)
 
-Action schema examples
-──────────────────────
-notify_user / notify_professional:
-  {
-    "type": "notify_user",
-    "user_id": "{patient_id}",     ← resolved from context
-    "title": "Lembrete",
-    "body": "Você ficou {inactive_days} dias sem registrar.",
-    "meta": { "rule_id": "{rule_id}" }
-  }
-
-create_task:
-  {
-    "type": "create_task",
-    "patient_id": "{patient_id}",
-    "assigned_to_user_id": "{professional_id}",
-    "task_type": "follow_up",
-    "title": "Contato com paciente inativo",
-    "details": "Paciente sem registro há {inactive_days} dias.",
-    "due_at": null
-  }
+Each action dict may contain {token} placeholders resolved via templates.render_dict().
 """
 from __future__ import annotations
 
@@ -41,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from .resolver import resolve_notification_target
 from .templates import render_dict
 from .types import ActionContext, ActionType
 
@@ -153,15 +139,48 @@ async def _action_notify(
     ctx: ActionContext,
 ) -> Dict[str, Any]:
     """
-    Create a notification row.  Works for both notify_user and
-    notify_professional – the difference is which user_id is targeted.
+    Create a notification row.  Works for notify_user and notify_professional.
+
+    user_id resolution priority
+    ───────────────────────────
+    1. action["user_id"]  – explicit value (backward compat, highest priority)
+    2. action["target"]   – dynamic:
+         "org_owner"              → ctx.event.org_id (validated via profiles)
+         "assigned_professional"  → patient's professional, fallback to org_owner
+    3. Neither present → error logged, run marked failed.
     """
-    user_id = action.get("user_id") or ""
+    user_id: Optional[str] = action.get("user_id") or None
+
+    # Dynamic resolution when user_id is not explicitly provided
+    if not user_id:
+        target = action.get("target", "")
+        if target:
+            user_id = await resolve_notification_target(
+                target=target,
+                org_id=ctx.event.org_id,
+                patient_id=ctx.event.patient_id,
+                supabase_url=supabase_url,
+                service_role_key=service_role_key,
+            )
+            if user_id:
+                logger.debug(
+                    "notify target='%s' resolved to user_id=%s", target, user_id
+                )
+            else:
+                logger.warning(
+                    "notify target='%s' could not be resolved (org=%s patient=%s)",
+                    target, ctx.event.org_id, ctx.event.patient_id
+                )
+
     if not user_id:
         return {
             "action": action.get("type"),
             "ok": False,
-            "error": "user_id is required for notification actions",
+            "error": (
+                "user_id could not be resolved. "
+                "Provide 'user_id' or a valid 'target' (org_owner | assigned_professional)."
+            ),
+            "target": action.get("target"),
         }
 
     row = {
