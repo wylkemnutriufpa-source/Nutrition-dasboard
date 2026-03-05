@@ -10,14 +10,19 @@ import httpx
 import secrets
 import string
 
-router = APIRouter(prefix="/api/admin/patients", tags=["admin-patients"])
+router = APIRouter(prefix="/admin/patients", tags=["admin-patients"])
 
 # Supabase config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados!")
+# Validar config ao usar as rotas (não no import)
+def validate_config():
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados no backend/.env"
+        )
 
 
 class CreatePatientRequest(BaseModel):
@@ -47,6 +52,8 @@ async def create_patient(request: CreatePatientRequest):
     - Cria profile em public.profiles
     - Cria entrada em public.patient_profiles
     """
+    validate_config()  # Validar configuração
+    
     try:
         # 1. Criar usuário no Supabase Auth (Admin API)
         async with httpx.AsyncClient() as client:
@@ -120,9 +127,7 @@ async def create_patient(request: CreatePatientRequest):
                 },
                 json={
                     "patient_id": patient_id,
-                    "professional_id": request.professional_id,
-                    "phone": request.phone,
-                    "birth_date": request.birth_date
+                    "professional_id": request.professional_id
                 }
             )
             
@@ -152,6 +157,8 @@ async def invite_patient(request: InvitePatientRequest):
     """
     Envia magic link para paciente (ou retorna link para teste)
     """
+    validate_config()  # Validar configuração
+    
     try:
         async with httpx.AsyncClient() as client:
             # Gerar magic link via Admin API
@@ -199,6 +206,8 @@ async def verify_patient(patient_id: str):
     """
     Verifica se paciente existe e está corretamente configurado
     """
+    validate_config()  # Validar configuração
+    
     try:
         async with httpx.AsyncClient() as client:
             # Verificar no Auth
