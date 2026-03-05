@@ -59,7 +59,7 @@ professional_branding (
 
 ✅ **Paciente**:
 - Pode ver o branding do **seu profissional**
-- Policy verifica relação em `patient_profiles`
+- Policy verifica relação em `patient_profiles` usando `patient_id` (corrigido)
 
 ## 🚀 Como Aplicar no Supabase
 

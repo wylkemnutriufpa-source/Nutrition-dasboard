@@ -113,7 +113,7 @@ CREATE POLICY professional_branding_patient_view ON professional_branding
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM patient_profiles
-      WHERE patient_profiles.user_id = auth.uid()
+      WHERE patient_profiles.patient_id = auth.uid()
         AND patient_profiles.professional_id = professional_branding.professional_id
     )
   );
