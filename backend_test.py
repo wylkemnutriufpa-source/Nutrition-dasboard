@@ -1,385 +1,436 @@
 #!/usr/bin/env python3
 """
-FitJourney Automation Engine Backend Testing
-===========================================
-
-Tests the automation engine backend after fixes according to the review request:
-
-1. Health check GET /api/status → 200
-2. Authentication on automation endpoints (should return 401 without auth)  
-3. Invalid token → 401
-4. Health endpoint should be public (not require auth)
-5. Verify source code in automation_engine.py
-6. Verify source code in meal_completion.py 
-7. Verify worker.py pipeline
-8. Verify detector checklist.low_detected
-9. Verify SQL P80 rule exists
+FitJourney Security Test Suite - Critical Security Fixes
+Testing implementation of reset password endpoints and security validations
 """
-import asyncio
-import json
+
 import sys
-import os
-from typing import Any, Dict, List, Optional
-import httpx
+import json
+import requests
+import traceback
+from typing import Dict, Optional
+import time
 
-# Backend URL configuration
-BACKEND_URL = "https://fit-admin-fix.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api"
+# Backend URL from environment
+BACKEND_URL = "https://fit-admin-fix.preview.emergentagent.com/api"
 
-class TestResult:
+class SecurityTester:
     def __init__(self):
+        self.backend_url = BACKEND_URL
+        self.session = requests.Session()
         self.results = []
-        self.passed = 0
-        self.failed = 0
-    
-    def add_result(self, test_name: str, success: bool, details: str = ""):
-        self.results.append({
+        
+    def log(self, message: str, level: str = "INFO"):
+        """Log message with timestamp"""
+        print(f"[{level}] {message}")
+        
+    def test_result(self, test_name: str, passed: bool, details: str = ""):
+        """Record test result"""
+        result = {
             "test": test_name,
-            "success": success,
+            "passed": passed,
             "details": details
-        })
-        if success:
-            self.passed += 1
+        }
+        self.results.append(result)
+        
+        status = "✅ PASS" if passed else "❌ FAIL"
+        self.log(f"{status} {test_name}: {details}")
+        
+    def make_request(self, method: str, endpoint: str, headers: Dict = None, data: Dict = None) -> Optional[requests.Response]:
+        """Make HTTP request with error handling"""
+        try:
+            url = f"{self.backend_url}{endpoint}"
+            
+            if headers is None:
+                headers = {"Content-Type": "application/json"}
+                
+            if method.upper() == "GET":
+                response = self.session.get(url, headers=headers, timeout=30)
+            elif method.upper() == "POST":
+                response = self.session.post(url, headers=headers, json=data, timeout=30)
+            elif method.upper() == "PUT":
+                response = self.session.put(url, headers=headers, json=data, timeout=30)
+            else:
+                self.log(f"Unsupported method: {method}", "ERROR")
+                return None
+                
+            self.log(f"{method} {url} -> {response.status_code}")
+            return response
+            
+        except requests.exceptions.RequestException as e:
+            self.log(f"Request failed: {e}", "ERROR")
+            return None
+        except Exception as e:
+            self.log(f"Unexpected error in request: {e}", "ERROR")
+            return None
+            
+    def test_backend_health(self):
+        """Test 1: Basic backend health check"""
+        self.log("\n🏥 === TESTE 1: BACKEND HEALTH CHECK ===")
+        
+        response = self.make_request("GET", "/status")
+        
+        if response is None:
+            self.test_result("Backend Health Check", False, "No response from backend")
+            return False
+            
+        if response.status_code == 200:
+            self.test_result("Backend Health Check", True, f"Status: {response.status_code}")
+            return True
         else:
-            self.failed += 1
-    
-    def print_summary(self):
-        print("\n" + "="*80)
-        print("FITJOURNEY AUTOMATION ENGINE BACKEND TEST RESULTS")
-        print("="*80)
+            self.test_result("Backend Health Check", False, f"Status: {response.status_code}")
+            return False
+            
+    def test_admin_reset_password_security(self):
+        """Test 2: Admin Reset Professional Password Security"""
+        self.log("\n🔐 === TESTE 2A: ADMIN RESET PASSWORD SECURITY ===")
         
-        for result in self.results:
-            status = "✅ PASS" if result["success"] else "❌ FAIL"
-            print(f"{status}: {result['test']}")
-            if result["details"]:
-                print(f"      Details: {result['details']}")
+        professional_id = "test-professional-id"
+        endpoint = f"/admin/professionals/{professional_id}/reset-password"
+        test_payload = {"new_password": "newpass123"}
         
-        print("\n" + "="*80)
-        print(f"SUMMARY: {self.passed} PASSED, {self.failed} FAILED")
-        print("="*80)
+        # Test 2A.1: No Authorization header should return 401
+        try:
+            url = f"{self.backend_url}{endpoint}"
+            response = requests.post(url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            if response.status_code == 401:
+                self.test_result("Admin Reset - No Auth Header", True, "Returns 401 as expected")
+            else:
+                self.test_result("Admin Reset - No Auth Header", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Admin Reset - No Auth Header", False, f"Request failed: {e}")
+            
+        # Test 2A.2: Invalid token should return 401
+        try:
+            invalid_headers = {"Authorization": "Bearer invalid-token-12345", "Content-Type": "application/json"}
+            response = requests.post(url, headers=invalid_headers, json=test_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            if response.status_code == 401:
+                self.test_result("Admin Reset - Invalid Token", True, "Returns 401 as expected")
+            else:
+                self.test_result("Admin Reset - Invalid Token", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Admin Reset - Invalid Token", False, f"Request failed: {e}")
+            
+        # Test 2A.3: Password validation (short password)
+        try:
+            short_password_payload = {"new_password": "123"}
+            response = requests.post(url, headers=invalid_headers, json=short_password_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            # Even with invalid token, should still return 401 (auth check comes first)
+            if response.status_code == 401:
+                self.test_result("Admin Reset - Short Password", True, "Auth check prevents access")
+            else:
+                self.test_result("Admin Reset - Short Password", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Admin Reset - Short Password", False, f"Request failed: {e}")
+            
+    def test_professional_reset_password_security(self):
+        """Test 2B: Professional Reset Patient Password Security"""
+        self.log("\n🔐 === TESTE 2B: PROFESSIONAL RESET PASSWORD SECURITY ===")
         
-        return self.failed == 0
-
-async def test_health_check():
-    """Test 1: Health check GET /api/status → 200"""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{API_BASE}/status")
-            return response.status_code == 200, f"Status: {response.status_code}"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-async def test_automation_endpoints_authentication():
-    """Test 2: All automation endpoints should return 401 without Authorization header"""
-    endpoints = [
-        ("POST", f"{API_BASE}/admin/automation-engine/run"),
-        ("POST", f"{API_BASE}/admin/automation-engine/events/emit"),
-        ("POST", f"{API_BASE}/admin/automation-engine/detect"),
-        ("POST", f"{API_BASE}/admin/automation-engine/rules"),
-        ("PATCH", f"{API_BASE}/admin/automation-engine/rules/some-uuid"),
-        ("DELETE", f"{API_BASE}/admin/automation-engine/rules/some-uuid"),
-    ]
-    
-    results = []
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            for method, url in endpoints:
-                try:
-                    if method == "POST":
-                        response = await client.post(url, json={})
-                    elif method == "PATCH":
-                        response = await client.patch(url, json={})
-                    elif method == "DELETE":
-                        response = await client.delete(url)
-                    
-                    success = response.status_code == 401
-                    results.append(f"{method} {url.split('/')[-1]}: {response.status_code}")
-                    
-                    if not success:
-                        return False, f"Expected 401 for {method} {url}, got {response.status_code}"
-                        
-                except Exception as e:
-                    results.append(f"{method} {url.split('/')[-1]}: ERROR - {str(e)}")
-                    return False, f"Error testing {method} {url}: {str(e)}"
+        patient_id = "test-patient-id"
+        endpoint = f"/professional/patients/{patient_id}/reset-password"
+        test_payload = {"new_password": "newpass123"}
         
-        return True, "; ".join(results)
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-async def test_invalid_token():
-    """Test 3: Invalid token should return 401"""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            headers = {"Authorization": "Bearer token_invalido_abc123"}
-            response = await client.post(f"{API_BASE}/admin/automation-engine/run", 
-                                       json={}, headers=headers)
-            return response.status_code == 401, f"Status: {response.status_code}"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-async def test_health_endpoint_public():
-    """Test 4: Health endpoint should be public (no auth required)"""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{API_BASE}/admin/automation-engine/health")
-            # Should return 200 or 503 (if Supabase not configured), but NOT 401
-            success = response.status_code in [200, 503] and response.status_code != 401
-            return success, f"Status: {response.status_code} (Expected: 200 or 503, NOT 401)"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def verify_automation_engine_source():
-    """Test 5: Verify automation_engine.py source code"""
-    try:
-        with open("/app/backend/routes/automation_engine.py", "r") as f:
-            content = f.read()
+        # Test 2B.1: No Authorization header should return 401
+        try:
+            url = f"{self.backend_url}{endpoint}"
+            response = requests.post(url, headers={"Content-Type": "application/json"}, json=test_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            if response.status_code == 401:
+                self.test_result("Professional Reset - No Auth Header", True, "Returns 401 as expected")
+            else:
+                self.test_result("Professional Reset - No Auth Header", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Professional Reset - No Auth Header", False, f"Request failed: {e}")
+            
+        # Test 2B.2: Invalid token should return 401
+        try:
+            invalid_headers = {"Authorization": "Bearer invalid-token-67890", "Content-Type": "application/json"}
+            response = requests.post(url, headers=invalid_headers, json=test_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            if response.status_code == 401:
+                self.test_result("Professional Reset - Invalid Token", True, "Returns 401 as expected")
+            else:
+                self.test_result("Professional Reset - Invalid Token", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Professional Reset - Invalid Token", False, f"Request failed: {e}")
+            
+        # Test 2B.3: Password validation (short password)
+        try:
+            short_password_payload = {"new_password": "abc"}
+            response = requests.post(url, headers=invalid_headers, json=short_password_payload, timeout=30)
+            self.log(f"POST {url} -> {response.status_code}")
+            
+            # Even with invalid token, should still return 401 (auth check comes first)
+            if response.status_code == 401:
+                self.test_result("Professional Reset - Short Password", True, "Auth check prevents access")
+            else:
+                self.test_result("Professional Reset - Short Password", False, f"Expected 401, got {response.status_code}")
+        except Exception as e:
+            self.test_result("Professional Reset - Short Password", False, f"Request failed: {e}")
+            
+    def verify_backend_files_exist(self):
+        """Test 3: Verify new backend files exist (code verification)"""
+        self.log("\n📁 === TESTE 3: BACKEND FILES VERIFICATION ===")
         
-        checks = []
+        import os
         
-        # a) ALLOWED_ACTION_TYPES includes "create_pre_plan_draft"
-        if '"create_pre_plan_draft"' in content:
-            checks.append("✓ ALLOWED_ACTION_TYPES includes 'create_pre_plan_draft'")
-        else:
-            return False, "❌ 'create_pre_plan_draft' not found in ALLOWED_ACTION_TYPES"
-        
-        # b) DetectRequest has field checklist_threshold_pct
-        if "checklist_threshold_pct" in content:
-            checks.append("✓ DetectRequest has checklist_threshold_pct field")
-        else:
-            return False, "❌ checklist_threshold_pct field not found in DetectRequest"
-        
-        # c) _require_admin_or_professional() exists and uses app_role
-        if "_require_admin_or_professional" in content and "app_role" in content:
-            checks.append("✓ _require_admin_or_professional() exists and uses app_role")
-        else:
-            return False, "❌ _require_admin_or_professional() or app_role usage not found"
-        
-        # d-g) Check Depends(get_current_user_with_db_role) usage
-        required_endpoints = ["/run", "/events/emit", "/detect", "POST /rules"]
-        depends_found = content.count("Depends(get_current_user_with_db_role)")
-        if depends_found >= 4:  # Should be in all protected endpoints
-            checks.append(f"✓ Depends(get_current_user_with_db_role) found {depends_found} times")
-        else:
-            return False, f"❌ Expected multiple uses of Depends(get_current_user_with_db_role), found {depends_found}"
-        
-        return True, "; ".join(checks)
-        
-    except Exception as e:
-        return False, f"Error reading automation_engine.py: {str(e)}"
-
-def verify_meal_completion_source():
-    """Test 6: Verify meal_completion.py source code"""
-    try:
-        with open("/app/backend/routes/meal_completion.py", "r") as f:
-            content = f.read()
-        
-        checks = []
-        
-        # a) emit_low_adherence_event does NOT have dedupe_key_pattern parameter
-        if "dedupe_key_pattern" in content:
-            return False, "❌ Found dedupe_key_pattern parameter (should be removed)"
-        else:
-            checks.append("✓ dedupe_key_pattern parameter NOT found (correctly removed)")
-        
-        # b) Uses dedupe_key=make_daily_dedupe_key(...) correctly
-        if "make_daily_dedupe_key" in content and "dedupe_key=" in content:
-            checks.append("✓ Uses make_daily_dedupe_key correctly")
-        else:
-            return False, "❌ make_daily_dedupe_key usage not found or incorrect"
-        
-        # c) Import of make_daily_dedupe_key is present
-        if "from services.automation_engine.emitter import" in content and "make_daily_dedupe_key" in content:
-            checks.append("✓ make_daily_dedupe_key import is present")
-        else:
-            return False, "❌ make_daily_dedupe_key import not found"
-        
-        return True, "; ".join(checks)
-        
-    except Exception as e:
-        return False, f"Error reading meal_completion.py: {str(e)}"
-
-def verify_worker_pipeline():
-    """Test 7: Verify worker.py pipeline"""
-    try:
-        with open("/app/backend/services/automation_engine/worker.py", "r") as f:
-            content = f.read()
-        
-        checks = []
-        
-        # a) process_automation_events exists
-        if "def process_automation_events" in content:
-            checks.append("✓ process_automation_events function exists")
-        else:
-            return False, "❌ process_automation_events function not found"
-        
-        # b) Pipeline steps exist
-        pipeline_steps = [
-            "fetch_pending_events", "mark_processing", "evaluate_conditions", 
-            "is_on_cooldown", "execute_actions", "insert_run", "set_event_status"
+        files_to_check = [
+            "/app/backend/routes/admin_reset_password.py",
+            "/app/backend/routes/professional_reset_password.py",
+            "/app/backend/server.py"
         ]
         
-        found_steps = []
-        for step in pipeline_steps:
-            if step in content:
-                found_steps.append(step)
+        for file_path in files_to_check:
+            if os.path.exists(file_path):
+                self.test_result(f"File exists: {os.path.basename(file_path)}", True, "File found")
+            else:
+                self.test_result(f"File exists: {os.path.basename(file_path)}", False, "File not found")
+                
+    def verify_admin_reset_password_code(self):
+        """Test 3A: Verify admin_reset_password.py implementation"""
+        self.log("\n🔍 === TESTE 3A: ADMIN RESET PASSWORD CODE VERIFICATION ===")
         
-        if len(found_steps) >= 6:  # Most pipeline steps should be present
-            checks.append(f"✓ Pipeline steps found: {len(found_steps)}/7")
+        try:
+            with open("/app/backend/routes/admin_reset_password.py", "r") as f:
+                content = f.read()
+                
+            # Check key security features
+            checks = [
+                ("get_current_user_with_db_role import", "get_current_user_with_db_role" in content),
+                ("_require_admin function", "_require_admin" in content and "current_user.app_role != \"admin\"" in content),
+                ("Password validation", "len(request.new_password) < 6" in content),
+                ("Supabase Admin API usage", "updateUserById" in content or "/auth/v1/admin/users/" in content),
+                ("Professional role validation", "role=professional" in content or "role\" != \"professional\"" in content),
+            ]
+            
+            for check_name, condition in checks:
+                self.test_result(f"Admin Reset - {check_name}", condition, "Implementation verified" if condition else "Missing implementation")
+                
+        except Exception as e:
+            self.test_result("Admin Reset Code Verification", False, f"Error reading file: {e}")
+            
+    def verify_professional_reset_password_code(self):
+        """Test 3B: Verify professional_reset_password.py implementation"""
+        self.log("\n🔍 === TESTE 3B: PROFESSIONAL RESET PASSWORD CODE VERIFICATION ===")
+        
+        try:
+            with open("/app/backend/routes/professional_reset_password.py", "r") as f:
+                content = f.read()
+                
+            # Check key security features
+            checks = [
+                ("get_current_user_with_db_role import", "get_current_user_with_db_role" in content),
+                ("_require_professional function", "_require_professional" in content and "current_user.app_role != \"professional\"" in content),
+                ("Password validation", "len(request.new_password) < 6" in content),
+                ("Patient ownership validation", "patient_profiles" in content),
+                ("Supabase Admin API usage", "updateUserById" in content or "/auth/v1/admin/users/" in content),
+                ("Patient role validation", "role=patient" in content or "role\" != \"patient\"" in content),
+            ]
+            
+            for check_name, condition in checks:
+                self.test_result(f"Professional Reset - {check_name}", condition, "Implementation verified" if condition else "Missing implementation")
+                
+        except Exception as e:
+            self.test_result("Professional Reset Code Verification", False, f"Error reading file: {e}")
+            
+    def verify_server_imports(self):
+        """Test 3C: Verify server.py has new router imports"""
+        self.log("\n🔍 === TESTE 3C: SERVER.PY ROUTER IMPORTS VERIFICATION ===")
+        
+        try:
+            with open("/app/backend/server.py", "r") as f:
+                content = f.read()
+                
+            # Check router imports and registrations
+            checks = [
+                ("Admin reset router import", "admin_reset_password" in content and "from routes.admin_reset_password import router" in content),
+                ("Professional reset router import", "professional_reset_password" in content and "from routes.professional_reset_password import router" in content),
+                ("Admin reset router registration", "admin_reset_password_router" in content and "api_router.include_router" in content),
+                ("Professional reset router registration", "professional_reset_password_router" in content and "api_router.include_router" in content),
+            ]
+            
+            for check_name, condition in checks:
+                self.test_result(f"Server.py - {check_name}", condition, "Implementation verified" if condition else "Missing implementation")
+                
+        except Exception as e:
+            self.test_result("Server.py Verification", False, f"Error reading file: {e}")
+            
+    def verify_frontend_error_handling_code(self):
+        """Test 4: Verify frontend error handling improvements (code verification)"""
+        self.log("\n🎨 === TESTE 4: FRONTEND ERROR HANDLING CODE VERIFICATION ===")
+        
+        import os
+        
+        files_to_check = [
+            ("/app/frontend/src/lib/apiClient.js", [
+                ("Detailed error extraction", ["error.detail", "error.message"]),
+                ("Console logging", ["console.error"]),
+                ("Try/catch in authenticatedPost", ["try {", "await response.json()"]),
+            ]),
+            ("/app/frontend/src/lib/supabase.js", [
+                ("createPatientByProfessional error return", ["error: {", "message:"]),
+                ("Detailed error object", ["detail:", "raw:"]),
+            ]),
+            ("/app/frontend/src/pages/PatientsList.js", [
+                ("Improved error display", ["error?.message || error?.detail"]),
+                ("Toast error with specific message", ["toast.error"]),
+            ]),
+        ]
+        
+        for file_path, checks in files_to_check:
+            try:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                    
+                self.log(f"Checking file: {file_path}")
+                
+                for check_name, required_strings in checks:
+                    condition_result = all(req_str in content for req_str in required_strings)
+                        
+                    file_name = os.path.basename(file_path)
+                    self.test_result(f"{file_name} - {check_name}", condition_result, "Implementation verified" if condition_result else "Missing implementation")
+                    
+            except Exception as e:
+                file_name = os.path.basename(file_path)
+                self.test_result(f"{file_name} Code Verification", False, f"Error reading file: {e}")
+                
+    def verify_testimonials_routes_code(self):
+        """Test 5: Verify testimonials routes are admin-only (code verification)"""
+        self.log("\n👥 === TESTE 5: TESTIMONIALS ADMIN-ONLY CODE VERIFICATION ===")
+        
+        import os
+        
+        files_to_check = [
+            ("/app/frontend/src/App.js", [
+                ("Admin testimonials route", ["/admin/testimonials", "allowedTypes={['admin']}"]),
+                ("No professional testimonials route", ["/professional/testimonials"], True),  # Third element means "should NOT exist"
+            ]),
+            ("/app/frontend/src/components/Sidebar.js", [
+                ("Testimonials in adminLinks", ["adminLinks", "testimonials"]),
+                ("MOD badge for testimonials", ["badge: 'MOD'", "testimonials"]),
+            ]),
+        ]
+        
+        for file_path, checks in files_to_check:
+            try:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                    
+                self.log(f"Checking file: {file_path}")
+                
+                for check_item in checks:
+                    if len(check_item) == 3 and check_item[2] is True:
+                        # This is a "should NOT exist" check
+                        check_name, required_strings, should_not_exist = check_item
+                        condition_result = not any(req_str in content for req_str in required_strings)
+                    else:
+                        # Regular "should exist" check  
+                        check_name, required_strings = check_item
+                        condition_result = all(req_str in content for req_str in required_strings)
+                        
+                    file_name = os.path.basename(file_path)
+                    self.test_result(f"{file_name} - {check_name}", condition_result, "Implementation verified" if condition_result else "Missing implementation")
+                    
+            except Exception as e:
+                file_name = os.path.basename(file_path)
+                self.test_result(f"{file_name} Code Verification", False, f"Error reading file: {e}")
+                
+    def run_all_tests(self):
+        """Run all security tests"""
+        self.log("🚀 === FITJOURNEY SECURITY TEST SUITE - CRITICAL FIXES ===\n")
+        
+        # Test 1: Backend Health
+        backend_healthy = self.test_backend_health()
+        
+        if backend_healthy:
+            # Test 2: Reset Password Endpoints Security
+            self.test_admin_reset_password_security()
+            self.test_professional_reset_password_security()
+            
+        # Test 3: Backend Code Verification (always run)
+        self.verify_backend_files_exist()
+        self.verify_admin_reset_password_code()
+        self.verify_professional_reset_password_code()
+        self.verify_server_imports()
+        
+        # Test 4: Frontend Code Verification
+        self.verify_frontend_error_handling_code()
+        
+        # Test 5: Testimonials Admin-Only Verification
+        self.verify_testimonials_routes_code()
+        
+        # Summary
+        self.print_summary()
+        
+    def print_summary(self):
+        """Print test results summary"""
+        self.log("\n📊 === TEST RESULTS SUMMARY ===")
+        
+        passed = sum(1 for r in self.results if r["passed"])
+        total = len(self.results)
+        
+        self.log(f"Total Tests: {total}")
+        self.log(f"Passed: {passed}")
+        self.log(f"Failed: {total - passed}")
+        self.log(f"Success Rate: {(passed/total)*100:.1f}%")
+        
+        # Show failed tests
+        failed_tests = [r for r in self.results if not r["passed"]]
+        if failed_tests:
+            self.log("\n❌ FAILED TESTS:")
+            for test in failed_tests:
+                self.log(f"  - {test['test']}: {test['details']}")
         else:
-            return False, f"❌ Only {len(found_steps)}/7 pipeline steps found"
+            self.log("\n🎉 ALL TESTS PASSED!")
+            
+        # Critical security summary
+        self.log("\n🔐 CRITICAL SECURITY VALIDATION:")
         
-        # c) _process_single_event exists  
-        if "_process_single_event" in content:
-            checks.append("✓ _process_single_event function exists")
+        # Check critical security endpoints
+        auth_tests = [r for r in self.results if "Auth" in r["test"] or "Reset" in r["test"]]
+        auth_passed = sum(1 for t in auth_tests if t["passed"])
+        
+        if auth_passed == len(auth_tests) and len(auth_tests) > 0:
+            self.log("✅ Reset password endpoints properly secured (401 without auth)")
         else:
-            return False, "❌ _process_single_event function not found"
+            self.log("❌ Security issues detected in reset password endpoints")
+            
+        # Check code implementation
+        code_tests = [r for r in self.results if "Code" in r["test"] or "implementation" in r.get("details", "").lower()]
+        code_passed = sum(1 for t in code_tests if t["passed"])
         
-        return True, "; ".join(checks)
-        
-    except Exception as e:
-        return False, f"Error reading worker.py: {str(e)}"
-
-def verify_detector_checklist():
-    """Test 8: Verify detector checklist.low_detected"""
-    try:
-        with open("/app/backend/services/automation_engine/detectors.py", "r") as f:
-            content = f.read()
-        
-        checks = []
-        
-        # a) detect_low_checklist exists
-        if "def detect_low_checklist" in content:
-            checks.append("✓ detect_low_checklist function exists")
+        if code_passed >= len(code_tests) * 0.8:  # At least 80% of code checks should pass
+            self.log("✅ Code implementation appears correct")
         else:
-            return False, "❌ detect_low_checklist function not found"
-        
-        # b) Uses checklist_tasks for calculation
-        if "checklist_tasks" in content:
-            checks.append("✓ Uses checklist_tasks table")
-        else:
-            return False, "❌ checklist_tasks table usage not found"
-        
-        # c) Dedupe key format
-        if '"checklist.low_detected:{patient_id}:{YYYY-MM-DD}"' in content or "checklist.low_detected" in content:
-            checks.append("✓ Dedupe key format includes checklist.low_detected")
-        else:
-            return False, "❌ Correct dedupe key format not found"
-        
-        # d) Payload fields
-        payload_fields = ["checklist_pct", "patient_name", "patient_status", "total_tasks", "completed_tasks"]
-        found_fields = sum(1 for field in payload_fields if field in content)
-        
-        if found_fields >= 4:
-            checks.append(f"✓ Payload fields found: {found_fields}/5")
-        else:
-            return False, f"❌ Only {found_fields}/5 payload fields found"
-        
-        # e) run_all_detectors accepts checklist_threshold_pct
-        if "checklist_threshold_pct" in content and "run_all_detectors" in content:
-            checks.append("✓ run_all_detectors accepts checklist_threshold_pct")
-        else:
-            return False, "❌ checklist_threshold_pct parameter not found in run_all_detectors"
-        
-        return True, "; ".join(checks)
-        
-    except Exception as e:
-        return False, f"Error reading detectors.py: {str(e)}"
-
-def verify_sql_p80_rule():
-    """Test 9: Verify SQL P80 rule exists"""
-    try:
-        with open("/app/sql/automation_p80_checklist_rule.sql", "r") as f:
-            content = f.read()
-        
-        checks = []
-        
-        # Check trigger_type
-        if "trigger_type" in content and "checklist.low_detected" in content:
-            checks.append("✓ trigger_type = 'checklist.low_detected'")
-        else:
-            return False, "❌ trigger_type 'checklist.low_detected' not found"
-        
-        # Check conditions with checklist_pct < 40
-        if "checklist_pct" in content and ("lt" in content or "<" in content) and "40" in content:
-            checks.append("✓ Conditions with checklist_pct < 40")
-        else:
-            return False, "❌ Conditions with checklist_pct < 40 not found"
-        
-        # Check 3 actions
-        required_actions = ["notify_professional", "create_task", "create_pre_plan_draft"]
-        found_actions = sum(1 for action in required_actions if action in content)
-        
-        if found_actions >= 3:
-            checks.append(f"✓ All 3 actions found: {', '.join(required_actions)}")
-        else:
-            return False, f"❌ Only {found_actions}/3 actions found"
-        
-        return True, "; ".join(checks)
-        
-    except Exception as e:
-        return False, f"Error reading SQL file: {str(e)}"
-
-async def run_all_tests():
-    """Run all tests and collect results"""
-    test_result = TestResult()
-    
-    print("Starting FitJourney Automation Engine Backend Tests...")
-    print("=" * 80)
-    
-    # Test 1: Health check
-    print("1. Testing health check...")
-    success, details = await test_health_check()
-    test_result.add_result("Health check GET /api/status", success, details)
-    
-    # Test 2: Authentication endpoints
-    print("2. Testing automation endpoints authentication...")
-    success, details = await test_automation_endpoints_authentication()
-    test_result.add_result("Automation endpoints return 401 without auth", success, details)
-    
-    # Test 3: Invalid token
-    print("3. Testing invalid token...")
-    success, details = await test_invalid_token()
-    test_result.add_result("Invalid token returns 401", success, details)
-    
-    # Test 4: Health endpoint public
-    print("4. Testing health endpoint is public...")
-    success, details = await test_health_endpoint_public()
-    test_result.add_result("Health endpoint is public (not 401)", success, details)
-    
-    # Test 5: Verify automation_engine.py source
-    print("5. Verifying automation_engine.py source code...")
-    success, details = verify_automation_engine_source()
-    test_result.add_result("automation_engine.py source verification", success, details)
-    
-    # Test 6: Verify meal_completion.py source
-    print("6. Verifying meal_completion.py source code...")
-    success, details = verify_meal_completion_source()
-    test_result.add_result("meal_completion.py bug fix verification", success, details)
-    
-    # Test 7: Verify worker.py pipeline
-    print("7. Verifying worker.py pipeline...")
-    success, details = verify_worker_pipeline()
-    test_result.add_result("worker.py pipeline verification", success, details)
-    
-    # Test 8: Verify detector checklist
-    print("8. Verifying detector checklist.low_detected...")
-    success, details = verify_detector_checklist()
-    test_result.add_result("detector checklist.low_detected verification", success, details)
-    
-    # Test 9: Verify SQL P80 rule
-    print("9. Verifying SQL P80 rule...")
-    success, details = verify_sql_p80_rule()
-    test_result.add_result("SQL P80 rule verification", success, details)
-    
-    return test_result
+            self.log("❌ Code implementation issues detected")
 
 if __name__ == "__main__":
-    result = asyncio.run(run_all_tests())
-    all_passed = result.print_summary()
+    # Import os here to use in verification methods
+    import os
     
-    if all_passed:
-        print("\n🎉 ALL TESTS PASSED! Automation engine is ready.")
-        sys.exit(0)
-    else:
-        print(f"\n❌ {result.failed} TEST(S) FAILED. Please review and fix issues.")
+    tester = SecurityTester()
+    
+    try:
+        tester.run_all_tests()
+    except KeyboardInterrupt:
+        tester.log("\n⏹️ Testing interrupted by user", "WARNING")
+    except Exception as e:
+        tester.log(f"\n💥 Unexpected error: {e}", "ERROR")
+        traceback.print_exc()
+    
+    # Exit with non-zero code if any critical tests failed
+    critical_failures = [r for r in tester.results if not r["passed"] and ("Auth" in r["test"] or "Reset" in r["test"])]
+    
+    if critical_failures:
         sys.exit(1)
+    else:
+        sys.exit(0)

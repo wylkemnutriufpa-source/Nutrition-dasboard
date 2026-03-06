@@ -80,6 +80,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   const adminLinks = [
     { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' },
     { to: '/admin/features', icon: Activity, label: 'Controle de Features', adminOnly: true },
+    { to: '/admin/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni Branco' }
   ];
   
@@ -95,7 +96,6 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/agenda', icon: CalendarDays, label: 'Agenda' },
     { to: '/professional/financeiro', icon: DollarSign, label: 'Financeiro' },
     { to: '/professional/food-database', icon: Database, label: 'Alimentos' },
-    { to: '/professional/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
     { to: '/professional/automations', icon: Bot, label: 'Automações', premium: true },

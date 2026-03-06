@@ -420,6 +420,14 @@ api_router.include_router(admin_patients_router)
 from routes.admin_professionals import router as admin_professionals_router
 api_router.include_router(admin_professionals_router)
 
+# Import admin password reset routes
+from routes.admin_reset_password import router as admin_reset_password_router
+api_router.include_router(admin_reset_password_router)
+
+# Import professional password reset routes
+from routes.professional_reset_password import router as professional_reset_password_router
+api_router.include_router(professional_reset_password_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 

@@ -293,9 +293,9 @@ const PatientsList = () => {
         console.error('❌ Erro ao criar paciente:', error);
         console.error('📋 Detalhes completos do erro:', JSON.stringify(error, null, 2));
         
-        // Mostrar erro específico ao usuário
-        const errorMessage = error?.message || error?.details || 'Erro ao criar paciente';
-        toast.error(errorMessage, { duration: 5000 });
+        // Extrai a mensagem de erro mais específica possível
+        const errorMessage = error?.message || error?.detail || error?.details || 'Erro desconhecido ao criar paciente';
+        toast.error(`Erro ao criar paciente: ${errorMessage}`, { duration: 5000 });
         
         setSaving(false);
         return;

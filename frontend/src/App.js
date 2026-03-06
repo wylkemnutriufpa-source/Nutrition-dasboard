@@ -175,8 +175,8 @@ function App() {
                   <AdminProjetoEditor />
                 </ProtectedRoute>
               } />
-              <Route path="/professional/testimonials" element={
-                <ProtectedRoute allowedTypes={['professional', 'admin']}>
+              <Route path="/admin/testimonials" element={
+                <ProtectedRoute allowedTypes={['admin']}>
                   <TestimonialsModeration />
                 </ProtectedRoute>
               } />

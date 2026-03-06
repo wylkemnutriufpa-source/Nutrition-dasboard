@@ -359,9 +359,19 @@ export const createPatientByProfessional = async (professionalId, patientData) =
     };
   } catch (error) {
     console.error('❌ Erro ao criar paciente:', error);
+    
+    // Extrai mensagem de erro detalhada
+    const errorMessage = error.message || error.detail || error.toString() || 'Erro desconhecido';
+    
+    console.error('📋 Mensagem de erro capturada:', errorMessage);
+    
     return {
       data: null,
-      error: { message: error.message || 'Erro desconhecido' },
+      error: { 
+        message: errorMessage,
+        detail: error.detail || null,
+        raw: error
+      },
     };
   }
 };

@@ -76,8 +76,25 @@ export async function authenticatedPost(endpoint, data = {}) {
   });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Erro desconhecido' }));
-    throw new Error(error.detail || 'Erro na requisição');
+    let errorDetail = 'Erro desconhecido';
+    let errorMessage = 'Erro na requisição';
+    
+    try {
+      const error = await response.json();
+      // Tenta extrair a mensagem de erro do backend
+      errorDetail = error.detail || error.message || JSON.stringify(error);
+      errorMessage = errorDetail;
+      
+      console.error('❌ Erro HTTP', response.status, ':', errorDetail);
+      console.error('📋 Resposta completa:', error);
+    } catch (parseError) {
+      // Se não conseguir fazer parse do JSON, usa o status text
+      errorDetail = `Erro ${response.status}: ${response.statusText}`;
+      errorMessage = errorDetail;
+      console.error('❌ Erro HTTP sem JSON válido:', response.status, response.statusText);
+    }
+    
+    throw new Error(errorMessage);
   }
   
   return response.json();
