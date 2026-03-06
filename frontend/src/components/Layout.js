@@ -12,19 +12,19 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   const location = useLocation();
   const { profile, user } = useAuth();
 
-  // IMPORTANTE: Para visitor, usar propUserType diretamente
-  // Para usuários logados, usar profile.role
+  // IMPORTANTE: Source of truth = profile.role do AuthContext
+  // Fallback apenas para visitor (usuários não autenticados)
   const effectiveUserType = (() => {
     // Se foi explicitamente passado como 'visitor', usar visitor
     if (propUserType === 'visitor') {
       return 'visitor';
     }
-    // Se tem profile logado, usar o role real
+    // Se tem profile logado, SEMPRE usar o role real (source of truth)
     if (profile?.role) {
       return profile.role;
     }
-    // Senão, usar o que foi passado ou localStorage
-    return propUserType || localStorage.getItem('fitjourney_user_type') || 'visitor';
+    // Fallback: visitor para usuários não autenticados
+    return 'visitor';
   })();
 
   const handleLogout = async () => {

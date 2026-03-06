@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { BrandingProvider, useBranding } from '@/contexts/BrandingContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { BlockPatientGuard, AdminOnlyGuard, PatientOnlyGuard } from '@/guards/RoleGuard';
+import { RoleGuard, BlockPatientGuard, AdminOnlyGuard, PatientOnlyGuard } from '@/guards/RoleGuard';
 import AdminBar from '@/components/AdminBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
@@ -77,41 +77,13 @@ const PageLoader = () => (
   </div>
 );
 
-// Rota protegida com suporte a admin override
+// ProtectedRoute agora usa RoleGuard (com source of truth em profile.role via AuthContext)
 const ProtectedRoute = ({ children, allowedTypes }) => {
-  const userType = localStorage.getItem('fitjourney_user_type');
-  
-  // Se não tem userType e a rota permite visitor, setar como visitor
-  if (!userType && allowedTypes && allowedTypes.includes('visitor')) {
-    localStorage.setItem('fitjourney_user_type', 'visitor');
-    return children;
-  }
-  
-  if (!userType) {
-    return <Navigate to="/" replace />;
-  }
-  
-  // Admin tem acesso a TUDO
-  if (userType === 'admin') {
-    return children;
-  }
-  
-  // CRÍTICO: Bloquear paciente de acessar rotas não permitidas
-  if (allowedTypes && !allowedTypes.includes(userType)) {
-    console.warn(`🚫 Acesso negado: ${userType} tentou acessar rota que requer ${allowedTypes.join(' ou ')}`);
-    
-    // Redirecionar para dashboard apropriado
-    if (userType === 'patient') {
-      return <Navigate to="/patient/home" replace />;
-    }
-    if (userType === 'professional') {
-      return <Navigate to="/professional/dashboard" replace />;
-    }
-    
-    return <Navigate to="/" replace />;
-  }
-  
-  return children;
+  return (
+    <RoleGuard allowedRoles={allowedTypes}>
+      {children}
+    </RoleGuard>
+  );
 };
 
 function App() {

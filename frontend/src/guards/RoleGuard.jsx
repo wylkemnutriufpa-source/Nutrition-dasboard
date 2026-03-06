@@ -27,10 +27,15 @@ export const RoleGuard = ({ children, allowedRoles = [] }) => {
 
   if (!profile) {
     // Não autenticado - redireciona para login
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   const userRole = profile.role;
+
+  // Admin tem acesso a TUDO (superuser)
+  if (userRole === 'admin') {
+    return children;
+  }
 
   // Verificar se o role é permitido
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
@@ -38,16 +43,13 @@ export const RoleGuard = ({ children, allowedRoles = [] }) => {
     
     // Redirecionar para dashboard apropriado
     if (userRole === 'patient') {
-      return <Navigate to="/patient/home" replace />;
+      return <Navigate to="/patient/dashboard" replace />;
     }
     if (userRole === 'professional') {
       return <Navigate to="/professional/dashboard" replace />;
     }
-    if (userRole === 'admin') {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
     
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // Role permitido - renderizar children
