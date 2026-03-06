@@ -22,11 +22,6 @@ const AdminBar = () => {
     [isAdmin, isInAdminArea, isInLoginPage]
   );
 
-  // Log apenas para debug - agora com dependências estáveis
-  useEffect(() => {
-    console.log('🔴 AdminBar:', { isAdmin, isInAdminArea, isInLoginPage, shouldShow, path: location.pathname });
-  }, [isAdmin, isInAdminArea, isInLoginPage, shouldShow, location.pathname]);
-
   if (!shouldShow) {
     return null;
   }
