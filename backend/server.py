@@ -1,5 +1,14 @@
 from fastapi import FastAPI, APIRouter, Header, HTTPException, Depends
 from dotenv import load_dotenv
+from pathlib import Path
+
+# ── Carregar .env ANTES de qualquer import que use os.getenv() ──────────────
+# CRÍTICO: security.features e outros módulos leem variáveis no nível de módulo.
+# Se load_dotenv vier depois, eles recebem None.
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+# ─────────────────────────────────────────────────────────────────────────────
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -7,17 +16,12 @@ import logging
 import json
 import base64
 import asyncio
-from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from security.features import require_feature
 from security.auth import get_current_user, get_current_user_optional, CurrentUser
-
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
