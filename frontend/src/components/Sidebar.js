@@ -11,6 +11,7 @@ import { useBranding } from '@/contexts/BrandingContext';
 import { getLogoShapeClass, getLogoSizeClass } from '@/utils/branding';
 import { useState, useEffect } from 'react';
 import { getPatientMenuConfig, DEFAULT_PATIENT_MENU } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mapeamento de ícones para menu dinâmico
 const iconMap = {
@@ -25,6 +26,11 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { branding } = useBranding();
+  const { profile } = useAuth();
+  
+  // 🔒 SOURCE OF TRUTH: profile.role do AuthContext
+  // Se profile.role é 'admin', SEMPRE mostrar links admin, independente do userType prop
+  const isRealAdmin = profile?.role === 'admin';
   
   // Estado para menu dinâmico do paciente
   const [patientMenuItems, setPatientMenuItems] = useState(DEFAULT_PATIENT_MENU);
@@ -112,24 +118,27 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   ];
 
   // Montar menu baseado no tipo de usuário
+  // 🔒 REGRA: Se profile.role é 'admin', SEMPRE incluir links admin no topo
   const getLinks = () => {
-    console.log(`📋 [Sidebar] Montando links para: ${validUserType}`);
+    console.log(`📋 [Sidebar] userType prop: ${validUserType} | isRealAdmin: ${isRealAdmin}`);
+    
+    // ADMIN REAL (profile.role === 'admin'): SEMPRE vê links admin + professional
+    // Não importa se veio como 'professional' via contexto
+    if (isRealAdmin) {
+      console.log(`✅ [Sidebar] ADMIN REAL — mostrando admin + professional links`);
+      return [
+        ...adminLinks,
+        { type: 'separator', label: 'Área Profissional' },
+        ...professionalLinks
+      ];
+    }
     
     switch (validUserType) {
-      case 'admin':
-        // 🔒 Admin vê: links exclusivos admin + separador + links professional
-        console.log(`✅ [Sidebar] Admin - ${adminLinks.length} admin + ${professionalLinks.length} professional`);
-        return [
-          ...adminLinks, 
-          { type: 'separator', label: 'Área Profissional' },
-          ...professionalLinks
-        ];
       case 'professional':
-        // 🔒 Professional vê: APENAS links professional (sem admin)
+        // 🔒 Professional REAL: APENAS links professional (sem admin)
         console.log(`✅ [Sidebar] Professional - ${professionalLinks.length} links (SEM admin)`);
         return professionalLinks;
       case 'patient':
-        // Retorna todos os links configurados pelo profissional
         return getPatientLinks();
       default:
         return visitorLinks;
@@ -140,8 +149,9 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   const linksToRender = getLinks();
 
   const getUserTypeLabel = () => {
+    // 🔒 Admin real SEMPRE mostra "Administrador"
+    if (isRealAdmin) return 'Administrador';
     switch(validUserType) {
-      case 'admin': return 'Administrador';
       case 'professional': return 'Profissional';
       case 'patient': return 'Paciente';
       default: return 'Visitante';
@@ -149,7 +159,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   };
 
   const getPrimaryColor = () => {
-    if (validUserType === 'admin') return '#7C3AED';
+    if (isRealAdmin) return '#7C3AED';
     return branding.primary_color || branding.primaryColor || '#0F766E';
   };
 
