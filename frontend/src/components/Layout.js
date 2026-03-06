@@ -21,6 +21,7 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
     }
     // Se tem profile logado, SEMPRE usar o role real (source of truth)
     if (profile?.role) {
+      console.log(`🔍 [Layout] Profile role: ${profile.role} para user: ${profile.email}`);
       return profile.role;
     }
     // Fallback: visitor para usuários não autenticados
