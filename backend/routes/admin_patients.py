@@ -15,6 +15,7 @@ import secrets
 import logging
 
 from security.auth import get_current_user_with_db_role, CurrentUser
+from utils.structured_logger import log_operation, log_guard_failure, log_duplicate_prevention
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,26 @@ async def create_patient(
             # o paciente NUNCA recebe essa senha – acesso é feito via magic link.
             temp_password = secrets.token_urlsafe(24)
 
+            # 🛡️ IDEMPOTÊNCIA: Verificar se email já existe
+            check_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                headers=_supabase_headers(),
+                params={"email": f"eq.{request.email}", "select": "id,email"},
+            )
+            if check_resp.status_code == 200:
+                existing = check_resp.json()
+                if existing and len(existing) > 0:
+                    log_duplicate_prevention(
+                        action="create_patient",
+                        actor_user_id=current_user.user_id,
+                        duplicate_key=request.email,
+                        route="/api/admin/patients/create"
+                    )
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Email {request.email} já está cadastrado no sistema"
+                    )
+
             auth_resp = await client.post(
                 f"{SUPABASE_URL}/auth/v1/admin/users",
                 headers=_supabase_headers(),
@@ -259,6 +280,17 @@ async def create_patient(
             else:
                 logger.info(f"✅ Subscription criada para {patient_id} (tier: {patient_tier})")
 
+        # 🟢 LOG: Operação bem-sucedida
+        log_operation(
+            action="create_patient",
+            status="success",
+            actor_user_id=current_user.user_id,
+            target_user_id=patient_id,
+            org_id=request.professional_id,
+            route="/api/admin/patients/create",
+            extra_data={"tier": patient_tier, "email": request.email}
+        )
+
         # ── Resposta final – temp_password NUNCA é retornada ──────────────────
         return {
             "success": True,
@@ -277,6 +309,17 @@ async def create_patient(
         raise
     except Exception as e:
         logger.error(f"❌ Erro inesperado ao criar paciente: {e}")
+        
+        # 🔴 LOG: Erro inesperado
+        log_operation(
+            action="create_patient",
+            status="error",
+            actor_user_id=current_user.user_id,
+            org_id=request.professional_id,
+            route="/api/admin/patients/create",
+            error_detail=str(e)
+        )
+        
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 

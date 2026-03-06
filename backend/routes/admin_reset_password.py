@@ -15,6 +15,7 @@ import httpx
 import logging
 
 from security.auth import get_current_user_with_db_role, CurrentUser
+from utils.structured_logger import log_operation, log_guard_failure
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,16 @@ async def reset_professional_password(
             
             logger.info(f"✅ Senha do professional {professional_id} atualizada com sucesso")
             
+            # 🟢 LOG: Reset de senha bem-sucedido
+            log_operation(
+                action="reset_professional_password",
+                status="success",
+                actor_user_id=current_user.user_id,
+                target_user_id=professional_id,
+                route="/api/admin/professionals/{id}/reset-password",
+                extra_data={"target_email": profile.get('email')}
+            )
+            
             return {
                 "success": True,
                 "message": f"Senha do professional {profile.get('email')} resetada com sucesso",
@@ -166,6 +177,17 @@ async def reset_professional_password(
         raise
     except Exception as e:
         logger.error(f"❌ Erro inesperado ao resetar senha: {e}")
+        
+        # 🔴 LOG: Erro inesperado
+        log_operation(
+            action="reset_professional_password",
+            status="error",
+            actor_user_id=current_user.user_id,
+            target_user_id=professional_id,
+            route="/api/admin/professionals/{id}/reset-password",
+            error_detail=str(e)
+        )
+        
         raise HTTPException(
             status_code=500,
             detail=f"Erro interno ao resetar senha: {str(e)}"

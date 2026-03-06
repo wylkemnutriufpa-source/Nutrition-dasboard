@@ -1,3 +1,14 @@
+/**
+ * RoleGuard - Proteção baseada em roles do Supabase
+ * 
+ * 🔒 SEGURANÇA CRÍTICA - HIERARQUIA DE AUTORIZAÇÃO:
+ * 1. profile.role (de public.profiles via Supabase) ✅ ÚNICA FONTE DE AUTORIZAÇÃO
+ * 2. localStorage.fitjourney_context ❌ APENAS VISUAL (não afeta guards)
+ * 3. JWT role payload ❌ NÃO USADO (interno do Supabase Auth)
+ * 
+ * Este guard usa APENAS profile.role para validação de acesso.
+ */
+
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { canAccessArea, getDefaultRoute } from '@/lib/authorization';
@@ -39,6 +50,8 @@ export const RoleGuard = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
+  // 🔒 AUTORIZAÇÃO: profile.role é a ÚNICA fonte de verdade
+  // Não usa localStorage, não usa JWT role
   const userRole = profile.role;
 
   // Admin tem acesso a TUDO via canAccessArea (superuser)

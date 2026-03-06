@@ -16,6 +16,7 @@ import {
   Filter, Undo2, Activity, CheckCircle2, AlertCircle, MessageSquare, Camera, Weight, X, Bell
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRequestGuard } from '@/hooks/useRequestGuard';
 import { 
   getProfessionalPatients, 
   createPatientByProfessional, 
@@ -35,6 +36,7 @@ const PatientsList = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
+  const { isProcessing: isCreatingPatient, executeGuarded } = useRequestGuard();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [patients, setPatients] = useState([]);
@@ -244,19 +246,21 @@ const PatientsList = () => {
       return;
     }
 
-    // VALIDAÇÃO DE EMAIL ROBUSTA
-    const emailValidation = validateEmail(formEmail);
-    if (!emailValidation.valid) {
-      toast.error(`❌ ${emailValidation.error}`, { duration: 5000 });
-      return;
-    }
+    // 🛡️ ANTI-DOUBLE-SUBMIT: Previne múltiplos cliques
+    const result = await executeGuarded(async () => {
+      // VALIDAÇÃO DE EMAIL ROBUSTA
+      const emailValidation = validateEmail(formEmail);
+      if (!emailValidation.valid) {
+        toast.error(`❌ ${emailValidation.error}`, { duration: 5000 });
+        return;
+      }
 
-    if (formPassword.length < 6) {
-      toast.error('Senha deve ter pelo menos 6 caracteres');
-      return;
-    }
+      if (formPassword.length < 6) {
+        toast.error('Senha deve ter pelo menos 6 caracteres');
+        return;
+      }
 
-    setSaving(true);
+      setSaving(true);
     try {
       // Admin deve selecionar um profissional responsável
       const effectiveProfessionalId = isAdmin && formProfessionalId ? formProfessionalId : profile.id;
@@ -313,6 +317,12 @@ const PatientsList = () => {
       toast.error('Erro inesperado ao criar paciente');
     } finally {
       setSaving(false);
+    }
+    });
+
+    // Se foi prevenido (clique duplo), não fazer nada
+    if (result?.prevented) {
+      console.warn('⚠️ Criação de paciente prevenida - request já em andamento');
     }
   };
 
@@ -858,8 +868,8 @@ const PatientsList = () => {
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="flex-1" disabled={saving}>
                   Cancelar
                 </Button>
-                <Button onClick={handleCreatePatient} className="flex-1 bg-teal-700 hover:bg-teal-800" disabled={saving}>
-                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : <><Plus className="mr-2" size={18} />Criar Paciente</>}
+                <Button onClick={handleCreatePatient} className="flex-1 bg-teal-700 hover:bg-teal-800" disabled={saving || isCreatingPatient}>
+                  {(saving || isCreatingPatient) ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Salvando...</> : <><Plus className="mr-2" size={18} />Criar Paciente</>}
                 </Button>
               </div>
             </DialogContent>

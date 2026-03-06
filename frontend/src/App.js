@@ -132,7 +132,9 @@ function App() {
               } />
               <Route path="/professional/patients" element={
                 <ProtectedRoute allowedTypes={['professional', 'admin']}>
-                  <PatientsList />
+                  <ErrorBoundary>
+                    <PatientsList />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } />
               <Route path="/professional/patient/:id" element={
@@ -142,7 +144,9 @@ function App() {
               } />
               <Route path="/professional/meal-plan-editor" element={
                 <ProtectedRoute allowedTypes={['professional', 'admin']}>
-                  <MealPlanEditor />
+                  <ErrorBoundary>
+                    <MealPlanEditor />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } />
               <Route path="/professional/settings" element={
@@ -212,7 +216,9 @@ function App() {
               } />
               <Route path="/professional/automations" element={
                 <ProtectedRoute allowedTypes={['professional', 'admin']}>
-                  <AutomationCenter />
+                  <ErrorBoundary>
+                    <AutomationCenter />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } />
               <Route path="/professional/reports" element={
@@ -274,12 +280,16 @@ function App() {
               } />
               <Route path="/patient/meal-photo" element={
                 <ProtectedRoute allowedTypes={['patient']}>
-                  <MealPhotoAnalysis />
+                  <ErrorBoundary>
+                    <MealPhotoAnalysis />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } />
               <Route path="/patient/body-analysis" element={
                 <ProtectedRoute allowedTypes={['patient']}>
-                  <BodyAnalysis />
+                  <ErrorBoundary>
+                    <BodyAnalysis />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               } />
               <Route path="/patient/jornada" element={
