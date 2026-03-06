@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Header, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+from security.features import require_feature
 
 
 ROOT_DIR = Path(__file__).parent
@@ -123,8 +124,19 @@ REGRAS:
 
 
 @api_router.post("/analyze-meal", response_model=MealAnalysisResponse)
-async def analyze_meal(request: MealAnalysisRequest):
-    """Analisa foto de refeição usando GPT-4o Vision"""
+async def analyze_meal(
+    request: MealAnalysisRequest,
+    x_user_id: Optional[str] = Header(None)
+):
+    """
+    Analisa foto de refeição usando GPT-4o Vision
+    
+    **Requires feature**: ia_plan
+    """
+    # 🔒 Feature enforcement
+    if x_user_id:
+        await require_feature(x_user_id, "ia_plan")
+    
     try:
         llm_key = os.environ.get('EMERGENT_LLM_KEY')
         if not llm_key:
@@ -289,8 +301,19 @@ REGRAS:
 
 
 @api_router.post("/analyze-body", response_model=BodyAnalysisResponse)
-async def analyze_body(request: BodyAnalysisRequest):
-    """Analisa fotos corporais usando GPT-4o Vision"""
+async def analyze_body(
+    request: BodyAnalysisRequest,
+    x_user_id: Optional[str] = Header(None)
+):
+    """
+    Analisa fotos corporais usando GPT-4o Vision
+    
+    **Requires feature**: ia_plan
+    """
+    # 🔒 Feature enforcement
+    if x_user_id:
+        await require_feature(x_user_id, "ia_plan")
+    
     try:
         logger.info(f"💪 Starting body analysis for patient {request.patient_id}")
         logger.info(f"📸 Images received: front={bool(request.images.get('front'))}, side={bool(request.images.get('side'))}, back={bool(request.images.get('back'))}")
@@ -337,7 +360,7 @@ async def analyze_body(request: BodyAnalysisRequest):
             file_contents=image_contents
         )
 
-        logger.info(f"🚀 Sending to GPT-4o Vision...")
+        logger.info("🚀 Sending to GPT-4o Vision...")
         response_text = await chat.send_message(user_message)
         
         logger.info(f"💪 Body analysis response received for patient {request.patient_id}")
