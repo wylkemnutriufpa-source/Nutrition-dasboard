@@ -316,70 +316,52 @@ export const getPatientById = async (patientId) => {
 
 /**
  * Criar paciente via backend (método correto)
- * Usa Supabase Auth Admin API via FastAPI
+ * Usa Supabase Auth Admin API via FastAPI com autenticação JWT
  */
 export const createPatientByProfessional = async (professionalId, patientData) => {
-  console.log('🆕 Criando paciente via backend...');
-  
+  console.log('🆕 Criando paciente via backend (autenticado)...');
+
   try {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-    
-    // Chamar endpoint do backend
-    const response = await fetch(`${backendUrl}/api/admin/patients/create`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name: patientData.name,
-        email: patientData.email,
-        professional_id: professionalId,
-        phone: patientData.phone,
-        birth_date: patientData.birth_date
-      })
+    // Importação dinâmica para evitar dependência circular
+    const { authenticatedPost } = await import('@/lib/apiClient');
+
+    // 1. Criar paciente via endpoint autenticado
+    const result = await authenticatedPost('/api/admin/patients/create', {
+      name: patientData.name,
+      email: patientData.email,
+      professional_id: professionalId,
+      phone: patientData.phone || null,
+      birth_date: patientData.birth_date || null,
     });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.detail || 'Erro ao criar paciente');
-    }
-    
-    const result = await response.json();
-    console.log('✅ Paciente criado:', result);
-    
-    // Enviar magic link automaticamente
+
+    console.log('✅ Paciente criado:', result.patient_id);
+
+    // 2. Enviar magic link automaticamente (best-effort, autenticado)
     try {
-      const inviteResponse = await fetch(`${backendUrl}/api/admin/patients/invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: patientData.email,
-          redirect_to: `${window.location.origin}/patient/home`
-        })
+      await authenticatedPost('/api/admin/patients/invite', {
+        email: patientData.email,
+        redirect_to: `${window.location.origin}/patient/dashboard`,
       });
-      
-      if (inviteResponse.ok) {
-        const inviteData = await inviteResponse.json();
-        console.log('📧 Magic link gerado:', inviteData.action_link);
-      }
+      console.log('📧 Magic link enviado para:', patientData.email);
     } catch (inviteError) {
-      console.warn('⚠️ Erro ao enviar invite (não crítico):', inviteError);
+      console.warn('⚠️ Erro ao enviar magic link (não crítico):', inviteError);
     }
-    
+
     return {
       data: {
         patient_id: result.patient_id,
-        email: result.email
+        email: result.email,
+        tier: result.tier,
+        access_days: result.access_days,
+        message: result.message,
       },
-      error: null
+      error: null,
     };
   } catch (error) {
     console.error('❌ Erro ao criar paciente:', error);
     return {
       data: null,
-      error: { message: error.message || 'Erro desconhecido' }
+      error: { message: error.message || 'Erro desconhecido' },
     };
   }
 };

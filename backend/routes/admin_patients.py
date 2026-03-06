@@ -9,6 +9,9 @@ import os
 import httpx
 import secrets
 import string
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/patients", tags=["admin-patients"])
 
@@ -38,195 +41,207 @@ class InvitePatientRequest(BaseModel):
     redirect_to: Optional[str] = None
 
 
-def generate_temp_password(length: int = 16) -> str:
-    """Gera senha temporária forte"""
-    alphabet = string.ascii_letters + string.digits + "!@#$%&*"
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
+def _supabase_headers() -> dict:
+    """Headers comuns para chamadas Supabase Admin"""
+    return {
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Content-Type": "application/json",
+    }
+
+
+async def _delete_auth_user(client: httpx.AsyncClient, user_id: str) -> None:
+    """
+    Rollback: deleta auth user criado caso alguma etapa seguinte falhe.
+    Fail-silently para não mascarar o erro original.
+    """
+    try:
+        resp = await client.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers=_supabase_headers(),
+        )
+        if resp.status_code in [200, 204]:
+            logger.info(f"🗑️ Rollback: auth user {user_id} deletado com sucesso")
+        else:
+            logger.warning(f"⚠️ Rollback: falha ao deletar auth user {user_id}: {resp.status_code}")
+    except Exception as exc:
+        logger.error(f"❌ Rollback: exceção ao deletar auth user {user_id}: {exc}")
 
 
 @router.post("/create")
 async def create_patient(request: CreatePatientRequest):
     """
-    Cria paciente usando Supabase Auth Admin API
-    - Cria usuário em auth.users
-    - Cria profile em public.profiles
-    - Cria entrada em public.patient_profiles
-    
-    **VALIDAÇÕES TRIAL:**
-    - Se profissional for trial, paciente vira trial com 7 dias
-    - Trial pode criar no máximo 3 pacientes
+    Cria paciente usando Supabase Auth Admin API.
+
+    Operação atômica:
+    1. Verifica tier do profissional (e limites trial)
+    2. Cria auth user (sem expor temp_password na resposta)
+    3. Cria public.profiles  → falha = rollback auth user + HTTP 400
+    4. Cria public.patient_profiles → falha = rollback auth user + HTTP 400
+    5. Cria patient_subscriptions (best-effort, log de aviso se falhar)
+
+    Acesso do paciente é feito exclusivamente via magic link (/invite).
     """
     validate_config()
-    
+
+    from datetime import datetime, timedelta
+
+    patient_id: Optional[str] = None
+    prof_tier: str = "trial"
+
     try:
-        # 🔒 VALIDAÇÃO: Verificar tier do profissional
         async with httpx.AsyncClient() as client:
-            prof_tier_response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/professional_feature_overrides?professional_id=eq.{request.professional_id}",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY
-                }
+            # ── 0. Verificar tier do profissional ──────────────────────────────
+            prof_tier_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/professional_feature_overrides"
+                f"?professional_id=eq.{request.professional_id}",
+                headers=_supabase_headers(),
             )
-            
-            prof_tier_data = prof_tier_response.json() if prof_tier_response.status_code == 200 else []
-            prof_tier = prof_tier_data[0].get("tier") if prof_tier_data else "trial"
-            
-            # Se profissional é trial, validar limites
+            prof_tier_data = prof_tier_resp.json() if prof_tier_resp.status_code == 200 else []
+            prof_tier = prof_tier_data[0].get("tier", "trial") if prof_tier_data else "trial"
+
+            # Limite de 3 pacientes para trial
             if prof_tier == "trial":
-                # Contar pacientes existentes
-                patients_count_response = await client.get(
+                count_resp = await client.get(
                     f"{SUPABASE_URL}/rest/v1/patient_profiles",
-                    headers={
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                        "apikey": SUPABASE_SERVICE_ROLE_KEY
-                    },
+                    headers=_supabase_headers(),
                     params={
                         "professional_id": f"eq.{request.professional_id}",
-                        "select": "count"
-                    }
+                        "select": "patient_id",
+                    },
                 )
-                
-                # Limite de 3 pacientes para trial
-                if patients_count_response.status_code == 200:
-                    count_data = patients_count_response.json()
-                    patient_count = len(count_data) if isinstance(count_data, list) else 0
-                    
-                    if patient_count >= 3:
-                        raise HTTPException(
-                            status_code=403,
-                            detail="Profissionais Trial podem criar no máximo 3 pacientes. Faça upgrade para criar mais!"
-                        )
-        
-        # 1. Criar usuário no Supabase Auth (Admin API)
-        async with httpx.AsyncClient() as client:
-            temp_password = generate_temp_password()
-            
-            auth_response = await client.post(
+                count_data = count_resp.json() if count_resp.status_code == 200 else []
+                patient_count = len(count_data) if isinstance(count_data, list) else 0
+                if patient_count >= 3:
+                    raise HTTPException(
+                        status_code=403,
+                        detail=(
+                            "Profissionais Trial podem criar no máximo 3 pacientes. "
+                            "Faça upgrade para criar mais!"
+                        ),
+                    )
+
+            # ── 1. Criar auth user ─────────────────────────────────────────────
+            # Gera senha temporária apenas para satisfazer o schema do Auth;
+            # o paciente NUNCA recebe essa senha – acesso é feito via magic link.
+            temp_password = secrets.token_urlsafe(24)
+
+            auth_resp = await client.post(
                 f"{SUPABASE_URL}/auth/v1/admin/users",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json"
-                },
+                headers=_supabase_headers(),
                 json={
                     "email": request.email,
                     "password": temp_password,
                     "email_confirm": True,
-                    "user_metadata": {
-                        "name": request.name,
-                        "role": "patient"
-                    }
-                }
+                    "user_metadata": {"name": request.name, "role": "patient"},
+                },
             )
-            
-            if auth_response.status_code not in [200, 201]:
-                error_detail = auth_response.json()
+
+            if auth_resp.status_code not in [200, 201]:
+                error_detail = auth_resp.json()
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Erro ao criar usuário no Auth: {error_detail.get('msg', 'Erro desconhecido')}"
+                    detail=f"Erro ao criar usuário no Auth: {error_detail.get('msg', error_detail)}",
                 )
-            
-            auth_data = auth_response.json()
+
+            auth_data = auth_resp.json()
             patient_id = auth_data["id"]
-            
-            print(f"✅ Usuário criado no Auth: {patient_id} (prof tier: {prof_tier})")
-        
-        # 2. Criar profile em public.profiles
-        async with httpx.AsyncClient() as client:
-            profile_response = await client.post(
+            logger.info(f"✅ Auth user criado: {patient_id} (prof tier: {prof_tier})")
+
+            # ── 2. Criar public.profiles ───────────────────────────────────────
+            profile_resp = await client.post(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
-                },
+                headers={**_supabase_headers(), "Prefer": "return=representation"},
                 json={
                     "id": patient_id,
                     "auth_user_id": patient_id,
                     "email": request.email,
                     "name": request.name,
                     "role": "patient",
-                    "status": "active"
-                }
-            )
-            
-            if profile_response.status_code not in [200, 201]:
-                error_detail = profile_response.json()
-                print(f"⚠️ Erro ao criar profile: {error_detail}")
-        
-        # 3. Criar patient_profile
-        async with httpx.AsyncClient() as client:
-            patient_profile_response = await client.post(
-                f"{SUPABASE_URL}/rest/v1/patient_profiles",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
+                    "status": "active",
                 },
-                json={
-                    "patient_id": patient_id,
-                    "professional_id": request.professional_id
-                }
             )
-            
-            if patient_profile_response.status_code not in [200, 201]:
-                error_detail = patient_profile_response.json()
+
+            if profile_resp.status_code not in [200, 201]:
+                error_detail = profile_resp.json()
+                logger.error(f"❌ Falha ao criar profile: {error_detail}")
+                # Rollback: deletar auth user
+                await _delete_auth_user(client, patient_id)
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Erro ao criar patient_profile: {error_detail}"
+                    detail=f"Erro ao criar profile do paciente: {error_detail}",
                 )
-        
-        # 4. 🔒 CRIAR ASSINATURA DO PACIENTE
-        # Se profissional é trial, forçar paciente trial com 7 dias
-        from datetime import datetime, timedelta
-        
-        if prof_tier == "trial":
-            patient_tier = "trial"
-            start_date = datetime.now().date()
-            end_date = start_date + timedelta(days=7)
-        else:
-            patient_tier = "basic"  # Padrão para pro/basic
-            start_date = datetime.now().date()
-            end_date = None  # Sem limite
-        
-        async with httpx.AsyncClient() as client:
-            subscription_response = await client.post(
-                f"{SUPABASE_URL}/rest/v1/patient_subscriptions",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
+
+            logger.info(f"✅ Profile criado para {patient_id}")
+
+            # ── 3. Criar public.patient_profiles ──────────────────────────────
+            patient_profile_resp = await client.post(
+                f"{SUPABASE_URL}/rest/v1/patient_profiles",
+                headers={**_supabase_headers(), "Prefer": "return=representation"},
+                json={
+                    "patient_id": patient_id,
+                    "professional_id": request.professional_id,
                 },
+            )
+
+            if patient_profile_resp.status_code not in [200, 201]:
+                error_detail = patient_profile_resp.json()
+                logger.error(f"❌ Falha ao criar patient_profile: {error_detail}")
+                # Rollback: deletar auth user (profiles cascade por FK ou manual abaixo)
+                await _delete_auth_user(client, patient_id)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Erro ao criar patient_profile: {error_detail}",
+                )
+
+            logger.info(f"✅ patient_profile criado para {patient_id}")
+
+            # ── 4. Criar patient_subscriptions (best-effort) ───────────────────
+            if prof_tier == "trial":
+                patient_tier = "trial"
+                start_date = datetime.now().date()
+                end_date = start_date + timedelta(days=7)
+            else:
+                patient_tier = "basic"
+                start_date = datetime.now().date()
+                end_date = None
+
+            sub_resp = await client.post(
+                f"{SUPABASE_URL}/rest/v1/patient_subscriptions",
+                headers={**_supabase_headers(), "Prefer": "return=representation"},
                 json={
                     "patient_id": patient_id,
                     "tier": patient_tier,
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat() if end_date else None,
-                    "status": "active"
-                }
+                    "status": "active",
+                },
             )
-            
-            if subscription_response.status_code not in [200, 201]:
-                print(f"⚠️ Erro ao criar subscription: {subscription_response.json()}")
-        
+
+            if sub_resp.status_code not in [200, 201]:
+                # Não crítico: logar mas continuar
+                logger.warning(f"⚠️ Erro ao criar subscription (não crítico): {sub_resp.json()}")
+            else:
+                logger.info(f"✅ Subscription criada para {patient_id} (tier: {patient_tier})")
+
+        # ── Resposta final – temp_password NUNCA é retornada ──────────────────
         return {
             "success": True,
             "patient_id": patient_id,
             "email": request.email,
-            "temp_password": temp_password,
             "tier": patient_tier,
             "access_days": 7 if prof_tier == "trial" else None,
-            "message": f"Paciente criado! {'(Trial - 7 dias de acesso)' if prof_tier == 'trial' else ''}"
+            "message": (
+                f"Paciente criado com sucesso! "
+                f"{'(Trial – 7 dias de acesso) ' if prof_tier == 'trial' else ''}"
+                "Envie o magic link para que o paciente faça o primeiro acesso."
+            ),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Erro ao criar paciente: {str(e)}")
+        logger.error(f"❌ Erro inesperado ao criar paciente: {e}")
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
 
 

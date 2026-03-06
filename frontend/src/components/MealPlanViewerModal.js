@@ -167,7 +167,7 @@ const MealPlanViewerModal = ({
   const [adherenceData, setAdherenceData] = useState(null);
   const [loadingCompletion, setLoadingCompletion] = useState(false);
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://fitjourney-security.preview.emergentagent.com';
+  const API_URL = import.meta.env.VITE_BACKEND_URL || 'https://fitness-auth-fix.preview.emergentagent.com';
   const today = new Date().toISOString().split('T')[0];
 
   // Fetch meal completions and adherence on modal open
