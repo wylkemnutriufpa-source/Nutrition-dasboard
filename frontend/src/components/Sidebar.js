@@ -177,31 +177,6 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {/* Separador para admin */}
-        {validUserType === 'admin' && (
-          <>
-            <p className="text-xs font-semibold text-gray-400 uppercase px-4 pt-2 pb-1">Admin</p>
-            {adminExtraLinks.map((link) => {
-              const Icon = link.icon;
-              const isActive = location.pathname === link.to;
-              return (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  data-testid={`sidebar-link-${link.label.toLowerCase().replace(/ /g, '-')}`}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive ? 'text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  style={isActive ? { backgroundColor: '#7C3AED' } : {}}
-                >
-                  <Icon size={20} />
-                  <span className="font-medium text-sm">{link.label}</span>
-                </Link>
-              );
-            })}
-            <p className="text-xs font-semibold text-gray-400 uppercase px-4 pt-4 pb-1">Nutrição</p>
-          </>
-        )}
-        
         {/* Navegação condicional para visitante */}
         {validUserType === 'visitor' && (isInHealthCheck || isInCalculators) && (
           <>
@@ -228,7 +203,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
         )}
         
         {/* Links principais */}
-        {(validUserType === 'admin' ? professionalLinks : links).map((link) => {
+        {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.to || 
             (link.to === '/professional/patients' && location.pathname.startsWith('/professional/patient'));
