@@ -30,8 +30,11 @@ const LoginPage = () => {
   const b = { ...DEFAULT_BRANDING, ...branding };
 
   // Redirect quando já autenticado (visitando login page com sessão ativa)
+  // IMPORTANTE: NÃO redirecionar durante login ativo (pendingLogin)
+  // para evitar race condition com o segundo useEffect
   useEffect(() => {
     if (authLoading) return;
+    if (pendingLogin) return; // ← CORREÇÃO: deixar o segundo useEffect cuidar
     
     if (profile) {
       // Admin: respeitar contexto salvo
@@ -54,11 +57,14 @@ const LoginPage = () => {
         navigate(targetPath, { replace: true });
       }
     }
-  }, [profile?.role, authLoading]); // Apenas role muda, não profile inteiro
+  }, [profile?.role, authLoading, pendingLogin]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    // LIMPAR contexto antigo ANTES do login para evitar stale data
+    localStorage.removeItem('fitjourney_context');
+    localStorage.removeItem('fitjourney_user_type');
     try {
       const { data, error } = await signIn(email, password);
       if (error) {
