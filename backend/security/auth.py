@@ -180,17 +180,24 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Curre
                 algorithms=["ES256"],
                 options={"verify_aud": False},
             )
-            logger.debug("✅ JWT ES256 validado via JWKS (kid=%s)", kid)
+            logger.info("✅ JWT ES256 validado via JWKS (kid=%s)", kid)
         except jwt.ExpiredSignatureError:
+            logger.warning("🚫 JWT ES256 expirado")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token expired",
             )
         except PyJWTError as exc:
-            logger.warning("❌ JWT ES256 inválido: %s", exc)
+            logger.warning("❌ JWT ES256 inválido – detalhe: %s | type: %s", exc, type(exc).__name__)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
+            )
+        except Exception as exc:
+            logger.error("❌ Erro inesperado no decode ES256: %s | type: %s", exc, type(exc).__name__)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token validation error",
             )
 
     # ── HS256: validar com SUPABASE_JWT_SECRET ───────────────────────────────
