@@ -29,15 +29,24 @@ const LoginPage = () => {
 
   const b = { ...DEFAULT_BRANDING, ...branding };
 
-  // Redirect apenas uma vez quando autenticado (evita loop)
+  // Redirect quando já autenticado (visitando login page com sessão ativa)
   useEffect(() => {
-    // Aguardar auth terminar de carregar
     if (authLoading) return;
     
-    // Se tem profile, redirecionar baseado no role
     if (profile) {
+      // Admin: respeitar contexto salvo
+      if (profile.role === 'admin') {
+        const ctx = localStorage.getItem('fitjourney_context');
+        if (ctx === 'professional') {
+          navigate('/professional/dashboard', { replace: true });
+        } else {
+          navigate('/admin/dashboard', { replace: true });
+        }
+        return;
+      }
+      
+      // Outros roles: dashboard padrão
       const targetPath = 
-        profile.role === 'admin' ? '/admin/dashboard' :
         profile.role === 'professional' ? '/professional/dashboard' :
         profile.role === 'patient' ? '/patient/dashboard' : null;
       
@@ -63,16 +72,29 @@ const LoginPage = () => {
     } catch (error) { toast.error('Erro ao fazer login'); setLoading(false); }
   };
 
-  // 🔒 REGRA: Admin é SEMPRE admin. Não existe "admin em modo professional".
+  // ============================================
+  // SISTEMA DE CONTEXTO DE LOGIN
+  // Admin pode escolher entrar como Admin OU como Professional
+  // ============================================
   useEffect(() => {
     if (!pendingLogin || !profile) return;
     
-    // ============================================
-    // ADMIN: Sempre vai para /admin/dashboard
-    // Não importa por qual card entrou (admin ou professional)
-    // ============================================
+    // CASO 1: Admin entrando pelo card PROFESSIONAL → contexto professional
+    if (loginType === 'professional' && profile.role === 'admin') {
+      console.log('🔄 Admin entrando no contexto Professional');
+      localStorage.setItem('fitjourney_user_type', 'professional');
+      localStorage.setItem('fitjourney_user_email', profile.email);
+      localStorage.setItem('fitjourney_user_id', profile.id);
+      localStorage.setItem('fitjourney_context', 'professional');
+      navigate('/professional/dashboard', { replace: true });
+      setPendingLogin(false);
+      setLoading(false);
+      return;
+    }
+    
+    // CASO 2: Admin entrando pelo card ADMIN → contexto admin
     if (profile.role === 'admin') {
-      console.log('🔐 Admin detectado → /admin/dashboard');
+      console.log('🔐 Admin entrando no contexto Admin');
       localStorage.setItem('fitjourney_user_type', 'admin');
       localStorage.setItem('fitjourney_user_email', profile.email);
       localStorage.setItem('fitjourney_user_id', profile.id);
@@ -83,7 +105,7 @@ const LoginPage = () => {
       return;
     }
     
-    // PROFESSIONAL: valida role
+    // CASO 3: Professional real (role != admin)
     if (loginType === 'professional' && profile.role !== 'professional') {
       toast.error('Esta conta não é de profissional'); 
       signOut(); 
@@ -92,7 +114,7 @@ const LoginPage = () => {
       return;
     }
     
-    // PATIENT: valida role
+    // CASO 4: Paciente
     if (loginType === 'patient' && profile.role !== 'patient') {
       toast.error('Esta conta não é de paciente'); 
       signOut(); 
@@ -101,18 +123,17 @@ const LoginPage = () => {
       return;
     }
     
-    // Salvar dados no localStorage
+    // Salvar dados
     localStorage.setItem('fitjourney_user_type', profile.role);
     localStorage.setItem('fitjourney_user_email', profile.email);
     localStorage.setItem('fitjourney_user_id', profile.id);
     
-    // Se for paciente, salvar dados adicionais
     if (profile.role === 'patient') {
       localStorage.setItem('fitjourney_patient_id', profile.id);
       localStorage.setItem('fitjourney_patient_name', profile.name);
     }
     
-    // Redirecionar para dashboard correto
+    // Redirecionar
     if (profile.role === 'professional') {
       navigate('/professional/dashboard', { replace: true });
     } else if (profile.role === 'patient') {

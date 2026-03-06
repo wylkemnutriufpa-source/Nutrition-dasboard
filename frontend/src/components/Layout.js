@@ -13,20 +13,42 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   const { profile, user } = useAuth();
 
   // ============================================
-  // SOURCE OF TRUTH: profile.role do AuthContext
+  // SOURCE OF TRUTH: profile.role + contexto + path
   // ============================================
-  // REGRA ABSOLUTA: Admin é SEMPRE admin, em qualquer rota, qualquer contexto.
-  // Não existe "admin em modo professional" — admin vê TUDO sempre.
+  // REGRAS:
+  // 1. Em rotas /admin/* → SEMPRE admin (independente de contexto)
+  // 2. Admin com contexto='professional' em rotas /professional/* → professional
+  // 3. Admin com contexto='admin' → admin
+  // 4. Outros roles → usar profile.role direto
   const effectiveUserType = (() => {
     // Visitor explícito
     if (propUserType === 'visitor') {
       return 'visitor';
     }
     
-    // Se tem profile logado, usar role REAL — sem contexto, sem override
+    // Se tem profile logado
     if (profile?.role) {
-      console.log(`🔍 [Layout] Role: ${profile.role} | Path: ${location.pathname}`);
-      return profile.role; // admin retorna 'admin', professional retorna 'professional', etc.
+      // ADMIN: lógica especial com contexto
+      if (profile.role === 'admin') {
+        // REGRA 1: Em /admin/* → SEMPRE admin (painel admin nunca some)
+        if (location.pathname.startsWith('/admin')) {
+          console.log('🔐 [Layout] Admin em /admin/* → forçando admin');
+          return 'admin';
+        }
+        
+        // REGRA 2: Contexto professional fora de /admin/*
+        const savedContext = localStorage.getItem('fitjourney_context');
+        if (savedContext === 'professional') {
+          console.log('🔄 [Layout] Admin em contexto Professional');
+          return 'professional';
+        }
+        
+        // Default: admin
+        return 'admin';
+      }
+      
+      // Outros roles: usar direto
+      return profile.role;
     }
     
     // Fallback: visitor

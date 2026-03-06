@@ -39,6 +39,8 @@ const AdminBar = () => {
     localStorage.setItem('fitjourney_context', 'admin');
     localStorage.setItem('fitjourney_user_type', 'admin');
     navigate('/admin/dashboard', { replace: true });
+    // Reload necessário para Layout recalcular effectiveUserType
+    window.location.reload();
   };
 
   return (
