@@ -202,8 +202,8 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
           </>
         )}
         
-        {/* Links principais */}
-        {links.map((link) => {
+        {/* Links principais - SIMPLES */}
+        {allLinks.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.to || 
             (link.to === '/professional/patients' && location.pathname.startsWith('/professional/patient'));
