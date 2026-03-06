@@ -36,7 +36,8 @@ const AdminDashboard = () => {
     name: '',
     email: '',
     phone: '',
-    password: '123456'
+    password: '123456',
+    planType: 'trial' // 🎯 NOVO: plano inicial
   });
 
   // Modal de plano
@@ -125,7 +126,8 @@ const AdminDashboard = () => {
       name: '',
       email: '',
       phone: '',
-      password: '123456'
+      password: '123456',
+      planType: 'trial' // Reset para trial
     });
   };
 
@@ -164,11 +166,17 @@ const AdminDashboard = () => {
         return;
       }
 
-      // 2. Se o trigger não criou o profile, criar manualmente com Trial de 7 dias
+      // 2. Se o trigger não criou o profile, criar manualmente com plano selecionado
       if (authData.user) {
-        // Calcular data de expiração do trial (7 dias)
-        const trialExpires = new Date();
-        trialExpires.setDate(trialExpires.getDate() + 7);
+        // 🎯 Calcular data de expiração baseado no plano selecionado
+        const planExpires = new Date();
+        if (formData.planType === 'trial') {
+          planExpires.setDate(planExpires.getDate() + 7); // 7 dias
+        } else if (formData.planType === 'basic') {
+          planExpires.setFullYear(planExpires.getFullYear() + 1); // 1 ano
+        } else if (formData.planType === 'pro') {
+          planExpires.setFullYear(planExpires.getFullYear() + 1); // 1 ano
+        }
 
         // Verificar se o profile foi criado pelo trigger
         const { data: existingProfile } = await supabase
@@ -178,7 +186,7 @@ const AdminDashboard = () => {
           .single();
 
         if (!existingProfile) {
-          // Criar profile manualmente com Trial
+          // Criar profile manualmente
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
@@ -189,32 +197,51 @@ const AdminDashboard = () => {
               phone: formData.phone || null,
               role: 'professional',
               status: 'active',
-              plan_type: 'trial',
+              plan_type: formData.planType, // 🎯 Plano selecionado
               plan_started_at: new Date().toISOString(),
-              plan_expires_at: trialExpires.toISOString()
+              plan_expires_at: planExpires.toISOString()
             });
 
           if (profileError) {
             console.error('Profile error:', profileError);
-            // Não é crítico, o trigger pode ter criado
           }
         } else {
-          // Atualizar o profile existente com Trial
+          // Atualizar o profile existente
           await supabase
             .from('profiles')
             .update({
               auth_user_id: authData.user.id,
               phone: formData.phone || null,
-              plan_type: 'trial',
+              plan_type: formData.planType, // 🎯 Plano selecionado
               plan_started_at: new Date().toISOString(),
-              plan_expires_at: trialExpires.toISOString()
+              plan_expires_at: planExpires.toISOString()
             })
             .eq('email', formData.email);
         }
       }
 
-      toast.success(`Profissional ${formData.name} criado com sucesso!`);
-      toast.info(`Plano: Trial (7 dias) | Senha: ${formData.password}`, { duration: 7000 });
+      const planLabel = PLAN_CONFIG[formData.planType]?.label || formData.planType;
+      toast.success(`✅ Profissional ${formData.name} criado com sucesso!`);
+      toast.info(`Plano: ${planLabel} | Senha: ${formData.password}`, { duration: 7000 });
+      
+      // 🎯 AUTO-LOGIN: Fazer login automático com o professional criado
+      toast.loading('Fazendo login automático...', { id: 'auto-login' });
+      
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      });
+      
+      if (loginError) {
+        toast.error('Erro ao fazer login automático. Faça login manualmente.', { id: 'auto-login' });
+        console.error('Auto-login error:', loginError);
+      } else {
+        toast.success('Login automático realizado!', { id: 'auto-login' });
+        // Aguardar um momento para o auth processar
+        setTimeout(() => {
+          navigate('/professional/dashboard');
+        }, 1000);
+      }
       
       setIsDialogOpen(false);
       resetForm();
@@ -371,6 +398,45 @@ const AdminDashboard = () => {
                       />
                     </div>
                   </div>
+
+                  {/* 🎯 NOVO: Seletor de Plano Inicial */}
+                  <div>
+                    <Label htmlFor="prof_plan" className="flex items-center gap-2">
+                      <Crown size={16} className="text-amber-500" />
+                      Plano Inicial
+                    </Label>
+                    <Select 
+                      value={formData.planType} 
+                      onValueChange={(value) => setFormData({...formData, planType: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="trial">
+                          <div className="flex items-center gap-2">
+                            <span>🎁 Trial (7 dias grátis)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="basic">
+                          <div className="flex items-center gap-2">
+                            <span>📦 Basic (1 ano)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="pro">
+                          <div className="flex items-center gap-2">
+                            <span>👑 PRO (1 ano)</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.planType === 'trial' && '✨ 7 dias para testar a plataforma'}
+                      {formData.planType === 'basic' && '📦 Funcionalidades essenciais'}
+                      {formData.planType === 'pro' && '👑 Todas as funcionalidades'}
+                    </p>
+                  </div>
+
 
                   <div>
                     <Label htmlFor="prof_password">Senha Inicial</Label>
