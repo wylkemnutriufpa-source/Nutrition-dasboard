@@ -29,13 +29,23 @@ const LoginPage = () => {
 
   const b = { ...DEFAULT_BRANDING, ...branding };
 
+  // Redirect apenas uma vez quando autenticado (evita loop)
   useEffect(() => {
-    if (!authLoading && profile) {
-      if (profile.role === 'admin') navigate('/admin/dashboard', { replace: true });
-      else if (profile.role === 'professional') navigate('/professional/dashboard', { replace: true });
-      else if (profile.role === 'patient') navigate('/patient/dashboard', { replace: true });
+    // Aguardar auth terminar de carregar
+    if (authLoading) return;
+    
+    // Se tem profile, redirecionar baseado no role
+    if (profile) {
+      const targetPath = 
+        profile.role === 'admin' ? '/admin/dashboard' :
+        profile.role === 'professional' ? '/professional/dashboard' :
+        profile.role === 'patient' ? '/patient/dashboard' : null;
+      
+      if (targetPath) {
+        navigate(targetPath, { replace: true });
+      }
     }
-  }, [profile, authLoading, navigate]);
+  }, [profile?.role, authLoading]); // Apenas role muda, não profile inteiro
 
   const handleLogin = async (e) => {
     e.preventDefault();

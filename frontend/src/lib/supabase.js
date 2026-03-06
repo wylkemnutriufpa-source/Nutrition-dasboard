@@ -66,7 +66,12 @@ export const getCurrentUser = async () => {
 };
 
 export const getUserProfile = async (userId) => {
-  console.log('🔍 Buscando profile para userId:', userId);
+  // Log apenas uma vez (não em loop)
+  if (!window._profileLogCache) window._profileLogCache = {};
+  if (!window._profileLogCache[userId]) {
+    console.log('🔍 Buscando profile para userId:', userId);
+    window._profileLogCache[userId] = true;
+  }
   
   try {
     // Tentar buscar por id
@@ -74,14 +79,19 @@ export const getUserProfile = async (userId) => {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .maybeSingle(); // maybeSingle() não lança erro se não encontrar
+      .maybeSingle();
     
     if (error) {
       console.error('❌ Erro ao buscar profile:', error);
       
       // Se erro 406, pode ser problema de RLS ou perfil não existe
       if (error.code === 'PGRST116' || error.message.includes('406')) {
-        console.warn('⚠️ Profile não encontrado ou bloqueado por RLS');
+        // Log apenas primeira vez
+        if (!window._profileWarnCache) window._profileWarnCache = {};
+        if (!window._profileWarnCache[userId]) {
+          console.warn('⚠️ Profile não encontrado ou bloqueado por RLS');
+          window._profileWarnCache[userId] = true;
+        }
         
         // Tentar criar perfil automaticamente
         const { data: { user } } = await supabase.auth.getUser();
@@ -95,7 +105,13 @@ export const getUserProfile = async (userId) => {
     }
     
     if (!data) {
-      console.warn('⚠️ Profile não encontrado no banco');
+      // Log apenas primeira vez
+      if (!window._profileWarnCache) window._profileWarnCache = {};
+      if (!window._profileWarnCache[userId]) {
+        console.warn('⚠️ Profile não encontrado no banco');
+        window._profileWarnCache[userId] = true;
+      }
+      
       // Tentar criar perfil automaticamente
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
@@ -2164,7 +2180,12 @@ export const getProfessionalBranding = async (professionalId) => {
     .eq('professional_id', professionalId)
     .maybeSingle();
   
-  console.log('🔍 [SUPABASE DEBUG] Resultado:', { data, error });
+  // Log apenas dados serializáveis (evita DataCloneError)
+  console.log('🔍 [SUPABASE DEBUG] Resultado:', { 
+    hasData: !!data, 
+    hasError: !!error,
+    errorMessage: error?.message 
+  });
   
   return { data, error };
 };
