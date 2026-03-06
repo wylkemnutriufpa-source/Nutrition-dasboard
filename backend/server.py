@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Header, HTTPException
+from fastapi import FastAPI, APIRouter, Header, HTTPException, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,6 +13,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 from security.features import require_feature
+from security.auth import get_current_user, get_current_user_optional, CurrentUser
 
 
 ROOT_DIR = Path(__file__).parent
@@ -126,16 +127,15 @@ REGRAS:
 @api_router.post("/analyze-meal", response_model=MealAnalysisResponse)
 async def analyze_meal(
     request: MealAnalysisRequest,
-    x_user_id: Optional[str] = Header(None)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Analisa foto de refeição usando GPT-4o Vision
     
-    **Requires feature**: ia_plan
+    **Requires**: Valid JWT token + feature `ia_plan`
     """
-    # 🔒 Feature enforcement
-    if x_user_id:
-        await require_feature(x_user_id, "ia_plan")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "ia_plan")
     
     try:
         llm_key = os.environ.get('EMERGENT_LLM_KEY')
@@ -303,16 +303,15 @@ REGRAS:
 @api_router.post("/analyze-body", response_model=BodyAnalysisResponse)
 async def analyze_body(
     request: BodyAnalysisRequest,
-    x_user_id: Optional[str] = Header(None)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Analisa fotos corporais usando GPT-4o Vision
     
-    **Requires feature**: ia_plan
+    **Requires**: Valid JWT token + feature `ia_plan`
     """
-    # 🔒 Feature enforcement
-    if x_user_id:
-        await require_feature(x_user_id, "ia_plan")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "ia_plan")
     
     try:
         logger.info(f"💪 Starting body analysis for patient {request.patient_id}")

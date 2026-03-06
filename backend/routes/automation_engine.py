@@ -30,27 +30,11 @@ from services.automation_engine.worker import process_automation_events
 from services.automation_engine.emitter import emit_event
 from services.automation_engine.detectors import run_all_detectors
 from security.features import require_feature
+from security.auth import get_current_user, CurrentUser
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/automation-engine", tags=["automation-engine"])
-
-
-# ─────────────────────────────────────────────────────────────
-# Dependency: Extract user_id from request
-# ─────────────────────────────────────────────────────────────
-
-async def get_user_id_from_header(x_user_id: str = None) -> str:
-    """
-    Extract user_id from header (temporary solution).
-    TODO: Replace with proper JWT authentication
-    """
-    if not x_user_id:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required. Missing X-User-Id header"
-        )
-    return x_user_id
 
 
 # ─────────────────────────────────────────────────────────────
@@ -115,19 +99,19 @@ class HealthResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────
 
 @router.post("/run", response_model=RunResponse)
-async def run_automation_engine(user_id: str = Depends(get_user_id_from_header)):
+async def run_automation_engine(current_user: CurrentUser = Depends(get_current_user)):
     """
     Manually trigger the automation engine to process pending events.
     Drains up to 20 events in one call.
     
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
 
-    logger.info("🔧 Manual trigger: POST /admin/automation-engine/run (user: %s)", user_id)
+    logger.info("🔧 Manual trigger: POST /admin/automation-engine/run (user: %s)", current_user.email or current_user.user_id)
 
     try:
         result = await process_automation_events(supabase_url, service_role_key)
@@ -260,13 +244,13 @@ class EmitEventResponse(BaseModel):
 @router.post("/events/emit", response_model=EmitEventResponse)
 async def emit_automation_event(
     body: EmitEventRequest,
-    user_id: str = Depends(get_user_id_from_header)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Manually emit a single automation event with status='pending'.
     Useful for testing rules without waiting for a detector to fire.
 
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
 
     Example body:
     {
@@ -276,8 +260,8 @@ async def emit_automation_event(
       "payload": { "inactive_days": 7, "patient_status": "active" }
     }
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
 
@@ -292,7 +276,7 @@ async def emit_automation_event(
     )
 
     if event_id:
-        logger.info("Manual emit: type=%s event_id=%s (user: %s)", body.type, event_id, user_id)
+        logger.info("Manual emit: type=%s event_id=%s (user: %s)", body.type, event_id, current_user.email)
         return EmitEventResponse(ok=True, event_id=event_id)
 
     return EmitEventResponse(ok=False, error="Failed to emit event – check backend logs")
@@ -311,12 +295,12 @@ class DetectRequest(BaseModel):
 @router.post("/detect")
 async def run_detectors(
     body: DetectRequest,
-    user_id: str = Depends(get_user_id_from_header)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Run all detectors for a given org_id.
 
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
 
     This scans the database for:
       - Inactive patients  (threshold: inactive_days_threshold days, default 5)
@@ -325,14 +309,14 @@ async def run_detectors(
     Emits automation_engine_events for every matching patient/plan found.
     Safe to call repeatedly – only creates new events, never deletes data.
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
 
     logger.info(
         "Detect trigger: org=%s inactive_threshold=%d plan_stale=%d (user: %s)",
-        body.org_id, body.inactive_days_threshold, body.plan_stale_days, user_id
+        body.org_id, body.inactive_days_threshold, body.plan_stale_days, current_user.email
     )
 
     try:
@@ -421,19 +405,19 @@ async def list_rules(org_id: Optional[str] = None, limit: int = 100):
 @router.post("/rules")
 async def create_rule(
     body: RuleCreateRequest,
-    user_id: str = Depends(get_user_id_from_header)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Create a new automation engine rule.
 
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
 
     Validates:
     - name and trigger_type are required
     - actions use only allowed types: notify_user, notify_professional, create_task
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
@@ -477,17 +461,17 @@ async def create_rule(
 async def patch_rule(
     rule_id: str,
     body: RulePatchRequest,
-    user_id: str = Depends(get_user_id_from_header)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Partially update a rule.
     
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
     
     Supports: enable/disable, rename, update conditions/actions/cooldown/priority/trigger_type.
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     if body.actions is not None:
         err = _validate_rule_actions(body.actions)
@@ -540,15 +524,15 @@ async def patch_rule(
 @router.delete("/rules/{rule_id}")
 async def delete_rule(
     rule_id: str,
-    user_id: str = Depends(get_user_id_from_header)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """
     Permanently delete a rule.
     
-    **Requires feature**: automations
+    **Requires**: Valid JWT token + feature `automations`
     """
-    # 🔒 Feature enforcement
-    await require_feature(user_id, "automations")
+    # 🔒 JWT Authentication + Feature enforcement
+    await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
 
