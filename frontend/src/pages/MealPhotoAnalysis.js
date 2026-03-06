@@ -283,19 +283,13 @@ const MealPhotoAnalysis = () => {
 
       const base64 = await fileToBase64(selectedImage);
 
-      const { data: aiResult, error: fetchErr } = await safeFetch(`${BACKEND_URL}/api/analyze-meal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_base64: base64,
-          patient_id: profile.id,
-          mime_type: selectedImage.type
-        })
+      // 🔒 JWT Authentication: Use authenticatedPost from apiClient
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const aiResult = await authenticatedPost('/api/analyze-meal', {
+        image_base64: base64,
+        patient_id: profile.id,
+        mime_type: selectedImage.type
       });
-
-      if (fetchErr) {
-        throw new Error(fetchErr.message || `Erro do servidor: ${fetchErr.status}`);
-      }
 
       if (!aiResult.success) {
         throw new Error(aiResult.error || 'Erro na análise');

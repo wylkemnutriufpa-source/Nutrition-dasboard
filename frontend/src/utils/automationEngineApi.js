@@ -2,21 +2,22 @@
  * automationEngineApi.js
  * Thin wrapper around the FastAPI automation-engine endpoints.
  * Uses REACT_APP_BACKEND_URL – never calls Supabase directly.
+ * 
+ * 🔒 JWT Authentication: All requests include Supabase access token
  */
+
+import { authenticatedFetch } from '@/lib/apiClient';
 
 const BASE = `${process.env.REACT_APP_BACKEND_URL}/api/admin/automation-engine`;
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
+  // 🔒 Use authenticatedFetch to automatically add JWT token
+  const response = await authenticatedFetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data?.detail || data?.message || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data;
+  
+  return response.json();
 }
 
 // ── Health ────────────────────────────────────────────────

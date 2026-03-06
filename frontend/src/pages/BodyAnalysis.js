@@ -525,32 +525,26 @@ const BodyAnalysis = () => {
         }
       }
 
-      // Chamar API via safeFetch (wrapper \u00fanico)
-      const { data: aiResult, error: fetchErr } = await safeFetch(`${BACKEND_URL}/api/analyze-body`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          images,
-          patient_id: profile.id,
-          previous_analysis: previousAnalysis ? {
-            body_fat_estimate: previousAnalysis.body_fat_estimate,
-            muscle_definition: previousAnalysis.muscle_definition,
-            overall_score: previousAnalysis.overall_score,
-            created_at: previousAnalysis.created_at
-          } : null,
-          analysis_type: previousAnalysis ? 'progress' : 'baseline'
-        })
+      // Chamar API com JWT authentication
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const aiResult = await authenticatedPost('/api/analyze-body', {
+        images,
+        patient_id: profile.id,
+        previous_analysis: previousAnalysis ? {
+          body_fat_estimate: previousAnalysis.body_fat_estimate,
+          muscle_definition: previousAnalysis.muscle_definition,
+          overall_score: previousAnalysis.overall_score,
+          created_at: previousAnalysis.created_at
+        } : null,
+        analysis_type: previousAnalysis ? 'progress' : 'baseline'
       });
-
-      if (fetchErr) {
-        throw new Error(fetchErr.message || `Erro do servidor: ${fetchErr.status}`);
-      }
 
       if (!aiResult.success) {
         throw new Error(aiResult.error || 'Erro na análise');
       }
 
       const analysisData = aiResult.data;
+
       setResult(analysisData);
 
       // Atualizar banco
