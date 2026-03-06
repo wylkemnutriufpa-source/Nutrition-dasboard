@@ -63,46 +63,36 @@ const LoginPage = () => {
     } catch (error) { toast.error('Erro ao fazer login'); setLoading(false); }
   };
 
-  // 🔥 CONTEXTO DE LOGIN: Admin pode escolher logar como admin OU como professional
+  // 🔒 REGRA: Admin é SEMPRE admin. Não existe "admin em modo professional".
   useEffect(() => {
     if (!pendingLogin || !profile) return;
     
-    // Validar se o tipo de login corresponde ao role do perfil
-    // EXCEÇÃO: Admin pode logar como professional (contexto)
-    if (loginType === 'professional' && profile.role === 'admin') {
-      // Admin logando como professional → Permitir e setar contexto
-      console.log('🔄 Admin entrando no contexto Professional');
-      localStorage.setItem('fitjourney_user_type', 'professional');
-      localStorage.setItem('fitjourney_user_email', profile.email);
-      localStorage.setItem('fitjourney_user_id', profile.id);
-      localStorage.setItem('fitjourney_context', 'professional'); // Flag de contexto
-      navigate('/professional/dashboard', { replace: true });
-      setPendingLogin(false);
-      setLoading(false);
-      return;
-    }
-    
-    if (loginType === 'admin' && profile.role === 'admin') {
-      // Admin logando como admin → Contexto admin
-      console.log('🔐 Admin entrando no contexto Admin');
+    // ============================================
+    // ADMIN: Sempre vai para /admin/dashboard
+    // Não importa por qual card entrou (admin ou professional)
+    // ============================================
+    if (profile.role === 'admin') {
+      console.log('🔐 Admin detectado → /admin/dashboard');
       localStorage.setItem('fitjourney_user_type', 'admin');
       localStorage.setItem('fitjourney_user_email', profile.email);
       localStorage.setItem('fitjourney_user_id', profile.id);
-      localStorage.setItem('fitjourney_context', 'admin'); // Flag de contexto
+      localStorage.setItem('fitjourney_context', 'admin');
       navigate('/admin/dashboard', { replace: true });
       setPendingLogin(false);
       setLoading(false);
       return;
     }
     
-    // Validações normais para outros roles
-    if (loginType === 'professional' && profile.role !== 'professional' && profile.role !== 'admin') {
+    // PROFESSIONAL: valida role
+    if (loginType === 'professional' && profile.role !== 'professional') {
       toast.error('Esta conta não é de profissional'); 
       signOut(); 
       setPendingLogin(false); 
       setLoading(false); 
       return;
     }
+    
+    // PATIENT: valida role
     if (loginType === 'patient' && profile.role !== 'patient') {
       toast.error('Esta conta não é de paciente'); 
       signOut(); 
@@ -122,8 +112,12 @@ const LoginPage = () => {
       localStorage.setItem('fitjourney_patient_name', profile.name);
     }
     
-    // REMOVIDO: navigate() - o primeiro useEffect já faz o redirecionamento
-    // Isso evita loop de navegação
+    // Redirecionar para dashboard correto
+    if (profile.role === 'professional') {
+      navigate('/professional/dashboard', { replace: true });
+    } else if (profile.role === 'patient') {
+      navigate('/patient/dashboard', { replace: true });
+    }
     
     setPendingLogin(false); 
     setLoading(false);

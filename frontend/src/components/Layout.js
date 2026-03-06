@@ -12,42 +12,24 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   const location = useLocation();
   const { profile, user } = useAuth();
 
-  // IMPORTANTE: Source of truth CENTRALIZADA
-  // Admin SEMPRE é admin em áreas /admin/*
-  // Em outras áreas, admin pode ter contexto 'professional'
+  // ============================================
+  // SOURCE OF TRUTH: profile.role do AuthContext
+  // ============================================
+  // REGRA ABSOLUTA: Admin é SEMPRE admin, em qualquer rota, qualquer contexto.
+  // Não existe "admin em modo professional" — admin vê TUDO sempre.
   const effectiveUserType = (() => {
-    // Se foi explicitamente passado como 'visitor', usar visitor
+    // Visitor explícito
     if (propUserType === 'visitor') {
       return 'visitor';
     }
     
-    // Se tem profile logado
+    // Se tem profile logado, usar role REAL — sem contexto, sem override
     if (profile?.role) {
-      // 🔒 REGRA 1: Admin em rotas /admin/* → SEMPRE admin
-      if (profile.role === 'admin' && location.pathname.startsWith('/admin')) {
-        console.log(`🔐 [Layout] Admin em área ADMIN — forçando tipo admin`);
-        return 'admin';
-      }
-
-      // 🔒 REGRA 2: Se propUserType é 'admin' e profile é admin → respeitar
-      if (profile.role === 'admin' && propUserType === 'admin') {
-        console.log(`🔐 [Layout] Admin explícito via prop`);
-        return 'admin';
-      }
-      
-      // REGRA 3: Admin em contexto professional (fora de /admin/*)
-      const savedContext = localStorage.getItem('fitjourney_context');
-      if (profile.role === 'admin' && savedContext === 'professional') {
-        console.log(`🔄 [Layout] Admin em contexto Professional`);
-        return 'professional';
-      }
-      
-      // Caso contrário, usar role real
-      console.log(`🔍 [Layout] Profile role: ${profile.role} para user: ${profile.email}`);
-      return profile.role;
+      console.log(`🔍 [Layout] Role: ${profile.role} | Path: ${location.pathname}`);
+      return profile.role; // admin retorna 'admin', professional retorna 'professional', etc.
     }
     
-    // Fallback: visitor para usuários não autenticados
+    // Fallback: visitor
     return 'visitor';
   })();
 
