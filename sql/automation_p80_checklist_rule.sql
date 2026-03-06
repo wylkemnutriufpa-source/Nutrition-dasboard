@@ -1,24 +1,19 @@
 -- ============================================================
--- FitJourney – Regra P80: checklist.low_detected
+-- FitJourney - Regra P80: checklist.low_detected
 -- ============================================================
 -- Executa quando a aderência alimentar de um paciente < 40%.
 --
 -- Actions:
---   1. notify_professional  – notifica o profissional responsável
---   2. create_task          – cria tarefa para o profissional
---   3. create_pre_plan_draft – gera rascunho de plano na tabela
+--   1. notify_professional  - notifica o profissional responsável
+--   2. create_task          - cria tarefa para o profissional
+--   3. create_pre_plan_draft - gera rascunho de plano na tabela
 --                             meal_plan_drafts
 --
--- Deduplicação: cooldown de 24h por paciente/org/rule.
--- O detector também usa dedupe_key diário.
---
 -- INSTRUÇÕES:
---   1. Substitua {YOUR_ORG_ID} pelo UUID real do profissional/org
+--   1. Substitua SEU_ORG_ID_AQUI pelo UUID real do profissional
+--      (o mesmo UUID que está em patient_profiles.professional_id)
 --   2. Execute no Supabase SQL Editor
 -- ============================================================
-
--- ── Garantir que as tabelas de engine existem ───────────────
--- (Execute automation_engine_setup.sql antes se ainda não fez)
 
 -- ── Inserir regra P80 ───────────────────────────────────────
 INSERT INTO automation_engine_rules (
@@ -37,56 +32,45 @@ INSERT INTO automation_engine_rules (
 VALUES (
     gen_random_uuid(),
 
-    -- ⚠️  SUBSTITUA pelo UUID real do profissional/org
-    '{YOUR_ORG_ID}',
+    -- SUBSTITUA pelo UUID real do profissional/org
+    'SEU_ORG_ID_AQUI',
 
-    -- Nome da regra
-    'P80 – Baixa Aderência Alimentar',
+    'P80 - Baixa Aderencia Alimentar',
 
-    -- Habilitada
     true,
 
-    -- Trigger: evento emitido pelo detector C ou por meal_completion.py
     'checklist.low_detected',
 
-    -- Condição: aderência < 40%
-    -- O payload inclui checklist_pct (número 0-100)
-    '{
-      "field": "checklist_pct",
-      "op": "lt",
-      "value": 40
-    }'::jsonb,
+    -- Condição: aderência abaixo de 40%
+    $conditions${"field":"checklist_pct","op":"lt","value":40}$conditions$::jsonb,
 
-    -- Actions (3 ações em ordem)
-    '[
+    -- Actions: notificar profissional + criar tarefa + criar rascunho de plano
+    $actions$[
       {
         "type": "notify_professional",
         "target": "assigned_professional",
-        "title": "⚠️ Paciente com baixa aderência",
-        "body": "O paciente {patient_name} completou apenas {checklist_pct}% das refeições. Considere entrar em contato."
+        "title": "Paciente com baixa adesao alimentar",
+        "body": "O paciente {patient_name} completou apenas {checklist_pct}% das refeicoes. Considere entrar em contato."
       },
       {
         "type": "create_task",
-        "title": "Verificar aderência: {patient_name}",
-        "details": "Aderência atual: {checklist_pct}%. Verificar e ajustar plano alimentar se necessário.",
+        "title": "Verificar adesao: {patient_name}",
+        "details": "Adesao atual: {checklist_pct}%. Verificar e ajustar plano se necessario.",
         "due_in_days": 1
       },
       {
         "type": "create_pre_plan_draft",
-        "notes": "Rascunho automático gerado por baixa aderência ({checklist_pct}%)"
+        "notes": "Rascunho automatico gerado por baixa adesao ({checklist_pct}%)"
       }
-    ]'::jsonb,
+    ]$actions$::jsonb,
 
-    -- Cooldown: 24 horas (não dispara mais de uma vez por dia por paciente)
     24,
 
-    -- Prioridade: 80 (alta)
     80,
 
     now(),
     now()
-)
-ON CONFLICT DO NOTHING;
+);
 
 
 -- ── Verificar inserção ──────────────────────────────────────
