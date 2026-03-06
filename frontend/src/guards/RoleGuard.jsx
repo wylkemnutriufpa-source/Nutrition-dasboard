@@ -28,6 +28,13 @@ export const RoleGuard = ({ children, allowedRoles = [] }) => {
   }
 
   if (!profile) {
+    // Visitante: permitir acesso a rotas de visitante sem profile
+    if (allowedRoles.includes('visitor')) {
+      const isVisitor = localStorage.getItem('fitjourney_user_type') === 'visitor';
+      if (isVisitor) {
+        return children;
+      }
+    }
     // Não autenticado - redireciona para login
     return <Navigate to="/" state={{ from: location }} replace />;
   }

@@ -189,7 +189,7 @@ const LoginPage = () => {
   const footerLinks = b.footer_links || DEFAULT_BRANDING.footer_links;
 
   const FooterSection = () => (
-    <div data-testid="login-footer" className="w-full max-w-6xl mt-10 space-y-6">
+    <div data-testid="login-footer" className="w-full max-w-5xl mt-6 space-y-4">
       {b.footer_show_faq && faqItems.length > 0 && (
         <div className="text-center">
           <button data-testid="faq-toggle" onClick={() => setShowFaq(!showFaq)}
@@ -234,76 +234,76 @@ const LoginPage = () => {
     return (
       <div data-testid="login-page" className="min-h-screen relative" style={bgStyle}>
         <FloatingEffects />
-        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
-          <div className="text-center mb-10 md:mb-14">
-            <div className="relative inline-block mb-6">
-              <div className="absolute inset-0 rounded-3xl blur-xl opacity-40 animate-pulse" style={{ backgroundColor: `${b.primary_color}40` }} />
+        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-3 md:p-6">
+          <div className="text-center mb-6 md:mb-8">
+            <div className="relative inline-block mb-4">
+              <div className="absolute inset-0 rounded-2xl blur-xl opacity-40 animate-pulse" style={{ backgroundColor: `${b.primary_color}40` }} />
               <div className={`relative ${getLogoSizeClass(b.logo_size_login, 'login')} ${getLogoShapeClass(b.logo_shape)} flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300`}
-                style={{ background: `linear-gradient(135deg, ${b.primary_color}, ${b.secondary_color})`, boxShadow: `0 20px 60px ${b.primary_color}30` }}>
+                style={{ background: `linear-gradient(135deg, ${b.primary_color}, ${b.secondary_color})`, boxShadow: `0 20px 60px ${b.primary_color}30`, maxWidth: '90px', maxHeight: '90px' }}>
                 {b.logo_url ? (
                   <img 
                     src={b.logo_url} 
                     alt={b.brand_name} 
-                    className={`object-contain p-4`}
+                    className={`object-contain p-3`}
                     style={{ width: '90%', height: '90%' }}
                   />
                 ) : (
-                  <span className="text-white font-black text-5xl md:text-6xl tracking-tight">{b.brand_initials || 'FJ'}</span>
+                  <span className="text-white font-black text-3xl md:text-4xl tracking-tight">{b.brand_initials || 'FJ'}</span>
                 )}
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                  <Sparkles className="w-4 h-4 text-white" />
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-3 h-3 text-white" />
                 </div>
               </div>
             </div>
-            <h1 data-testid="brand-name-display" className="text-5xl md:text-6xl font-black bg-clip-text text-transparent mb-3"
+            <h1 data-testid="brand-name-display" className="text-3xl md:text-4xl font-black bg-clip-text text-transparent mb-2"
               style={{ backgroundImage: `linear-gradient(to right, #111827, ${b.primary_color}, ${b.secondary_color})`, fontFamily: b.font_family }}>
               {b.brand_name || 'FitJourney'}
             </h1>
-            <p className="text-lg md:text-xl text-gray-600 font-medium max-w-md mx-auto" style={{ fontFamily: b.font_family }}>
+            <p className="text-sm md:text-base text-gray-600 font-medium max-w-md mx-auto" style={{ fontFamily: b.font_family }}>
               {b.login_title || DEFAULT_BRANDING.login_title}
             </p>
             {b.login_show_stats && (
-              <div className="flex items-center justify-center gap-6 mt-6">
+              <div className="flex items-center justify-center gap-5 mt-4">
                 {stats.map((stat, i) => (
                   <div key={i} className="text-center">
-                    <p className="text-2xl font-bold" style={{ color: b.primary_color }}>{stat.value}</p>
-                    <p className="text-xs text-gray-500">{stat.label}</p>
+                    <p className="text-lg font-bold" style={{ color: b.primary_color }}>{stat.value}</p>
+                    <p className="text-[10px] text-gray-500">{stat.label}</p>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-6xl w-full">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 max-w-5xl w-full">
             {loginCards.map((card) => {
               const Icon = card.icon;
               return (
                 <div key={card.type} data-testid={`${card.type}-login-card`}
                   onClick={() => card.isVisitor ? handleVisitorLogin() : setLoginType(card.type)}
-                  className={`group relative cursor-pointer transition-all duration-500 ${card.featured ? 'lg:-mt-4 lg:mb-4' : ''}`}>
+                  className={`group relative cursor-pointer transition-all duration-500 ${card.featured ? 'lg:-mt-2 lg:mb-2' : ''}`}>
                   {card.featured && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
-                      <div className="px-4 py-1 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full text-white text-xs font-bold shadow-lg flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-current" /> MAIS POPULAR
+                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-20">
+                      <div className="px-3 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full text-white text-[10px] font-bold shadow-lg flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-current" /> MAIS POPULAR
                       </div>
                     </div>
                   )}
                   <Card className={`relative overflow-hidden border-2 border-gray-100 ${card.borderHover} transition-all duration-500 hover:shadow-2xl ${card.shadowHover} hover:-translate-y-2 ${cardStyle} h-full`}>
                     <div className={`absolute inset-0 bg-gradient-to-br ${card.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                    <CardHeader className="relative text-center pb-2 pt-6">
-                      <div className="relative mx-auto mb-4">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-500`} />
-                        <div className={`relative w-16 h-16 rounded-2xl ${card.iconBg} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl`}>
-                          <Icon className={`${card.iconColor}`} size={32} />
+                    <CardHeader className="relative text-center pb-1 pt-4">
+                      <div className="relative mx-auto mb-3">
+                        <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} rounded-xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-500`} />
+                        <div className={`relative w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl`}>
+                          <Icon className={`${card.iconColor}`} size={24} />
                         </div>
                       </div>
-                      <CardTitle className="text-xl font-bold text-gray-900">{card.title}</CardTitle>
-                      <CardDescription className="text-gray-500 mt-1 text-sm">{card.description}</CardDescription>
+                      <CardTitle className="text-base font-bold text-gray-900">{card.title}</CardTitle>
+                      <CardDescription className="text-gray-500 mt-0.5 text-xs leading-tight">{card.description}</CardDescription>
                     </CardHeader>
-                    <CardContent className="relative pt-0 pb-6">
+                    <CardContent className="relative pt-0 pb-4 px-3">
                       <Button data-testid={`${card.type}-login-button`}
-                        className={`w-full bg-gradient-to-r ${card.buttonGradient} text-white shadow-lg hover:shadow-xl py-5 text-sm font-semibold group-hover:scale-[1.02] transition-all`}>
+                        className={`w-full bg-gradient-to-r ${card.buttonGradient} text-white shadow-lg hover:shadow-xl py-4 text-xs font-semibold group-hover:scale-[1.02] transition-all`}>
                         {card.isVisitor ? 'Acessar Ferramentas' : `Entrar como ${card.title}`}
-                        <ChevronRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight className="ml-1.5 w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                       </Button>
                     </CardContent>
                   </Card>
