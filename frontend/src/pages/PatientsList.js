@@ -262,14 +262,20 @@ const PatientsList = () => {
 
       setSaving(true);
     try {
-      // Admin deve selecionar um profissional responsável
-      const effectiveProfessionalId = isAdmin && formProfessionalId ? formProfessionalId : profile.id;
+      // 🎯 NOVA LÓGICA: Admin pode ter seus próprios pacientes
+      // Se admin não selecionar outro professional, usa seu próprio ID
+      const effectiveProfessionalId = isAdmin && formProfessionalId 
+        ? formProfessionalId      // Admin delegou para outro professional
+        : profile.id;             // Admin como professional OU professional normal
       
-      if (isAdmin && !formProfessionalId) {
-        toast.error('Admin deve selecionar um profissional responsável');
-        setSaving(false);
-        return;
-      }
+      // REMOVER validação obrigatória para admin
+      // if (isAdmin && !formProfessionalId) {
+      //   toast.error('Admin deve selecionar um profissional responsável');
+      //   setSaving(false);
+      //   return;
+      // }
+      
+      console.log('📋 Criando paciente - isAdmin:', isAdmin, '| formProfessionalId:', formProfessionalId, '| usando:', effectiveProfessionalId);
       
       const patientData = {
         name: formName,
@@ -623,21 +629,25 @@ const PatientsList = () => {
               </DialogHeader>
               
               <div className="space-y-4">
-                {/* Seletor de Profissional Responsável (apenas para Admin) */}
+                {/* 🎯 Seletor de Profissional Responsável (apenas para Admin que quer delegar) */}
                 {isAdmin && (
-                  <div className="bg-purple-50 p-4 rounded-lg space-y-3 border-2 border-purple-200">
-                    <h4 className="font-semibold text-purple-900 flex items-center">
+                  <div className="bg-blue-50 p-4 rounded-lg space-y-3 border-2 border-blue-200">
+                    <h4 className="font-semibold text-blue-900 flex items-center">
                       <Users className="mr-2" size={18} />
-                      Profissional Responsável *
+                      Atribuir a outro profissional? (opcional)
                     </h4>
+                    <p className="text-sm text-gray-700 mb-2">
+                      💡 <strong>Deixe vazio</strong> para o paciente ser seu (você como profissional)
+                    </p>
                     <Select value={formProfessionalId} onValueChange={setFormProfessionalId}>
-                      <SelectTrigger className={!formProfessionalId ? 'border-red-300' : ''}>
-                        <SelectValue placeholder="Selecione o profissional..." />
+                      <SelectTrigger>
+                        <SelectValue placeholder="🏠 Meus Pacientes (você mesmo)" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="">🏠 Meus Pacientes (você mesmo)</SelectItem>
                         {professionals.map(prof => (
                           <SelectItem key={prof.id} value={prof.id}>
-                            {prof.name} ({prof.email})
+                            👤 {prof.name || prof.email} ({prof.email})
                           </SelectItem>
                         ))}
                       </SelectContent>
