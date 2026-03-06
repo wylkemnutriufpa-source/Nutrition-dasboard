@@ -412,6 +412,10 @@ api_router.include_router(meal_completion_router)
 from routes.admin_patients import router as admin_patients_router
 api_router.include_router(admin_patients_router)
 
+# Import admin professionals routes
+from routes.admin_professionals import router as admin_professionals_router
+api_router.include_router(admin_professionals_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 
