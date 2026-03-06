@@ -558,21 +558,28 @@ const AdminDashboard = () => {
         <ProfessionalRankingBoard />
 
         {/* ========== MODAL: ALTERAR PLANO ========== */}
-        <Dialog open={planModal.open} onOpenChange={(o) => !o && setPlanModal({ open: false, prof: null })}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-amber-500" /> Plano do Profissional
-              </DialogTitle>
-              <DialogDescription>{planModal.prof?.name}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Plano atual:</span>
-                <Badge className={`${PLAN_CONFIG[planModal.prof?.plan_type || 'basic'].color} border-0`}>
-                  {PLAN_CONFIG[planModal.prof?.plan_type || 'basic'].label}
-                </Badge>
-              </div>
+        {planModal.prof && (
+          <Dialog open={planModal.open} onOpenChange={(o) => {
+            if (!o) {
+              setPlanModal({ open: false, prof: null });
+              setSelectedPlan('basic');
+              setPlanExpires('');
+            }
+          }}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-amber-500" /> Plano do Profissional
+                </DialogTitle>
+                <DialogDescription>{planModal.prof.name}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">Plano atual:</span>
+                  <Badge className={`${PLAN_CONFIG[planModal.prof.plan_type || 'basic'].color} border-0`}>
+                    {PLAN_CONFIG[planModal.prof.plan_type || 'basic'].label}
+                  </Badge>
+                </div>
 
               <div>
                 <Label>Novo Plano</Label>
@@ -608,6 +615,7 @@ const AdminDashboard = () => {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
     </Layout>
   );

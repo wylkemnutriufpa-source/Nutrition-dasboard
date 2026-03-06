@@ -204,52 +204,36 @@ async def create_patient(
             patient_id = auth_data["id"]
             logger.info(f"✅ Auth user criado: {patient_id} (prof tier: {prof_tier})")
 
-            # ── 2. Criar public.profiles ───────────────────────────────────────
-            profile_resp = await client.post(
+            # ── 2. Aguardar trigger criar profile automaticamente ─────────────
+            # Supabase trigger cria profile automaticamente após auth user
+            logger.info("⏳ Aguardando trigger do Supabase criar profile...")
+            import asyncio
+            await asyncio.sleep(2)
+            
+            # Verificar se profile foi criado
+            profile_check = await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles",
-                headers={**_supabase_headers(), "Prefer": "return=representation"},
-                json={
-                    "id": patient_id,
-                    "auth_user_id": patient_id,
-                    "email": request.email,
-                    "name": request.name,
-                    "role": "patient",
-                    "status": "active",
-                },
+                headers=_supabase_headers(),
+                params={"id": f"eq.{patient_id}", "select": "*"}
+            )
+            
+            if profile_check.status_code != 200 or not profile_check.json():
+                logger.error("❌ Trigger não criou profile - abortando")
+                await _delete_auth_user(client, patient_id)
+                raise HTTPException(
+                    status_code=500,
+                    detail="Erro: profile não foi criado automaticamente"
+                )
+            
+            # Atualizar profile com dados adicionais
+            await client.patch(
+                f"{SUPABASE_URL}/rest/v1/profiles",
+                headers=_supabase_headers(),
+                params={"id": f"eq.{patient_id}"},
+                json={"name": request.name, "status": "active"}
             )
 
-            if profile_resp.status_code not in [200, 201]:
-                error_detail = profile_resp.json()
-                logger.error(f"❌ Falha ao criar profile: {error_detail}")
-                
-                # 🗑️ Rollback: deletar auth user
-                await _delete_auth_user(client, patient_id)
-                
-                # 🗑️ Rollback: deletar profile órfão se existir
-                try:
-                    await client.delete(
-                        f"{SUPABASE_URL}/rest/v1/profiles",
-                        headers=_supabase_headers(),
-                        params={"id": f"eq.{patient_id}"}
-                    )
-                    logger.info(f"🗑️ Profile órfão {patient_id} deletado no rollback")
-                except Exception as e:
-                    logger.warning(f"⚠️ Não foi possível deletar profile órfão: {e}")
-                
-                # Extrair mensagem amigável
-                error_msg = error_detail.get('message', str(error_detail))
-                if 'duplicate key' in str(error_detail).lower() and 'email' in str(error_detail).lower():
-                    raise HTTPException(
-                        status_code=409,
-                        detail="Email já cadastrado. Use outro email ou delete o registro antigo."
-                    )
-                
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Erro ao criar profile: {error_msg}",
-                )
-
-            logger.info(f"✅ Profile criado para {patient_id}")
+            logger.info("✅ Profile criado automaticamente e atualizado")
 
             # ── 3. Criar public.patient_profiles ──────────────────────────────
             patient_profile_resp = await client.post(
