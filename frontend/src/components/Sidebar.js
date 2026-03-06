@@ -62,7 +62,17 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     loadPatientMenu();
   }, [validUserType, patientId]);
 
-  // Links do Professional (SEM features exclusivas de admin)
+  // ============================================
+  // DEFINIÇÃO DE LINKS POR TIPO
+  // ============================================
+  
+  // 🔴 Links ADMIN (só admin vê)
+  const adminLinks = [
+    { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' },
+    { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni Branco' }
+  ];
+  
+  // 🟡 Links PROFESSIONAL
   const professionalLinks = [
     { to: '/professional/dashboard', icon: Home, label: 'Dashboard' },
     { to: '/professional/patients', icon: Users, label: 'Pacientes' },
@@ -74,19 +84,12 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/agenda', icon: CalendarDays, label: 'Agenda' },
     { to: '/professional/financeiro', icon: DollarSign, label: 'Financeiro' },
     { to: '/professional/food-database', icon: Database, label: 'Alimentos' },
-    // REMOVIDO: Projeto Biquíni Branco (agora é exclusivo admin)
     { to: '/professional/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
     { to: '/professional/automations', icon: Bot, label: 'Automações', premium: true },
     { to: '/professional/reports', icon: BarChart3, label: 'Relatórios Inteligentes', premium: true },
     { to: '/professional/guide', icon: Book, label: 'Central de Recursos', premium: true }
-  ];
-
-  // Links exclusivos do Admin
-  const adminExtraLinks = [
-    { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' },
-    { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni Branco' }  // 🔒 Só admin
   ];
 
   // Links do Paciente agora são todos dinâmicos (vindos da configuração)
@@ -114,8 +117,8 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     switch (validUserType) {
       case 'admin':
         // 🔒 Admin vê: links exclusivos admin + links professional
-        console.log(`✅ [Sidebar] Admin - ${adminExtraLinks.length} admin + ${professionalLinks.length} professional`);
-        return [...adminExtraLinks, ...professionalLinks];
+        console.log(`✅ [Sidebar] Admin - ${adminLinks.length} admin + ${professionalLinks.length} professional`);
+        return [...adminLinks, ...professionalLinks];
       case 'professional':
         // 🔒 Professional vê: APENAS links professional (sem admin)
         console.log(`✅ [Sidebar] Professional - ${professionalLinks.length} links (SEM admin)`);
@@ -128,9 +131,8 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     }
   };
 
-  const links = getLinks();
-  // Não precisa mais de patientDynamicLinks separado
-  const patientDynamicLinks = [];
+  // Definir links a serem renderizados
+  const linksToRender = getLinks();
 
   const getUserTypeLabel = () => {
     switch(validUserType) {
@@ -203,7 +205,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
         )}
         
         {/* Links principais - SIMPLES */}
-        {allLinks.map((link) => {
+        {linksToRender.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.to || 
             (link.to === '/professional/patients' && location.pathname.startsWith('/professional/patient'));
