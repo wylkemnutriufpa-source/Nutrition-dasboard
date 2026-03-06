@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 # Backend URL configuration
-BACKEND_URL = "https://fitness-auth-fix.preview.emergentagent.com"
+BACKEND_URL = "https://fit-admin-fix.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 class TestResult:
