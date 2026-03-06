@@ -30,7 +30,7 @@ from services.automation_engine.worker import process_automation_events
 from services.automation_engine.emitter import emit_event
 from services.automation_engine.detectors import run_all_detectors
 from security.features import require_feature
-from security.auth import get_current_user, CurrentUser
+from security.auth import get_current_user_with_db_role, CurrentUser
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +99,14 @@ class HealthResponse(BaseModel):
 # ─────────────────────────────────────────────────────────────
 
 @router.post("/run", response_model=RunResponse)
-async def run_automation_engine(current_user: CurrentUser = Depends(get_current_user)):
+async def run_automation_engine(current_user: CurrentUser = Depends(get_current_user_with_db_role)):
     """
     Manually trigger the automation engine to process pending events.
     Drains up to 20 events in one call.
     
-    **Requires**: Valid JWT token + feature `automations`
+    **Requires**: JWT válido + profiles.role = admin | professional
     """
+    _require_admin_or_professional(current_user)
     # 🔒 JWT Authentication + Feature enforcement
     await require_feature(current_user.user_id, "automations")
     
@@ -244,23 +245,16 @@ class EmitEventResponse(BaseModel):
 @router.post("/events/emit", response_model=EmitEventResponse)
 async def emit_automation_event(
     body: EmitEventRequest,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_with_db_role)
 ):
     """
     Manually emit a single automation event with status='pending'.
     Useful for testing rules without waiting for a detector to fire.
 
-    **Requires**: Valid JWT token + feature `automations`
-
-    Example body:
-    {
-      "org_id": "uuid-of-professional",
-      "type": "patient.inactive_detected",
-      "patient_id": "uuid-of-patient",
-      "payload": { "inactive_days": 7, "patient_status": "active" }
-    }
+    **Requires**: JWT válido + profiles.role = admin | professional
     """
-    # 🔒 JWT Authentication + Feature enforcement
+    _require_admin_or_professional(current_user)
+    # 🔒 Feature enforcement
     await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
@@ -290,26 +284,37 @@ class DetectRequest(BaseModel):
     org_id:                  str
     inactive_days_threshold: int = 5
     plan_stale_days:         int = 30
+    checklist_threshold_pct: int = 40   # emite checklist.low_detected abaixo deste %
+
+
+def _require_admin_or_professional(user: CurrentUser) -> None:
+    """Valida que o role real (de public.profiles) é admin ou professional."""
+    if user.app_role not in ("admin", "professional"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Acesso negado. Requer role: admin ou professional. "
+                f"Role atual: {user.app_role!r}"
+            ),
+        )
 
 
 @router.post("/detect")
 async def run_detectors(
     body: DetectRequest,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_with_db_role)
 ):
     """
     Run all detectors for a given org_id.
 
-    **Requires**: Valid JWT token + feature `automations`
+    **Requires**: JWT válido + profiles.role = admin | professional
 
-    This scans the database for:
-      - Inactive patients  (threshold: inactive_days_threshold days, default 5)
-      - Stale active plans (threshold: plan_stale_days days, default 30)
-
-    Emits automation_engine_events for every matching patient/plan found.
-    Safe to call repeatedly – only creates new events, never deletes data.
+    Detectores executados:
+      - Inactive patients  (threshold: inactive_days_threshold dias, default 5)
+      - Stale active plans (threshold: plan_stale_days dias, default 30)
+      - Low checklist pct  (threshold: checklist_threshold_pct %, default 40)
     """
-    # 🔒 JWT Authentication + Feature enforcement
+    _require_admin_or_professional(current_user)
     await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()
@@ -326,6 +331,7 @@ async def run_detectors(
             org_id=body.org_id,
             inactive_days_threshold=body.inactive_days_threshold,
             plan_stale_days=body.plan_stale_days,
+            checklist_threshold_pct=body.checklist_threshold_pct,
         )
         return {"ok": True, **result}
     except Exception as exc:
@@ -337,7 +343,12 @@ async def run_detectors(
 # RULES CRUD
 # ─────────────────────────────────────────────────────────────
 
-ALLOWED_ACTION_TYPES = {"notify_user", "notify_professional", "create_task"}
+ALLOWED_ACTION_TYPES = {
+    "notify_user",
+    "notify_professional",
+    "create_task",
+    "create_pre_plan_draft",  # gera draft de plano alimentar na tabela meal_plan_drafts
+}
 
 
 class RuleCreateRequest(BaseModel):
@@ -405,18 +416,15 @@ async def list_rules(org_id: Optional[str] = None, limit: int = 100):
 @router.post("/rules")
 async def create_rule(
     body: RuleCreateRequest,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_with_db_role)
 ):
     """
-    Create a new automation engine rule.
-
-    **Requires**: Valid JWT token + feature `automations`
-
-    Validates:
-    - name and trigger_type are required
-    - actions use only allowed types: notify_user, notify_professional, create_task
+    Cria uma nova regra de automação.
+    **Requires**: JWT válido + profiles.role = admin | professional
+    Valida: actions usam apenas tipos permitidos.
     """
-    # 🔒 JWT Authentication + Feature enforcement
+    _require_admin_or_professional(current_user)
+    # 🔒 Feature enforcement
     await require_feature(current_user.user_id, "automations")
     
     if not body.name.strip():
@@ -461,16 +469,13 @@ async def create_rule(
 async def patch_rule(
     rule_id: str,
     body: RulePatchRequest,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_with_db_role)
 ):
     """
-    Partially update a rule.
-    
-    **Requires**: Valid JWT token + feature `automations`
-    
-    Supports: enable/disable, rename, update conditions/actions/cooldown/priority/trigger_type.
+    Atualiza parcialmente uma regra.
+    **Requires**: JWT válido + profiles.role = admin | professional
     """
-    # 🔒 JWT Authentication + Feature enforcement
+    _require_admin_or_professional(current_user)
     await require_feature(current_user.user_id, "automations")
     
     if body.actions is not None:
@@ -524,14 +529,13 @@ async def patch_rule(
 @router.delete("/rules/{rule_id}")
 async def delete_rule(
     rule_id: str,
-    current_user: CurrentUser = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user_with_db_role)
 ):
     """
-    Permanently delete a rule.
-    
-    **Requires**: Valid JWT token + feature `automations`
+    Deleta uma regra permanentemente.
+    **Requires**: JWT válido + profiles.role = admin | professional
     """
-    # 🔒 JWT Authentication + Feature enforcement
+    _require_admin_or_professional(current_user)
     await require_feature(current_user.user_id, "automations")
     
     supabase_url, service_role_key = _get_config()

@@ -74,14 +74,13 @@ async def emit_low_adherence_event(
     org_id: str
 ):
     """Emit checklist.low_detected event for automation engine."""
-    from services.automation_engine.emitter import emit_event
-    
+    from services.automation_engine.emitter import emit_event, make_daily_dedupe_key
+
     url, key = get_supabase_config()
-    
+
     try:
         await emit_event(
             org_id=org_id,
-            patient_id=patient_id,
             event_type="checklist.low_detected",
             payload={
                 "patient_name": patient_name,
@@ -89,9 +88,10 @@ async def emit_low_adherence_event(
                 "patient_status": "low_adherence",
                 "context": "meal_completion",
             },
+            patient_id=patient_id,
+            dedupe_key=make_daily_dedupe_key("checklist.low_detected", patient_id),
             supabase_url=url,
             service_role_key=key,
-            dedupe_key_pattern="checklist.low_detected:{patient_id}:{YYYY-MM-DD}",
         )
     except Exception as e:
         print(f"Error emitting low adherence event: {e}")
