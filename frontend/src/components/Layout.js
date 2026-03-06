@@ -12,8 +12,9 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   const location = useLocation();
   const { profile, user } = useAuth();
 
-  // IMPORTANTE: Source of truth com suporte a CONTEXTO
-  // Admin pode logar como professional (contexto profissional)
+  // IMPORTANTE: Source of truth CENTRALIZADA
+  // Admin SEMPRE é admin em áreas /admin/*
+  // Em outras áreas, admin pode ter contexto 'professional'
   const effectiveUserType = (() => {
     // Se foi explicitamente passado como 'visitor', usar visitor
     if (propUserType === 'visitor') {
@@ -22,10 +23,20 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
     
     // Se tem profile logado
     if (profile?.role) {
-      // Verificar se há contexto salvo (Admin logado como professional)
-      const savedContext = localStorage.getItem('fitjourney_context');
+      // 🔒 REGRA 1: Admin em rotas /admin/* → SEMPRE admin
+      if (profile.role === 'admin' && location.pathname.startsWith('/admin')) {
+        console.log(`🔐 [Layout] Admin em área ADMIN — forçando tipo admin`);
+        return 'admin';
+      }
+
+      // 🔒 REGRA 2: Se propUserType é 'admin' e profile é admin → respeitar
+      if (profile.role === 'admin' && propUserType === 'admin') {
+        console.log(`🔐 [Layout] Admin explícito via prop`);
+        return 'admin';
+      }
       
-      // Se profile é admin MAS contexto é professional → usar professional
+      // REGRA 3: Admin em contexto professional (fora de /admin/*)
+      const savedContext = localStorage.getItem('fitjourney_context');
       if (profile.role === 'admin' && savedContext === 'professional') {
         console.log(`🔄 [Layout] Admin em contexto Professional`);
         return 'professional';

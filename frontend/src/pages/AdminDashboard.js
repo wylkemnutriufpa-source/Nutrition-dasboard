@@ -75,16 +75,15 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    // Verificar se é admin
-    const userType = localStorage.getItem('fitjourney_user_type');
-    if (userType !== 'admin') {
+    // Verificar se é admin via profile (source of truth)
+    if (profile?.role !== 'admin') {
       toast.error('Acesso negado');
       navigate('/');
       return;
     }
     
     loadData();
-  }, []);
+  }, [profile]);
 
   const loadData = async () => {
     setLoading(true);

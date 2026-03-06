@@ -69,6 +69,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   // 🔴 Links ADMIN (só admin vê)
   const adminLinks = [
     { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' },
+    { to: '/admin/features', icon: Activity, label: 'Controle de Features', adminOnly: true },
     { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni Branco' }
   ];
   
@@ -116,9 +117,13 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     
     switch (validUserType) {
       case 'admin':
-        // 🔒 Admin vê: links exclusivos admin + links professional
+        // 🔒 Admin vê: links exclusivos admin + separador + links professional
         console.log(`✅ [Sidebar] Admin - ${adminLinks.length} admin + ${professionalLinks.length} professional`);
-        return [...adminLinks, ...professionalLinks];
+        return [
+          ...adminLinks, 
+          { type: 'separator', label: 'Área Profissional' },
+          ...professionalLinks
+        ];
       case 'professional':
         // 🔒 Professional vê: APENAS links professional (sem admin)
         console.log(`✅ [Sidebar] Professional - ${professionalLinks.length} links (SEM admin)`);
@@ -178,7 +183,6 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {/* Separador para admin */}
         {/* Navegação condicional para visitante */}
         {validUserType === 'visitor' && (isInHealthCheck || isInCalculators) && (
           <>
@@ -204,8 +208,18 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
           </>
         )}
         
-        {/* Links principais - SIMPLES */}
-        {linksToRender.map((link) => {
+        {/* Links principais */}
+        {linksToRender.map((link, idx) => {
+          // Separador entre seções
+          if (link.type === 'separator') {
+            return (
+              <div key={`sep-${idx}`} className="pt-2 pb-1 px-2">
+                <div className="border-t border-purple-200"></div>
+                <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider px-2 pt-2">{link.label}</p>
+              </div>
+            );
+          }
+
           const Icon = link.icon;
           const isActive = location.pathname === link.to || 
             (link.to === '/professional/patients' && location.pathname.startsWith('/professional/patient'));
@@ -215,12 +229,15 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
               to={link.to}
               data-testid={`sidebar-link-${link.label.toLowerCase().replace(/ /g, '-')}`}
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
-                isActive ? 'text-white shadow-md' : link.premium ? 'text-purple-700 hover:bg-purple-50 bg-gradient-to-r from-purple-50/80 to-pink-50/60 border border-purple-100' : 'text-gray-700 hover:bg-gray-100'
+                isActive ? 'text-white shadow-md' : link.adminOnly ? 'text-purple-700 hover:bg-purple-50 bg-gradient-to-r from-purple-50/80 to-violet-50/60 border border-purple-100' : link.premium ? 'text-purple-700 hover:bg-purple-50 bg-gradient-to-r from-purple-50/80 to-pink-50/60 border border-purple-100' : 'text-gray-700 hover:bg-gray-100'
               }`}
-              style={isActive ? { backgroundColor: link.premium ? '#7C3AED' : getPrimaryColor() } : {}}
+              style={isActive ? { backgroundColor: link.adminOnly ? '#7C3AED' : link.premium ? '#7C3AED' : getPrimaryColor() } : {}}
             >
               <Icon size={20} />
               <span className="font-medium text-sm flex-1">{link.label}</span>
+              {link.adminOnly && !isActive && (
+                <span className="text-[9px] font-bold bg-gradient-to-r from-violet-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">ADM</span>
+              )}
               {link.premium && !isActive && (
                 <span className="text-[9px] font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white px-1.5 py-0.5 rounded-full">PRO</span>
               )}

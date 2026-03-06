@@ -49,6 +49,7 @@ const FeatureCard = ({ feature, onUpdate, updating }) => {
   const [expanded, setExpanded] = useState(false);
   const isUpdating = updating === feature.id;
 
+  // Determinar estado global baseado nas novas colunas
   const getStatus = () => {
     if (!feature.is_active) return 'disabled';
     if (feature.coming_soon) return 'coming_soon';
@@ -59,9 +60,34 @@ const FeatureCard = ({ feature, onUpdate, updating }) => {
   const statusCfg = STATUS_CONFIG[status];
   const StatusIcon = statusCfg.icon;
 
+  // Estados por perfil
+  const profState = feature.professional_state || 'active';
+  const patState = feature.patient_state || 'active';
+
   const handleToggle = async (field, value) => {
     await onUpdate(feature.id, { [field]: value });
   };
+
+  // Atualizar estado por perfil (3 estados)
+  const handleProfileState = async (profile, newState) => {
+    const field = profile === 'professional' ? 'professional_state' : 'patient_state';
+    // Também manter compatibilidade com boolean legado
+    const legacyField = profile === 'professional' ? 'enabled_for_professional' : 'enabled_for_patient';
+    const legacyValue = newState !== 'disabled';
+    
+    await onUpdate(feature.id, { 
+      [field]: newState,
+      [legacyField]: legacyValue
+    });
+  };
+
+  const STATE_OPTIONS = [
+    { value: 'active', label: 'Ativo', icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', ringColor: 'ring-emerald-400' },
+    { value: 'disabled', label: 'Desativado', icon: XCircle, color: 'text-red-600', bg: 'bg-red-50 border-red-200', ringColor: 'ring-red-400' },
+    { value: 'coming_soon', label: 'Em breve', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200', ringColor: 'ring-amber-400' }
+  ];
+
+  const getStateConfig = (state) => STATE_OPTIONS.find(o => o.value === state) || STATE_OPTIONS[0];
 
   return (
     <div className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
@@ -125,63 +151,114 @@ const FeatureCard = ({ feature, onUpdate, updating }) => {
           </div>
         </div>
 
-        {/* Expanded controls */}
+        {/* Expanded controls — 3 ESTADOS POR PERFIL */}
         {expanded && (
-          <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Coming Soon */}
-            <div className="flex items-center justify-between bg-amber-50 rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-600" />
-                <span className="text-xs font-medium text-amber-800">Em breve</span>
+          <div className="mt-4 pt-3 border-t border-gray-100 space-y-4">
+            {/* Toggle global + Coming soon + PRO */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-gray-600" />
+                  <span className="text-xs font-medium text-gray-800">Global</span>
+                </div>
+                <Switch
+                  checked={feature.is_active}
+                  onCheckedChange={(v) => handleToggle('is_active', v)}
+                  disabled={isUpdating}
+                  className="scale-90 data-[state=checked]:bg-emerald-500"
+                />
               </div>
-              <Switch
-                checked={feature.coming_soon || false}
-                onCheckedChange={(v) => handleToggle('coming_soon', v)}
-                disabled={isUpdating}
-                className="scale-90 data-[state=checked]:bg-amber-500"
-              />
+              <div className="flex items-center justify-between bg-amber-50 rounded-xl p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-amber-600" />
+                  <span className="text-xs font-medium text-amber-800">Em breve</span>
+                </div>
+                <Switch
+                  checked={feature.coming_soon || false}
+                  onCheckedChange={(v) => handleToggle('coming_soon', v)}
+                  disabled={isUpdating}
+                  className="scale-90 data-[state=checked]:bg-amber-500"
+                />
+              </div>
+              <div className="flex items-center justify-between bg-orange-50 rounded-xl p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <Crown className="h-3.5 w-3.5 text-orange-600" />
+                  <span className="text-xs font-medium text-orange-800">PRO</span>
+                </div>
+                <Switch
+                  checked={feature.is_pro || false}
+                  onCheckedChange={(v) => handleToggle('is_pro', v)}
+                  disabled={isUpdating}
+                  className="scale-90 data-[state=checked]:bg-orange-500"
+                />
+              </div>
             </div>
 
-            {/* PRO */}
-            <div className="flex items-center justify-between bg-orange-50 rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5">
-                <Crown className="h-3.5 w-3.5 text-orange-600" />
-                <span className="text-xs font-medium text-orange-800">PRO</span>
-              </div>
-              <Switch
-                checked={feature.is_pro || false}
-                onCheckedChange={(v) => handleToggle('is_pro', v)}
-                disabled={isUpdating}
-                className="scale-90 data-[state=checked]:bg-orange-500"
-              />
-            </div>
+            {/* ===== CONTROLE POR PERFIL (3 ESTADOS) ===== */}
+            <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl p-4 border border-gray-200">
+              <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Users className="h-3.5 w-3.5" />
+                Controle por Perfil
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* PROFESSIONAL */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Stethoscope className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-800">Profissional</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {STATE_OPTIONS.map(opt => {
+                      const OptIcon = opt.icon;
+                      const isSelected = profState === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleProfileState('professional', opt.value)}
+                          disabled={isUpdating}
+                          className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-semibold transition-all border ${
+                            isSelected 
+                              ? `${opt.bg} ${opt.color} ring-2 ${opt.ringColor} shadow-sm` 
+                              : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'
+                          } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <OptIcon className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Profissionais */}
-            <div className="flex items-center justify-between bg-blue-50 rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5">
-                <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
-                <span className="text-xs font-medium text-blue-800">Profissional</span>
+                {/* PATIENT */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-4 w-4 text-teal-600" />
+                    <span className="text-sm font-semibold text-teal-800">Paciente</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {STATE_OPTIONS.map(opt => {
+                      const OptIcon = opt.icon;
+                      const isSelected = patState === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => handleProfileState('patient', opt.value)}
+                          disabled={isUpdating}
+                          className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-lg text-xs font-semibold transition-all border ${
+                            isSelected 
+                              ? `${opt.bg} ${opt.color} ring-2 ${opt.ringColor} shadow-sm` 
+                              : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'
+                          } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <OptIcon className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              <Switch
-                checked={feature.enabled_for_professional !== false}
-                onCheckedChange={(v) => handleToggle('enabled_for_professional', v)}
-                disabled={isUpdating}
-                className="scale-90 data-[state=checked]:bg-blue-500"
-              />
-            </div>
-
-            {/* Pacientes */}
-            <div className="flex items-center justify-between bg-teal-50 rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5 text-teal-600" />
-                <span className="text-xs font-medium text-teal-800">Paciente</span>
-              </div>
-              <Switch
-                checked={feature.enabled_for_patient !== false}
-                onCheckedChange={(v) => handleToggle('enabled_for_patient', v)}
-                disabled={isUpdating}
-                className="scale-90 data-[state=checked]:bg-teal-500"
-              />
             </div>
           </div>
         )}

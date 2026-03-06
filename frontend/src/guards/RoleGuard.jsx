@@ -1,14 +1,16 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { canAccessArea, getDefaultRoute } from '@/lib/authorization';
 import { Loader2 } from 'lucide-react';
 
 /**
  * RoleGuard - Protege rotas baseado no role do usuário
+ * Usa camada central de autorização (authorization.js)
  * 
  * Regras:
- * - patient: SOMENTE /patient/*
- * - professional: /professional/* + /patient/*
- * - admin: TODAS as rotas
+ * - admin: TODAS as rotas (superusuário)
+ * - professional: /professional/* apenas
+ * - patient: /patient/* apenas
  */
 export const RoleGuard = ({ children, allowedRoles = [] }) => {
   const { profile, loading } = useAuth();
@@ -32,24 +34,21 @@ export const RoleGuard = ({ children, allowedRoles = [] }) => {
 
   const userRole = profile.role;
 
-  // Admin tem acesso a TUDO (superuser)
+  // Admin tem acesso a TUDO via canAccessArea (superuser)
   if (userRole === 'admin') {
     return children;
   }
 
-  // Verificar se o role é permitido
+  // Verificar se o role é permitido pela lista de roles E pela camada central
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
-    console.warn(`🚫 Acesso negado: role "${userRole}" tentou acessar rota protegida`);
+    // Detectar a área da rota atual
+    const area = location.pathname.split('/')[1]; // 'admin', 'professional', 'patient'
     
-    // Redirecionar para dashboard apropriado
-    if (userRole === 'patient') {
-      return <Navigate to="/patient/dashboard" replace />;
+    // Verificar na camada central
+    if (!canAccessArea(userRole, area)) {
+      console.warn(`🚫 [RoleGuard] Acesso negado: role "${userRole}" tentou acessar área "${area}"`);
+      return <Navigate to={getDefaultRoute(userRole)} replace />;
     }
-    if (userRole === 'professional') {
-      return <Navigate to="/professional/dashboard" replace />;
-    }
-    
-    return <Navigate to="/" replace />;
   }
 
   // Role permitido - renderizar children

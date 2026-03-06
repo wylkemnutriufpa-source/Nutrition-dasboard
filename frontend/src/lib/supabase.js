@@ -4250,15 +4250,27 @@ export const canAccessFeature = async (slug, profile) => {
       return { ...COMING_SOON, reason: 'Em breve — funcionalidade em desenvolvimento' };
     }
 
-    // 3. Verificar role
+    // 3. Verificar role com suporte a professional_state/patient_state (3 estados)
     const isProf = profile.role === 'professional';
     const isPatient = profile.role === 'patient';
 
-    if (isProf && feature.enabled_for_professional === false) {
-      return { ...BLOCKED, reason: 'Indisponível para profissionais' };
+    if (isProf) {
+      const profState = feature.professional_state || (feature.enabled_for_professional === false ? 'disabled' : 'active');
+      if (profState === 'disabled') {
+        return { ...BLOCKED, reason: 'Indisponível para profissionais' };
+      }
+      if (profState === 'coming_soon') {
+        return { ...COMING_SOON, reason: 'Em breve para profissionais' };
+      }
     }
-    if (isPatient && feature.enabled_for_patient === false) {
-      return { ...BLOCKED, reason: 'Indisponível para pacientes' };
+    if (isPatient) {
+      const patState = feature.patient_state || (feature.enabled_for_patient === false ? 'disabled' : 'active');
+      if (patState === 'disabled') {
+        return { ...BLOCKED, reason: 'Indisponível para pacientes' };
+      }
+      if (patState === 'coming_soon') {
+        return { ...COMING_SOON, reason: 'Em breve para pacientes' };
+      }
     }
 
     // 4. Verificar plano (apenas profissional)
@@ -4320,8 +4332,18 @@ export const canAccessFeatureSync = (slug, profile) => {
 
   const isProf = profile.role === 'professional';
   const isPatient = profile.role === 'patient';
-  if (isProf && feature.enabled_for_professional === false) return { ...BLOCKED, reason: 'Indisponível' };
-  if (isPatient && feature.enabled_for_patient === false) return { ...BLOCKED, reason: 'Indisponível' };
+
+  // Verificar estados por perfil (3 estados: active/disabled/coming_soon)
+  if (isProf) {
+    const profState = feature.professional_state || (feature.enabled_for_professional === false ? 'disabled' : 'active');
+    if (profState === 'disabled') return { ...BLOCKED, reason: 'Indisponível' };
+    if (profState === 'coming_soon') return { allowed: false, readOnly: false, comingSoon: true, reason: 'Em breve' };
+  }
+  if (isPatient) {
+    const patState = feature.patient_state || (feature.enabled_for_patient === false ? 'disabled' : 'active');
+    if (patState === 'disabled') return { ...BLOCKED, reason: 'Indisponível' };
+    if (patState === 'coming_soon') return { allowed: false, readOnly: false, comingSoon: true, reason: 'Em breve' };
+  }
 
   if (isProf && feature.is_pro) {
     const plan = profile.plan_type || 'basic';
