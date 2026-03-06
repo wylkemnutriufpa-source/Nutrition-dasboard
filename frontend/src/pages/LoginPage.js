@@ -65,27 +65,47 @@ const LoginPage = () => {
 
   useEffect(() => {
     if (!pendingLogin || !profile) return;
+    
+    // Validar se o tipo de login corresponde ao role do perfil
     if (loginType === 'professional' && profile.role !== 'professional' && profile.role !== 'admin') {
-      toast.error('Esta conta nao e de profissional'); signOut(); setPendingLogin(false); setLoading(false); return;
+      toast.error('Esta conta nao e de profissional'); 
+      signOut(); 
+      setPendingLogin(false); 
+      setLoading(false); 
+      return;
     }
     if (loginType === 'patient' && profile.role !== 'patient') {
-      toast.error('Esta conta nao e de paciente'); signOut(); setPendingLogin(false); setLoading(false); return;
+      toast.error('Esta conta nao e de paciente'); 
+      signOut(); 
+      setPendingLogin(false); 
+      setLoading(false); 
+      return;
     }
     if (loginType === 'admin' && profile.role !== 'admin') {
-      toast.error('Sem permissao de administrador'); signOut(); setPendingLogin(false); setLoading(false); return;
+      toast.error('Sem permissao de administrador'); 
+      signOut(); 
+      setPendingLogin(false); 
+      setLoading(false); 
+      return;
     }
+    
+    // Salvar dados no localStorage
     localStorage.setItem('fitjourney_user_type', profile.role);
     localStorage.setItem('fitjourney_user_email', profile.email);
     localStorage.setItem('fitjourney_user_id', profile.id);
-    if (profile.role === 'admin') navigate('/admin/dashboard', { replace: true });
-    else if (profile.role === 'professional') navigate('/professional/dashboard', { replace: true });
-    else if (profile.role === 'patient') {
+    
+    // Se for paciente, salvar dados adicionais
+    if (profile.role === 'patient') {
       localStorage.setItem('fitjourney_patient_id', profile.id);
       localStorage.setItem('fitjourney_patient_name', profile.name);
-      navigate('/patient/dashboard', { replace: true });
     }
-    setPendingLogin(false); setLoading(false);
-  }, [profile, pendingLogin, loginType, navigate]);
+    
+    // REMOVIDO: navigate() - o primeiro useEffect já faz o redirecionamento
+    // Isso evita loop de navegação
+    
+    setPendingLogin(false); 
+    setLoading(false);
+  }, [profile, pendingLogin, loginType]);
 
   const handleVisitorLogin = () => { localStorage.setItem('fitjourney_user_type', 'visitor'); navigate('/visitor/calculators'); };
 
