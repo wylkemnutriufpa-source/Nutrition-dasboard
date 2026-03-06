@@ -32,6 +32,10 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
   // Se profile.role é 'admin', SEMPRE mostrar links admin, independente do userType prop
   const isRealAdmin = profile?.role === 'admin';
   
+  // 🔍 DEBUG: Log detalhado para diagnóstico
+  console.log('🔍 [Sidebar DEBUG] profile:', profile ? { id: profile.id, email: profile.email, role: profile.role } : 'NULL');
+  console.log('🔍 [Sidebar DEBUG] isRealAdmin:', isRealAdmin, '| userType prop:', userType);
+  
   // Estado para menu dinâmico do paciente
   const [patientMenuItems, setPatientMenuItems] = useState(DEFAULT_PATIENT_MENU);
   const [menuLoading, setMenuLoading] = useState(userType === 'patient');
