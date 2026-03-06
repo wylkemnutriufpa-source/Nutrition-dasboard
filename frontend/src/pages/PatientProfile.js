@@ -14,7 +14,7 @@ import {
   Calendar, FileText, Utensils, AlertTriangle, Edit, Loader2, User, Save, Plus,
   ClipboardList, MessageSquare, CheckCircle2, Circle, Trash2, Send, Pin, Settings2,
   DollarSign, Download, ChefHat, Eye, Bell, Shield, Activity, TrendingUp, Scale,
-  Heart, Target, Sparkles, ArrowRight, Clock, Star
+  Heart, Target, Sparkles, ArrowRight, Clock, Star, Zap, PlayCircle, Brain
 } from 'lucide-react';
 import RiskScoreCard from '@/components/RiskScoreCard';
 import MealPlanTimeline from '@/components/MealPlanTimeline';
