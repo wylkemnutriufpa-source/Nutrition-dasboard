@@ -779,6 +779,35 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
     }
   };
 
+  // 🎯 PROTOCOLOS - Controle do Profissional
+  const [availableProtocols] = useState([
+    { id: 'agua', name: 'Protocolo de Água', category: 'hidratacao', duration: 14 },
+    { id: 'chas', name: 'Protocolo de Chás', category: 'termogenicos', duration: 30 },
+    { id: 'jejum', name: 'Protocolo de Jejum', category: 'alimentacao', duration: 21 }
+  ]);
+  const [activatingProtocol, setActivatingProtocol] = useState(false);
+
+  const handleActivateProtocol = async (protocolId) => {
+    setActivatingProtocol(true);
+    try {
+      // TODO: Chamar API real quando tabelas estiverem criadas
+      // const { authenticatedPost } = await import('@/lib/apiClient');
+      // await authenticatedPost('/api/professional/protocols/activate', {
+      //   patient_id: patientId,
+      //   protocol_id: protocolId
+      // });
+      
+      toast.success('Protocolo ativado! (Mock - aguardando criação das tabelas SQL)');
+      console.log('🎯 Protocolo ativado:', protocolId, 'para paciente:', patientId);
+    } catch (error) {
+      console.error('Erro ao ativar protocolo:', error);
+      toast.error('Erro ao ativar protocolo');
+    } finally {
+      setActivatingProtocol(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       {/* Configuração do Menu */}
@@ -914,6 +943,62 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
               <Label>Data de Início</Label>
               <Input type="date" value={planForm.start_date} onChange={(e) => setPlanForm({ ...planForm, start_date: e.target.value })} />
             </div>
+
+
+      {/* 🎯 SEÇÃO: PROTOCOLOS ATIVOS - CONTROLE DO PROFISSIONAL */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-purple-600" />
+            Protocolos do Programa
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-1">
+            Ative protocolos para guiar a jornada do paciente no Projeto Biquíni Branco
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {availableProtocols.map((protocol) => (
+              <div 
+                key={protocol.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+              >
+                <div>
+                  <p className="font-semibold text-gray-900">{protocol.name}</p>
+                  <p className="text-sm text-gray-600">
+                    {protocol.category} • {protocol.duration} dias
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => handleActivateProtocol(protocol.id)}
+                  disabled={activatingProtocol}
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {activatingProtocol ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Ativando...
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="w-4 h-4 mr-2" />
+                      Ativar
+                    </>
+                  )}
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Dica:</strong> Os protocolos ativados aparecerão automaticamente no dashboard do paciente em <strong>"Meu Projeto"</strong>.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
             <div>
               <Label>Data de Término</Label>
               <Input type="date" value={planForm.end_date} onChange={(e) => setPlanForm({ ...planForm, end_date: e.target.value })} />

@@ -35,6 +35,7 @@ const PatientsList = React.lazy(() => import('@/pages/PatientsList'));
 const PatientProfile = React.lazy(() => import('@/pages/PatientProfile'));
 const MealPlanEditor = React.lazy(() => import('@/pages/MealPlanEditor'));
 const PatientMealPlanPage = React.lazy(() => import('@/pages/PatientMealPlanPage'));
+const PatientProjectDashboard = React.lazy(() => import('@/pages/PatientProjectDashboard'));
 const PatientDashboard = React.lazy(() => import('@/pages/PatientDashboard'));
 const PatientAnamnesisPage = React.lazy(() => import('@/pages/PatientAnamnesisPage'));
 const PatientTarefas = React.lazy(() => import('@/pages/PatientTarefas'));
@@ -241,6 +242,11 @@ function App() {
               <Route path="/patient/meal-plan" element={
                 <ProtectedRoute allowedTypes={['patient']}>
                   <PatientMealPlanPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/patient/projeto" element={
+                <ProtectedRoute allowedTypes={['patient']}>
+                  <PatientProjectDashboard />
                 </ProtectedRoute>
               } />
               <Route path="/patient/tarefas" element={

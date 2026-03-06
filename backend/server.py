@@ -428,6 +428,10 @@ api_router.include_router(admin_reset_password_router)
 from routes.professional_reset_password import router as professional_reset_password_router
 api_router.include_router(professional_reset_password_router)
 
+# Import protocols routes
+from routes.protocols import router as protocols_router
+api_router.include_router(protocols_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 
