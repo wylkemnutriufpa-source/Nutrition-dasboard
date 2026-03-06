@@ -637,14 +637,13 @@ const PatientsList = () => {
                       Atribuir a outro profissional? (opcional)
                     </h4>
                     <p className="text-sm text-gray-700 mb-2">
-                      💡 <strong>Deixe vazio</strong> para o paciente ser seu (você como profissional)
+                      💡 <strong>Deixe sem selecionar</strong> ou escolha você mesmo para o paciente ser seu
                     </p>
                     <Select value={formProfessionalId} onValueChange={setFormProfessionalId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="🏠 Meus Pacientes (você mesmo)" />
+                        <SelectValue placeholder="🏠 Seus Pacientes (você como professional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">🏠 Meus Pacientes (você mesmo)</SelectItem>
                         {professionals.map(prof => (
                           <SelectItem key={prof.id} value={prof.id}>
                             👤 {prof.name || prof.email} ({prof.email})
@@ -652,9 +651,9 @@ const PatientsList = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {!formProfessionalId && (
-                      <p className="text-xs text-red-500">Obrigatório: selecione qual profissional será responsável por este paciente</p>
-                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Se não selecionar nenhum, o paciente será vinculado a você
+                    </p>
                   </div>
                 )}
 
