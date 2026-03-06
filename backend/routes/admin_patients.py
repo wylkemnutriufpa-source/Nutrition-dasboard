@@ -1,19 +1,27 @@
 """
 Admin Patient Management Routes
 Criar pacientes via Supabase Auth Admin API
+
+SEGURANÇA:
+  Todos os endpoints exigem JWT válido + role de aplicação = admin ou professional.
+  O role é lido de public.profiles (nunca do JWT payload).
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 import os
 import httpx
 import secrets
-import string
 import logging
+
+from security.auth import get_current_user_with_db_role, CurrentUser
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/patients", tags=["admin-patients"])
+
+# Roles que podem operar neste router
+_ALLOWED_ROLES = {"admin", "professional"}
 
 # Supabase config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -25,6 +33,27 @@ def validate_config():
         raise HTTPException(
             status_code=500,
             detail="SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados no backend/.env"
+        )
+
+
+def _require_admin_or_professional(current_user: CurrentUser) -> None:
+    """
+    Valida que o role real (de public.profiles) é admin ou professional.
+    Lança HTTP 403 caso contrário.
+
+    NÃO confia no role do JWT — usa current_user.app_role (lido do DB).
+    """
+    if current_user.app_role not in _ALLOWED_ROLES:
+        logger.warning(
+            f"🚫 Acesso negado: user_id={current_user.user_id} "
+            f"app_role={current_user.app_role!r} tentou acessar rota de criação de paciente"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Acesso negado. Requer role: admin ou professional. "
+                f"Role atual: {current_user.app_role!r}"
+            ),
         )
 
 
@@ -69,9 +98,14 @@ async def _delete_auth_user(client: httpx.AsyncClient, user_id: str) -> None:
 
 
 @router.post("/create")
-async def create_patient(request: CreatePatientRequest):
+async def create_patient(
+    request: CreatePatientRequest,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
     """
     Cria paciente usando Supabase Auth Admin API.
+
+    Requer: JWT válido + profiles.role = admin | professional
 
     Operação atômica:
     1. Verifica tier do profissional (e limites trial)
@@ -82,6 +116,7 @@ async def create_patient(request: CreatePatientRequest):
 
     Acesso do paciente é feito exclusivamente via magic link (/invite).
     """
+    _require_admin_or_professional(current_user)
     validate_config()
 
     from datetime import datetime, timedelta
@@ -246,11 +281,16 @@ async def create_patient(request: CreatePatientRequest):
 
 
 @router.post("/invite")
-async def invite_patient(request: InvitePatientRequest):
+async def invite_patient(
+    request: InvitePatientRequest,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
     """
-    Envia magic link para paciente (ou retorna link para teste)
+    Gera magic link para o paciente (acesso inicial).
+    Requer: JWT válido + profiles.role = admin | professional
     """
-    validate_config()  # Validar configuração
+    _require_admin_or_professional(current_user)
+    validate_config()
     
     try:
         async with httpx.AsyncClient() as client:
@@ -295,11 +335,16 @@ async def invite_patient(request: InvitePatientRequest):
 
 
 @router.get("/verify/{patient_id}")
-async def verify_patient(patient_id: str):
+async def verify_patient(
+    patient_id: str,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
     """
-    Verifica se paciente existe e está corretamente configurado
+    Verifica se paciente existe e está corretamente configurado.
+    Requer: JWT válido + profiles.role = admin | professional
     """
-    validate_config()  # Validar configuração
+    _require_admin_or_professional(current_user)
+    validate_config()
     
     try:
         async with httpx.AsyncClient() as client:

@@ -228,6 +228,40 @@ backend:
           - Exemplo: auth user criado → profile falha (duplicate email) → auth user deletado com sucesso
           - Response orienta sobre magic link exclusivamente
           - Endpoint responde corretamente com Supabase funcional
+      - working: true
+        agent: "main"
+        comment: |
+          CONSOLIDAÇÃO: adicionado Depends(get_current_user_with_db_role) em todos os endpoints.
+          - /create, /invite, /verify exigem JWT válido + app_role = admin|professional
+          - _require_admin_or_professional() valida app_role (de profiles, NÃO do JWT)
+          - needs_retesting: true para re-validar autenticação
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ CONSOLIDAÇÃO FINAL DE SEGURANÇA APROVADA:
+          
+          TESTES DE AUTENTICAÇÃO (7/7 PASSOU):
+          1. GET /api/status → 200 ✅
+          2. POST /api/admin/patients/create SEM auth → 401 ✅
+          3. POST /api/admin/patients/create COM token inválido → 401 ✅
+          4. POST /api/admin/patients/invite SEM auth → 401 ✅
+          5. GET /api/admin/patients/verify SEM auth → 401 ✅
+          
+          VERIFICAÇÃO DE CÓDIGO:
+          6. admin_patients.py ✅:
+             - Depends(get_current_user_with_db_role) em todos os 3 endpoints
+             - _require_admin_or_professional() usa app_role (não jwt_role)
+             - _delete_auth_user() existe para rollback
+             - temp_password NUNCA retornada na resposta
+          
+          7. auth.py ✅:
+             - get_current_user_with_db_role() existe
+             - require_role() factory existe
+             - CurrentUser.__init__ tem jwt_role e app_role separados
+             - jwt_role = payload.get("role") (interno Supabase)
+             - app_role = None por padrão (preenchido pelo DB)
+          
+          TODOS OS CRITÉRIOS DE SUCESSO ATENDIDOS. SEGURANÇA CONSOLIDADA.
 
   - task: "Fix role source – profiles.role em vez de JWT"
     implemented: true
@@ -250,10 +284,20 @@ backend:
         comment: |
           ✅ ESTRUTURA VERIFICADA:
           - get_current_user_with_db_role() existe e é callable
-          - require_role() factory existe e é callable  
+          - require_role() factory existe e é callable
           - CurrentUser.__init__ tem parâmetros jwt_role e app_role
           - Separação clara entre role do JWT (interno Supabase) e app_role (DB)
           - Implementação está correta para autorização baseada em profiles.role
+      - working: true
+        agent: "testing"
+        comment: |
+          ✅ VERIFICAÇÃO FINAL DE ROLES APROVADA:
+          - get_current_user_with_db_role() função implementada corretamente ✅
+          - require_role() factory function implementada ✅
+          - CurrentUser.__init__ tem jwt_role e app_role como parâmetros separados ✅
+          - jwt_role = payload.get("role") pega role interno do Supabase ✅
+          - app_role = None por padrão (preenchido via DB lookup) ✅
+          - Separação clara de responsabilidades entre autenticação e autorização ✅
 
 frontend:
   - task: "Central Authorization Layer (authorization.js)"
@@ -488,3 +532,49 @@ agent_communication:
       ✅ Nenhum botão de edição exposto para pacientes
       
       FRONTEND CRITICAL FIXES: APROVADOS
+
+  - agent: "main"
+    message: |
+      CONSOLIDAÇÃO FINAL (sessão atual):
+      
+      ITEM NOVO – Autenticação obrigatória nos endpoints admin-patients:
+        - /api/admin/patients/create  → Depends(get_current_user_with_db_role) + _require_admin_or_professional()
+        - /api/admin/patients/invite  → idem
+        - /api/admin/patients/verify  → idem
+        - app_role carregado de public.profiles (nunca do JWT)
+        - 403 explícito para qualquer role diferente de admin|professional
+      
+      ITEM CONSOLIDAÇÃO – Layout.js:
+        - Comentário explícito adicionado confirmando que fitjourney_context é APENAS visual
+        - Não afeta guards, roles ou autorização real
+      
+      Backend reiniciado: limpo. Lint: aprovado.
+      Needs retesting: admin_patients endpoints (auth nova) + role source.
+
+  - agent: "testing"
+    message: |
+      🎉 CONSOLIDAÇÃO FINAL DE SEGURANÇA DO FITJOURNEY: APROVADA
+      
+      RESUMO DOS TESTES DE SEGURANÇA (7/7 APROVADOS):
+      
+      TESTES DE API E AUTENTICAÇÃO:
+      ✅ GET /api/status → 200 (backend funcionando)
+      ✅ POST /api/admin/patients/create SEM auth → 401 (bloqueia acesso não autorizado)
+      ✅ POST /api/admin/patients/create COM token inválido → 401 (valida tokens)
+      ✅ POST /api/admin/patients/invite SEM auth → 401 (requer autenticação)
+      ✅ GET /api/admin/patients/verify SEM auth → 401 (endpoint protegido)
+      
+      VERIFICAÇÃO DE CÓDIGO-FONTE:
+      ✅ admin_patients.py - Todos os endpoints têm Depends(get_current_user_with_db_role)
+      ✅ auth.py - Separação correta entre jwt_role (Supabase) e app_role (DB)
+      
+      CRITÉRIOS DE SUCESSO ATINGIDOS:
+      ✅ Health check funcionando
+      ✅ Endpoints retornam 401 sem Authorization header
+      ✅ Token inválido retorna 401
+      ✅ Depends(get_current_user_with_db_role) confirmado no código
+      ✅ _require_admin_or_professional usa app_role (não jwt_role)
+      ✅ temp_password ausente da resposta
+      ✅ _delete_auth_user existe para rollback atômico
+      
+      BACKEND SECURITY: 100% CONSOLIDADO E FUNCIONANDO

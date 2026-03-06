@@ -20,6 +20,15 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   // 2. Admin com contexto='professional' em rotas /professional/* → professional
   // 3. Admin com contexto='admin' → admin
   // 4. Outros roles → usar profile.role direto
+  //
+  // ⚠️  IMPORTANTE – ESCOPO DO fitjourney_context:
+  //   fitjourney_context (localStorage) controla APENAS o layout visual
+  //   (qual sidebar e menu são exibidos). Ele NÃO:
+  //     - altera o role real do usuário
+  //     - influencia o RoleGuard ou qualquer guard de rota
+  //     - concede ou remove permissões
+  //   A fonte real de autorização é SEMPRE profile.role (de public.profiles
+  //   via Supabase, carregado no AuthContext).
   const effectiveUserType = (() => {
     // Visitor explícito
     if (propUserType === 'visitor') {

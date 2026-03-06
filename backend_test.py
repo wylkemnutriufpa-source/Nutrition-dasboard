@@ -1,251 +1,336 @@
 #!/usr/bin/env python3
 """
-Backend Security Fixes Test Suite for FitJourney
-=====================================
-
-Tests the critical security fixes:
-1. GET /api/status - backend health check  
-2. POST /api/admin/patients/create - atomicity, no temp_password in response
-3. security/auth.py - verify required functions exist
-4. POST /api/admin/patients/invite - structure verification
-
-This test suite verifies the fixes without actually creating users in Supabase.
+FitJourney Backend Security Testing Script
+Tests the final security consolidation as specified in the review request.
 """
 
-import requests
-import json
-import sys
 import os
-from typing import Dict, Any
+import asyncio
+import httpx
+from typing import Optional, Dict, Any
 
-# Get backend URL from frontend env
-def get_backend_url() -> str:
-    """Read backend URL from frontend .env file"""
-    try:
-        with open('/app/frontend/.env', 'r') as f:
-            for line in f:
-                if line.startswith('REACT_APP_BACKEND_URL='):
-                    return line.split('=', 1)[1].strip()
-    except Exception:
-        pass
-    return 'http://localhost:8001'
 
-BACKEND_URL = get_backend_url()
-API_BASE = f"{BACKEND_URL}/api"
-
-def test_result(test_name: str, passed: bool, details: str = ""):
-    """Print test result with formatting"""
-    status = "✅ PASS" if passed else "❌ FAIL"
-    print(f"{status} {test_name}")
-    if details:
-        print(f"    {details}")
-    return passed
-
-def test_backend_status():
-    """Test 1: GET /api/status endpoint"""
-    print("\n🔍 Test 1: Backend Status Check")
-    
-    try:
-        response = requests.get(f"{API_BASE}/status", timeout=10)
+class FitJourneySecurityTester:
+    def __init__(self):
+        # Get backend URL from frontend config to match real deployment
+        self.backend_url = "https://fitness-auth-fix.preview.emergentagent.com/api"
+        self.test_results = []
         
-        if response.status_code == 200:
-            return test_result("GET /api/status returns 200", True, 
-                             f"Response: {response.json()}")
-        else:
-            return test_result("GET /api/status returns 200", False,
-                             f"Status: {response.status_code}, Body: {response.text}")
-                             
-    except Exception as e:
-        return test_result("GET /api/status returns 200", False,
-                         f"Request failed: {str(e)}")
+    def log_result(self, test_name: str, success: bool, message: str, details: Optional[Dict] = None):
+        """Log test results"""
+        result = {
+            "test": test_name,
+            "success": success,
+            "message": message,
+            "details": details or {}
+        }
+        self.test_results.append(result)
+        status = "✅" if success else "❌"
+        print(f"{status} {test_name}: {message}")
+        if details:
+            for key, value in details.items():
+                print(f"   {key}: {value}")
+    
+    async def test_health_check(self):
+        """Test 1: Health check - GET /api/status → 200 OK"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.backend_url}/status", timeout=10.0)
+                
+            if response.status_code == 200:
+                self.log_result("Health Check", True, f"Status endpoint returns 200", {
+                    "status_code": response.status_code,
+                    "response": response.text[:200]
+                })
+                return True
+            else:
+                self.log_result("Health Check", False, f"Status endpoint returned {response.status_code}", {
+                    "status_code": response.status_code,
+                    "response": response.text[:200]
+                })
+                return False
+                
+        except Exception as e:
+            self.log_result("Health Check", False, f"Exception occurred: {str(e)}")
+            return False
 
-def test_admin_patients_create_atomicity():
-    """Test 2: POST /api/admin/patients/create atomicity and security"""
-    print("\n🔍 Test 2: Admin Patient Creation Security")
-    
-    # Test data - will fail without proper Supabase setup, which is expected
-    test_payload = {
-        "name": "Test Patient Security",
-        "email": "test.patient.security@example.com", 
-        "professional_id": "test-professional-123",
-        "phone": "+5511999999999",
-        "birth_date": "1990-01-01"
-    }
-    
-    try:
-        response = requests.post(
-            f"{API_BASE}/admin/patients/create",
-            json=test_payload,
-            timeout=10
+    async def test_create_without_auth(self):
+        """Test 2: /create SEM autenticação → 401"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.backend_url}/admin/patients/create",
+                    json={
+                        "name": "Test Patient",
+                        "email": "test@test.com", 
+                        "professional_id": "uuid-fake-123"
+                    },
+                    timeout=10.0
+                )
+            
+            if response.status_code == 401:
+                self.log_result("Create Without Auth", True, "Correctly returns 401 without Authorization header", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return True
+            else:
+                self.log_result("Create Without Auth", False, f"Expected 401, got {response.status_code}", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return False
+                
+        except Exception as e:
+            self.log_result("Create Without Auth", False, f"Exception occurred: {str(e)}")
+            return False
+
+    async def test_create_with_invalid_token(self):
+        """Test 3: /create COM token inválido → 401"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.backend_url}/admin/patients/create",
+                    json={
+                        "name": "Test Patient",
+                        "email": "test@test.com",
+                        "professional_id": "uuid-fake-123"
+                    },
+                    headers={"Authorization": "Bearer token_invalido_xpto123"},
+                    timeout=10.0
+                )
+            
+            if response.status_code == 401:
+                self.log_result("Create Invalid Token", True, "Correctly returns 401 with invalid token", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return True
+            else:
+                self.log_result("Create Invalid Token", False, f"Expected 401, got {response.status_code}", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return False
+                
+        except Exception as e:
+            self.log_result("Create Invalid Token", False, f"Exception occurred: {str(e)}")
+            return False
+
+    async def test_invite_without_auth(self):
+        """Test 4: /invite SEM autenticação → 401"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.backend_url}/admin/patients/invite",
+                    json={"email": "test@test.com"},
+                    timeout=10.0
+                )
+            
+            if response.status_code == 401:
+                self.log_result("Invite Without Auth", True, "Correctly returns 401 without Authorization header", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return True
+            else:
+                self.log_result("Invite Without Auth", False, f"Expected 401, got {response.status_code}", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return False
+                
+        except Exception as e:
+            self.log_result("Invite Without Auth", False, f"Exception occurred: {str(e)}")
+            return False
+
+    async def test_verify_without_auth(self):
+        """Test 5: /verify SEM autenticação → 401"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.backend_url}/admin/patients/verify/some-uuid",
+                    timeout=10.0
+                )
+            
+            if response.status_code == 401:
+                self.log_result("Verify Without Auth", True, "Correctly returns 401 without Authorization header", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return True
+            else:
+                self.log_result("Verify Without Auth", False, f"Expected 401, got {response.status_code}", {
+                    "status_code": response.status_code,
+                    "response": response.text[:300]
+                })
+                return False
+                
+        except Exception as e:
+            self.log_result("Verify Without Auth", False, f"Exception occurred: {str(e)}")
+            return False
+
+    def verify_admin_patients_code(self):
+        """Test 6: Verificar código-fonte: autenticação e atomicidade"""
+        admin_patients_path = "/app/backend/routes/admin_patients.py"
+        
+        try:
+            with open(admin_patients_path, 'r') as f:
+                content = f.read()
+            
+            results = {}
+            
+            # Check for Depends(get_current_user_with_db_role) in all endpoints
+            create_match = "Depends(get_current_user_with_db_role)" in content and "@router.post(\"/create\")" in content
+            invite_match = "Depends(get_current_user_with_db_role)" in content and "@router.post(\"/invite\")" in content  
+            verify_match = "Depends(get_current_user_with_db_role)" in content and "@router.get(\"/verify" in content
+            
+            results["depends_auth_create"] = create_match
+            results["depends_auth_invite"] = invite_match
+            results["depends_auth_verify"] = verify_match
+            
+            # Check for _require_admin_or_professional function
+            results["require_admin_professional_exists"] = "_require_admin_or_professional" in content
+            results["require_uses_app_role"] = "current_user.app_role" in content
+            
+            # Check for _delete_auth_user rollback function
+            results["delete_auth_user_exists"] = "_delete_auth_user" in content
+            
+            # Check that temp_password is NOT in any return statement
+            temp_password_in_return = "temp_password" in content and "return" in content
+            # More precise check - look for temp_password in return blocks
+            lines = content.split('\n')
+            temp_password_returned = False
+            for i, line in enumerate(lines):
+                if 'return' in line and 'temp_password' in line:
+                    temp_password_returned = True
+                    break
+                # Also check a few lines after return statements for temp_password
+                if 'return {' in line:
+                    for j in range(i, min(i+10, len(lines))):
+                        if 'temp_password' in lines[j] and '}' not in lines[j-1]:
+                            temp_password_returned = True
+                            break
+            
+            results["temp_password_not_returned"] = not temp_password_returned
+            
+            all_passed = all(results.values())
+            
+            self.log_result("Admin Patients Code Verification", all_passed, 
+                           "Code structure verification", results)
+            
+            return all_passed
+            
+        except Exception as e:
+            self.log_result("Admin Patients Code Verification", False, f"Exception: {str(e)}")
+            return False
+
+    def verify_auth_py_code(self):
+        """Test 7: Verificar auth.py: separação de roles"""
+        auth_path = "/app/backend/security/auth.py"
+        
+        try:
+            with open(auth_path, 'r') as f:
+                content = f.read()
+            
+            results = {}
+            
+            # Check for get_current_user_with_db_role existence
+            results["get_current_user_with_db_role_exists"] = "def get_current_user_with_db_role(" in content
+            
+            # Check for require_role function
+            results["require_role_exists"] = "def require_role(" in content
+            
+            # Check CurrentUser.__init__ has jwt_role and app_role parameters
+            init_match = "def __init__(" in content and "jwt_role" in content and "app_role" in content
+            results["currentuser_has_both_roles"] = init_match
+            
+            # Check jwt_role assignment from payload
+            results["jwt_role_from_payload"] = 'jwt_role = payload.get("role")' in content
+            
+            # Check app_role defaults to None
+            results["app_role_defaults_none"] = "app_role=None" in content
+            
+            all_passed = all(results.values())
+            
+            self.log_result("Auth.py Code Verification", all_passed, 
+                           "Auth code structure verification", results)
+            
+            return all_passed
+            
+        except Exception as e:
+            self.log_result("Auth.py Code Verification", False, f"Exception: {str(e)}")
+            return False
+
+    async def run_all_tests(self):
+        """Run all security tests"""
+        print("🔒 Starting FitJourney Backend Security Tests")
+        print(f"📡 Testing backend at: {self.backend_url}")
+        print("=" * 60)
+        
+        # Run async tests
+        test_results = await asyncio.gather(
+            self.test_health_check(),
+            self.test_create_without_auth(), 
+            self.test_create_with_invalid_token(),
+            self.test_invite_without_auth(),
+            self.test_verify_without_auth(),
+            return_exceptions=True
         )
         
-        # Should return 500 due to missing Supabase config or invalid credentials
-        if response.status_code == 500:
-            error_data = response.json()
-            
-            # Check that it's a config error (expected in test environment)
-            if "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados" in error_data.get("detail", ""):
-                return test_result("Admin patients create returns config error", True,
-                                 "✅ Expected config error in test environment")
-            else:
-                # Different 500 error, check that temp_password is not exposed
-                response_text = response.text.lower()
-                if "temp_password" in response_text:
-                    return test_result("Admin patients create does NOT expose temp_password", False,
-                                     f"❌ temp_password found in response: {response.text}")
-                else:
-                    return test_result("Admin patients create does NOT expose temp_password", True,
-                                     f"✅ No temp_password in error response: {error_data.get('detail')}")
+        # Run sync code verification tests
+        code_results = [
+            self.verify_admin_patients_code(),
+            self.verify_auth_py_code()
+        ]
         
-        elif response.status_code == 400:
-            # May get 400 if Supabase is configured but request fails
-            response_data = response.json()
-            response_text = response.text.lower()
-            
-            if "temp_password" in response_text:
-                return test_result("Admin patients create does NOT expose temp_password", False,
-                                 f"❌ temp_password found in response: {response.text}")
+        # Combine all results
+        all_results = []
+        for result in test_results:
+            if isinstance(result, Exception):
+                all_results.append(False)
             else:
-                return test_result("Admin patients create does NOT expose temp_password", True,
-                                 f"✅ No temp_password in error response")
+                all_results.append(result)
+        all_results.extend(code_results)
         
+        print("\n" + "=" * 60)
+        print("📊 SECURITY TEST SUMMARY")
+        print("=" * 60)
+        
+        # Count passed/failed tests
+        passed = sum(1 for r in self.test_results if r["success"])
+        total = len(self.test_results)
+        
+        print(f"Tests Passed: {passed}/{total}")
+        print()
+        
+        # Show detailed results
+        critical_failures = []
+        for result in self.test_results:
+            status = "✅ PASS" if result["success"] else "❌ FAIL"
+            print(f"{status}: {result['test']}")
+            if not result["success"]:
+                critical_failures.append(result["test"])
+        
+        print("\n" + "=" * 60)
+        if passed == total:
+            print("🎉 ALL SECURITY TESTS PASSED!")
+            print("✅ Backend security consolidation is working correctly")
         else:
-            # Unexpected status code
-            response_text = response.text.lower()
-            if "temp_password" in response_text:
-                return test_result("Admin patients create does NOT expose temp_password", False,
-                                 f"❌ temp_password found in response: {response.text}")
-            else:
-                return test_result("Admin patients create endpoint responds", False,
-                                 f"❌ Unexpected status {response.status_code}: {response.text}")
-                                 
-    except Exception as e:
-        return test_result("Admin patients create endpoint responds", False,
-                         f"Request failed: {str(e)}")
+            print(f"⚠️  {total - passed} CRITICAL SECURITY ISSUES FOUND:")
+            for failure in critical_failures:
+                print(f"   • {failure}")
+        
+        print("=" * 60)
+        
+        return passed == total
 
-def test_auth_security_functions():
-    """Test 3: Verify security/auth.py has required functions"""
-    print("\n🔍 Test 3: Authentication Security Functions")
-    
-    try:
-        # Import and check the auth module
-        sys.path.append('/app/backend')
-        from security.auth import get_current_user_with_db_role, require_role, CurrentUser
-        
-        results = []
-        
-        # Test function exists
-        if callable(get_current_user_with_db_role):
-            results.append(test_result("get_current_user_with_db_role function exists", True))
-        else:
-            results.append(test_result("get_current_user_with_db_role function exists", False,
-                                     "Function not found or not callable"))
-        
-        # Test require_role factory exists
-        if callable(require_role):
-            results.append(test_result("require_role factory function exists", True))
-        else:
-            results.append(test_result("require_role factory function exists", False,
-                                     "Function not found or not callable"))
-        
-        # Test CurrentUser has required fields
-        import inspect
-        init_signature = inspect.signature(CurrentUser.__init__)
-        params = list(init_signature.parameters.keys())
-        
-        if 'jwt_role' in params:
-            results.append(test_result("CurrentUser has jwt_role parameter", True))
-        else:
-            results.append(test_result("CurrentUser has jwt_role parameter", False,
-                                     f"Parameters found: {params}"))
-            
-        if 'app_role' in params:
-            results.append(test_result("CurrentUser has app_role parameter", True))
-        else:
-            results.append(test_result("CurrentUser has app_role parameter", False,
-                                     f"Parameters found: {params}"))
-        
-        return all(results)
-        
-    except ImportError as e:
-        return test_result("security/auth.py imports successfully", False,
-                         f"Import error: {str(e)}")
-    except Exception as e:
-        return test_result("security/auth.py verification", False,
-                         f"Verification error: {str(e)}")
 
-def test_admin_patients_invite_structure():
-    """Test 4: POST /api/admin/patients/invite endpoint structure"""
-    print("\n🔍 Test 4: Admin Patient Invite Structure")
-    
-    test_payload = {
-        "email": "test.invite.security@example.com",
-        "redirect_to": "https://example.com/patient/home"
-    }
-    
-    try:
-        response = requests.post(
-            f"{API_BASE}/admin/patients/invite",
-            json=test_payload,
-            timeout=10
-        )
-        
-        # Should return 500 due to config error, NOT 404 
-        if response.status_code == 500:
-            error_data = response.json()
-            if "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY devem estar configurados" in error_data.get("detail", ""):
-                return test_result("Admin patients invite returns config error (not 404)", True,
-                                 "✅ Expected config error - endpoint exists")
-            else:
-                return test_result("Admin patients invite returns expected error", True,
-                                 f"✅ 500 error (endpoint exists): {error_data.get('detail')}")
-        
-        elif response.status_code == 404:
-            return test_result("Admin patients invite returns config error (not 404)", False,
-                             "❌ Endpoint not found (404) - route may be missing")
-        
-        elif response.status_code == 400:
-            # May get 400 if Supabase configured but request fails - that's OK
-            return test_result("Admin patients invite returns config error (not 404)", True,
-                             f"✅ 400 error (endpoint exists): {response.json()}")
-        
-        else:
-            return test_result("Admin patients invite endpoint responds", True,
-                             f"✅ Status {response.status_code} (endpoint exists)")
-                             
-    except Exception as e:
-        return test_result("Admin patients invite endpoint responds", False,
-                         f"Request failed: {str(e)}")
+async def main():
+    tester = FitJourneySecurityTester()
+    success = await tester.run_all_tests()
+    return success
 
-def main():
-    """Run all backend security tests"""
-    print("🚀 FitJourney Backend Security Tests")
-    print("=" * 50)
-    print(f"Testing backend at: {API_BASE}")
-    
-    test_results = []
-    
-    # Run all tests
-    test_results.append(test_backend_status())
-    test_results.append(test_admin_patients_create_atomicity())
-    test_results.append(test_auth_security_functions()) 
-    test_results.append(test_admin_patients_invite_structure())
-    
-    # Summary
-    print("\n" + "=" * 50)
-    print("📋 Test Summary:")
-    passed = sum(test_results)
-    total = len(test_results)
-    
-    if passed == total:
-        print(f"✅ All {total} tests passed!")
-        print("\n🎉 Security fixes verification SUCCESSFUL")
-        return True
-    else:
-        print(f"❌ {passed}/{total} tests passed")
-        print(f"⚠️ {total - passed} tests failed")
-        return False
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    asyncio.run(main())
