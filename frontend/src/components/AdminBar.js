@@ -17,6 +17,7 @@ const AdminBar = () => {
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile?.role]);
   const isInAdminArea = useMemo(() => location.pathname.startsWith('/admin'), [location.pathname]);
   const isInLoginPage = useMemo(() => location.pathname === '/', [location.pathname]);
+  const currentContext = useMemo(() => localStorage.getItem('fitjourney_context') || 'admin', []);
   const shouldShow = useMemo(() => 
     isAdmin && !isInAdminArea && !isInLoginPage, 
     [isAdmin, isInAdminArea, isInLoginPage]
@@ -35,7 +36,10 @@ const AdminBar = () => {
   }
 
   const handleBackToAdmin = () => {
+    localStorage.setItem('fitjourney_context', 'admin');
+    localStorage.setItem('fitjourney_user_type', 'admin');
     navigate('/admin/dashboard', { replace: true });
+    window.location.reload();
   };
 
   return (

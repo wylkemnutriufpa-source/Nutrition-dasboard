@@ -63,26 +63,48 @@ const LoginPage = () => {
     } catch (error) { toast.error('Erro ao fazer login'); setLoading(false); }
   };
 
+  // 🔥 CONTEXTO DE LOGIN: Admin pode escolher logar como admin OU como professional
   useEffect(() => {
     if (!pendingLogin || !profile) return;
     
     // Validar se o tipo de login corresponde ao role do perfil
+    // EXCEÇÃO: Admin pode logar como professional (contexto)
+    if (loginType === 'professional' && profile.role === 'admin') {
+      // Admin logando como professional → Permitir e setar contexto
+      console.log('🔄 Admin entrando no contexto Professional');
+      localStorage.setItem('fitjourney_user_type', 'professional');
+      localStorage.setItem('fitjourney_user_email', profile.email);
+      localStorage.setItem('fitjourney_user_id', profile.id);
+      localStorage.setItem('fitjourney_context', 'professional'); // Flag de contexto
+      navigate('/professional/dashboard', { replace: true });
+      setPendingLogin(false);
+      setLoading(false);
+      return;
+    }
+    
+    if (loginType === 'admin' && profile.role === 'admin') {
+      // Admin logando como admin → Contexto admin
+      console.log('🔐 Admin entrando no contexto Admin');
+      localStorage.setItem('fitjourney_user_type', 'admin');
+      localStorage.setItem('fitjourney_user_email', profile.email);
+      localStorage.setItem('fitjourney_user_id', profile.id);
+      localStorage.setItem('fitjourney_context', 'admin'); // Flag de contexto
+      navigate('/admin/dashboard', { replace: true });
+      setPendingLogin(false);
+      setLoading(false);
+      return;
+    }
+    
+    // Validações normais para outros roles
     if (loginType === 'professional' && profile.role !== 'professional' && profile.role !== 'admin') {
-      toast.error('Esta conta nao e de profissional'); 
+      toast.error('Esta conta não é de profissional'); 
       signOut(); 
       setPendingLogin(false); 
       setLoading(false); 
       return;
     }
     if (loginType === 'patient' && profile.role !== 'patient') {
-      toast.error('Esta conta nao e de paciente'); 
-      signOut(); 
-      setPendingLogin(false); 
-      setLoading(false); 
-      return;
-    }
-    if (loginType === 'admin' && profile.role !== 'admin') {
-      toast.error('Sem permissao de administrador'); 
+      toast.error('Esta conta não é de paciente'); 
       signOut(); 
       setPendingLogin(false); 
       setLoading(false); 
@@ -105,7 +127,7 @@ const LoginPage = () => {
     
     setPendingLogin(false); 
     setLoading(false);
-  }, [profile, pendingLogin, loginType]);
+  }, [profile, pendingLogin, loginType, navigate, signOut]);
 
   const handleVisitorLogin = () => { localStorage.setItem('fitjourney_user_type', 'visitor'); navigate('/visitor/calculators'); };
 

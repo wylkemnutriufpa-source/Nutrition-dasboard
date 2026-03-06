@@ -12,18 +12,30 @@ const Layout = ({ children, title, showBack = false, userType: propUserType }) =
   const location = useLocation();
   const { profile, user } = useAuth();
 
-  // IMPORTANTE: Source of truth = profile.role do AuthContext
-  // Fallback apenas para visitor (usuários não autenticados)
+  // IMPORTANTE: Source of truth com suporte a CONTEXTO
+  // Admin pode logar como professional (contexto profissional)
   const effectiveUserType = (() => {
     // Se foi explicitamente passado como 'visitor', usar visitor
     if (propUserType === 'visitor') {
       return 'visitor';
     }
-    // Se tem profile logado, SEMPRE usar o role real (source of truth)
+    
+    // Se tem profile logado
     if (profile?.role) {
+      // Verificar se há contexto salvo (Admin logado como professional)
+      const savedContext = localStorage.getItem('fitjourney_context');
+      
+      // Se profile é admin MAS contexto é professional → usar professional
+      if (profile.role === 'admin' && savedContext === 'professional') {
+        console.log(`🔄 [Layout] Admin em contexto Professional`);
+        return 'professional';
+      }
+      
+      // Caso contrário, usar role real
       console.log(`🔍 [Layout] Profile role: ${profile.role} para user: ${profile.email}`);
       return profile.role;
     }
+    
     // Fallback: visitor para usuários não autenticados
     return 'visitor';
   })();
