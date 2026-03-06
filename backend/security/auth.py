@@ -2,7 +2,10 @@
 Supabase JWT Authentication Module
 
 Valida tokens JWT do Supabase e extrai informações do usuário autenticado.
-Substitui o header customizado X-User-Id por autenticação real baseada em JWT.
+
+Suporte a dois algoritmos:
+  - HS256: projetos antigos → valida com SUPABASE_JWT_SECRET
+  - ES256: projetos novos  → valida com chave pública via JWKS
 
 IMPORTANTE – Fonte do role:
   - O JWT do Supabase contém um campo "role" que representa o role interno do
@@ -19,16 +22,56 @@ import logging
 import httpx
 import jwt
 from jwt import PyJWTError
+from jwt.algorithms import ECAlgorithm
 
 logger = logging.getLogger(__name__)
+
+# Cache simples das chaves JWKS (evita fetch a cada request)
+_jwks_cache: Dict[str, Any] = {}
 
 
 def get_jwt_secret() -> str:
     """Load JWT secret from environment with lazy loading"""
     secret = os.getenv("SUPABASE_JWT_SECRET")
     if not secret:
-        logger.warning("⚠️ SUPABASE_JWT_SECRET not configured - JWT validation will fail")
+        logger.warning("⚠️ SUPABASE_JWT_SECRET not configured")
     return secret
+
+
+async def _get_jwks_public_key(supabase_url: str, kid: Optional[str] = None) -> Optional[Any]:
+    """
+    Busca a chave pública ECDSA do Supabase via JWKS para validar tokens ES256.
+    Usa cache em memória para evitar chamadas repetidas.
+    """
+    global _jwks_cache
+
+    jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+
+    # Usar cache se disponível
+    if jwks_url in _jwks_cache:
+        keys = _jwks_cache[jwks_url]
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(jwks_url)
+            if resp.status_code != 200:
+                logger.error("JWKS fetch failed: %s", resp.status_code)
+                return None
+            keys = resp.json().get("keys", [])
+            _jwks_cache[jwks_url] = keys
+            logger.info("✅ JWKS carregado: %d chave(s)", len(keys))
+        except Exception as exc:
+            logger.error("JWKS fetch exception: %s", exc)
+            return None
+
+    # Selecionar chave pelo kid (se fornecido) ou pegar a primeira disponível
+    for key_data in keys:
+        if kid is None or key_data.get("kid") == kid:
+            try:
+                return ECAlgorithm.from_jwk(key_data)
+            except Exception as exc:
+                logger.error("Erro ao carregar chave ECDSA: %s", exc)
+    return None
 
 
 class CurrentUser:
@@ -71,18 +114,14 @@ class CurrentUser:
 async def get_current_user(authorization: Optional[str] = Header(None)) -> CurrentUser:
     """
     FastAPI Dependency: Extrai e valida o usuário autenticado do JWT Supabase.
-    
-    Args:
-        authorization: Header "Authorization: Bearer <token>"
-    
-    Returns:
-        CurrentUser com user_id, email e payload do token
-    
+
+    Suporte automático a dois algoritmos:
+      - HS256: usa SUPABASE_JWT_SECRET
+      - ES256: busca chave pública via JWKS (projetos novos do Supabase)
+
     Raises:
-        HTTPException 401: Se token ausente, inválido ou expirado
+        HTTPException 401: token ausente, inválido ou expirado
     """
-    
-    # Verificar se Authorization header está presente
     if not authorization:
         logger.warning("🚫 Missing Authorization header")
         raise HTTPException(
@@ -90,8 +129,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Curre
             detail="Authentication required. Please provide a valid access token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Extrair token do header "Bearer <token>"
+
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
         logger.warning("🚫 Invalid Authorization header format")
@@ -100,76 +138,110 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Curre
             detail="Invalid authorization header. Expected format: 'Bearer <token>'",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     token = parts[1]
-    
-    # Validar JWT
-    SUPABASE_JWT_SECRET = get_jwt_secret()
-    if not SUPABASE_JWT_SECRET:
-        logger.error("❌ Cannot validate JWT - SUPABASE_JWT_SECRET not configured")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server authentication configuration error"
-        )
-    
+
+    # ── Detectar algoritmo do JWT header (sem verificar assinatura) ──────────
     try:
-        # Decodificar e validar JWT
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            options={
-                "verify_signature": True,
-                "verify_exp": True,
-                "verify_aud": False  # Supabase não usa 'aud' standard
-            }
+        unverified_header = jwt.get_unverified_header(token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format",
         )
-        
-        # Extrair informações do usuário
-        user_id = payload.get("sub")
-        if not user_id:
-            logger.error("❌ JWT missing 'sub' claim")
+
+    alg = unverified_header.get("alg", "HS256")
+    kid = unverified_header.get("kid")
+
+    payload: Optional[Dict[str, Any]] = None
+
+    # ── ES256: validar com chave pública JWKS ────────────────────────────────
+    if alg == "ES256":
+        supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        if not supabase_url:
+            logger.error("❌ SUPABASE_URL não configurado — não é possível validar ES256")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server authentication configuration error",
+            )
+
+        public_key = await _get_jwks_public_key(supabase_url, kid)
+        if not public_key:
+            logger.error("❌ Chave pública ES256 não encontrada no JWKS")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing user identifier"
+                detail="Unable to verify token signature",
             )
-        
-        email = payload.get("email")
-        jwt_role = payload.get("role")  # role interno do Supabase, NÃO o role da app
 
-        logger.info(f"✅ Authenticated user: {user_id} ({email})")
+        try:
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=["ES256"],
+                options={"verify_aud": False},
+            )
+            logger.debug("✅ JWT ES256 validado via JWKS (kid=%s)", kid)
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+        except PyJWTError as exc:
+            logger.warning("❌ JWT ES256 inválido: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
 
-        return CurrentUser(
-            user_id=user_id,
-            email=email,
-            jwt_role=jwt_role,
-            app_role=None,  # será preenchido por get_current_user_with_db_role se necessário
-            token_payload=payload,
-        )
-        
-    except jwt.ExpiredSignatureError:
-        logger.warning("🚫 JWT token expired")
+    # ── HS256: validar com SUPABASE_JWT_SECRET ───────────────────────────────
+    else:
+        jwt_secret = get_jwt_secret()
+        if not jwt_secret:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Server authentication configuration error",
+            )
+
+        try:
+            payload = jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            logger.debug("✅ JWT HS256 validado")
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token expired",
+            )
+        except PyJWTError as exc:
+            logger.warning("❌ JWT HS256 inválido: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+    # ── Extrair informações do usuário ───────────────────────────────────────
+    user_id = payload.get("sub")
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired. Please login again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    except PyJWTError as e:
-        logger.warning(f"🚫 JWT validation failed: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or malformed token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    except Exception as e:
-        logger.error(f"❌ Unexpected error during JWT validation: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication error"
+            detail="Invalid token: missing user identifier",
         )
 
+    email = payload.get("email")
+    jwt_role = payload.get("role")
+
+    logger.info("✅ Authenticated user: %s (%s) alg=%s", user_id, email, alg)
+
+    return CurrentUser(
+        user_id=user_id,
+        email=email,
+        jwt_role=jwt_role,
+        app_role=None,
+        token_payload=payload,
+    )
 
 async def get_current_user_optional(authorization: Optional[str] = Header(None)) -> Optional[CurrentUser]:
     """
