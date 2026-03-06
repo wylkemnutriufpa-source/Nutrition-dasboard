@@ -62,7 +62,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     loadPatientMenu();
   }, [validUserType, patientId]);
 
-  // Links do Professional (admin também tem acesso)
+  // Links do Professional (SEM features exclusivas de admin)
   const professionalLinks = [
     { to: '/professional/dashboard', icon: Home, label: 'Dashboard' },
     { to: '/professional/patients', icon: Users, label: 'Pacientes' },
@@ -74,7 +74,7 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
     { to: '/professional/agenda', icon: CalendarDays, label: 'Agenda' },
     { to: '/professional/financeiro', icon: DollarSign, label: 'Financeiro' },
     { to: '/professional/food-database', icon: Database, label: 'Alimentos' },
-    { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni' },
+    // REMOVIDO: Projeto Biquíni Branco (agora é exclusivo admin)
     { to: '/professional/testimonials', icon: MessageSquare, label: 'Depoimentos', badge: 'MOD' },
     { to: '/professional/branding', icon: Palette, label: 'Personalização' },
     { to: '/professional/settings', icon: Settings, label: 'Configurações' },
@@ -85,7 +85,8 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
 
   // Links exclusivos do Admin
   const adminExtraLinks = [
-    { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' }
+    { to: '/admin/dashboard', icon: Shield, label: 'Painel Admin' },
+    { to: '/professional/projeto-editor', icon: Sparkles, label: 'Projeto Biquíni Branco' }  // 🔒 Só admin
   ];
 
   // Links do Paciente agora são todos dinâmicos (vindos da configuração)
@@ -108,14 +109,16 @@ const Sidebar = ({ userType, onLogout, patientId }) => {
 
   // Montar menu baseado no tipo de usuário
   const getLinks = () => {
+    console.log(`📋 [Sidebar] Montando links para: ${validUserType}`);
+    
     switch (validUserType) {
       case 'admin':
-        // Admin tem TUDO do professional + links admin extras
-        return [...adminExtraLinks, ...professionalLinks.map(l => ({
-          ...l,
-          // Manter as mesmas rotas do professional
-        }))];
+        // 🔒 Admin vê: links exclusivos admin + links professional
+        console.log(`✅ [Sidebar] Admin - ${adminExtraLinks.length} admin + ${professionalLinks.length} professional`);
+        return [...adminExtraLinks, ...professionalLinks];
       case 'professional':
+        // 🔒 Professional vê: APENAS links professional (sem admin)
+        console.log(`✅ [Sidebar] Professional - ${professionalLinks.length} links (SEM admin)`);
         return professionalLinks;
       case 'patient':
         // Retorna todos os links configurados pelo profissional
