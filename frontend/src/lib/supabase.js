@@ -925,6 +925,59 @@ export const deletePatientMessage = async (messageId) => {
   return { error };
 };
 
+// ==================== PATIENT MANAGEMENT ====================
+
+/**
+ * Buscar anamnese do paciente
+ */
+export const getAnamnesis = async (patientId) => {
+  const { data, error } = await supabase
+    .from('anamnesis')
+    .select('*')
+    .eq('patient_id', patientId)
+    .maybeSingle();
+  return { data, error };
+};
+
+/**
+ * Atualizar dados do paciente
+ */
+export const updatePatient = async (patientId, updates) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', patientId)
+    .select()
+    .single();
+  return { data, error };
+};
+
+/**
+ * Arquivar paciente (soft delete)
+ */
+export const archivePatient = async (patientId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', patientId)
+    .select()
+    .single();
+  return { data, error };
+};
+
+/**
+ * Restaurar paciente arquivado
+ */
+export const restorePatient = async (patientId) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ deleted_at: null })
+    .eq('id', patientId)
+    .select()
+    .single();
+  return { data, error };
+};
+
 export const markMessageAsRead = async (messageId) => {
   const { data, error } = await supabase
     .from('patient_messages')

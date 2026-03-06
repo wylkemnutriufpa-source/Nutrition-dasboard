@@ -103,9 +103,9 @@ class AutomationScheduler:
         logger.info("🔄 [Scheduler] Running automation worker...")
 
         try:
-            from .worker import process_pending_events
+            from .worker import process_automation_events
 
-            result = await process_pending_events(
+            result = await process_automation_events(
                 supabase_url=self.supabase_url,
                 service_role_key=self.service_role_key,
             )
