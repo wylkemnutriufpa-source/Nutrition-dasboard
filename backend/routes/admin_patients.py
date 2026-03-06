@@ -221,11 +221,32 @@ async def create_patient(
             if profile_resp.status_code not in [200, 201]:
                 error_detail = profile_resp.json()
                 logger.error(f"❌ Falha ao criar profile: {error_detail}")
-                # Rollback: deletar auth user
+                
+                # 🗑️ Rollback: deletar auth user
                 await _delete_auth_user(client, patient_id)
+                
+                # 🗑️ Rollback: deletar profile órfão se existir
+                try:
+                    await client.delete(
+                        f"{SUPABASE_URL}/rest/v1/profiles",
+                        headers=_supabase_headers(),
+                        params={"id": f"eq.{patient_id}"}
+                    )
+                    logger.info(f"🗑️ Profile órfão {patient_id} deletado no rollback")
+                except Exception as e:
+                    logger.warning(f"⚠️ Não foi possível deletar profile órfão: {e}")
+                
+                # Extrair mensagem amigável
+                error_msg = error_detail.get('message', str(error_detail))
+                if 'duplicate key' in str(error_detail).lower() and 'email' in str(error_detail).lower():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Email já cadastrado. Use outro email ou delete o registro antigo."
+                    )
+                
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Erro ao criar profile do paciente: {error_detail}",
+                    detail=f"Erro ao criar profile: {error_msg}",
                 )
 
             logger.info(f"✅ Profile criado para {patient_id}")
