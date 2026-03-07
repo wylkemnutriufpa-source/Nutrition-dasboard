@@ -26,7 +26,7 @@ import sys
 from datetime import datetime
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://fitjourney-checklist.preview.emergentagent.com"
+BACKEND_URL = "https://xenodochial-satoshi-2.preview.emergentagent.com"
 
 # Supabase auth endpoint for tokens
 SUPABASE_AUTH_URL = "https://safovouvjiikaickutvi.supabase.co/auth/v1/token?grant_type=password"
