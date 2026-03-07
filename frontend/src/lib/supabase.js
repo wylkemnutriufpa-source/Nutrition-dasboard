@@ -522,16 +522,31 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
   console.log('🔄 Atualizando anamnese:', anamnesisId, '| Campos:', Object.keys(cleanUpdates).length);
 
   return await withRetry(async () => {
+    // Usar .select() (sem maybeSingle) para detectar "0 linhas atualizadas"
     const { data, error } = await supabase
       .from('anamnesis')
       .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
       .eq('id', anamnesisId)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) return { data: null, error };
+
+    // data é array; se vazio → RLS bloqueou silenciosamente ou id errado
+    if (!data || data.length === 0) {
+      console.warn('⚠️ updateAnamnesis: 0 linhas atualizadas (RLS ou id inválido)', { anamnesisId });
+      return {
+        data: null,
+        error: {
+          message: 'Sem permissão para atualizar (RLS bloqueou) ou registro não encontrado.',
+          code: 'RLS_BLOCKED',
+          details: `anamnesisId: ${anamnesisId}`,
+          hint: 'Verifique as políticas RLS da tabela anamnesis no Supabase.',
+        },
+      };
+    }
+
     console.log('✅ Anamnese atualizada com sucesso');
-    return { data, error: null };
+    return { data: data[0], error: null };
   });
 };
 
