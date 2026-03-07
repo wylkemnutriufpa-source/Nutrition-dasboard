@@ -29,7 +29,7 @@ import {
 } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
-import { calculateBulkAdherence } from '@/utils/patientAdherenceEngine';
+import { authenticatedPost } from '@/lib/apiClient';
 import { upsertPatientSubscription } from '@/lib/supabase';
 
 const PatientsList = () => {
@@ -129,6 +129,11 @@ const PatientsList = () => {
       }
       
       setPatients(mappedPatients);
+      
+      // Carregar scores de prioridade em background
+      if (mappedPatients.length > 0) {
+        loadAdherenceData(mappedPatients.map(p => p.id));
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Erro ao carregar pacientes');
@@ -137,14 +142,27 @@ const PatientsList = () => {
     }
   }, [user, profile, isAdmin, orderBy, filterProfessional]);
 
-  // Carregar dados de aderência
+  // Carregar dados de score de prioridade via API backend
   const loadAdherenceData = async (patientIds) => {
     setLoadingAdherence(true);
     try {
-      const adherence = await calculateBulkAdherence(patientIds);
-      setAdherenceData(adherence);
+      const scores = await authenticatedPost('/api/scoring/patients/scores', { patient_ids: patientIds });
+      // Mapear para o formato esperado pelo template
+      const mapped = {};
+      for (const [pid, data] of Object.entries(scores)) {
+        mapped[pid] = {
+          score: data.score,
+          level: data.level,
+          label: data.label,
+          icon: data.status === 'green' ? '✅' : data.status === 'yellow' ? '⚠️' : '🔴',
+          color: data.status === 'green' ? 'emerald' : data.status === 'yellow' ? 'amber' : 'red',
+          metrics: data.factors,
+          alerts: data.alerts || [],
+        };
+      }
+      setAdherenceData(mapped);
     } catch (error) {
-      console.error('Erro ao carregar aderência:', error);
+      console.error('Erro ao carregar scores:', error);
     } finally {
       setLoadingAdherence(false);
     }
@@ -938,13 +956,30 @@ const PatientsList = () => {
                       </div>
                       
                       <div className="flex items-center space-x-4">
-                        {/* INDICADOR DE ADERÊNCIA (NOVO!) */}
-                        <div className="hidden xl:flex flex-col items-end gap-1 mr-4 min-w-[140px]">
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-${adherence.color}-50 border border-${adherence.color}-200`}>
-                            <span className="text-lg">{adherence.icon}</span>
+                        {/* SCORE DE PRIORIDADE */}
+                        <div className="hidden xl:flex flex-col items-end gap-1 mr-4 min-w-[140px]" data-testid={`patient-score-${patient.id}`}>
+                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                            adherence.color === 'emerald' ? 'bg-emerald-50 border border-emerald-200' :
+                            adherence.color === 'amber' ? 'bg-amber-50 border border-amber-200' :
+                            adherence.color === 'red' ? 'bg-red-50 border border-red-200' :
+                            'bg-gray-50 border border-gray-200'
+                          }`}>
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                              adherence.color === 'emerald' ? 'bg-emerald-500 text-white' :
+                              adherence.color === 'amber' ? 'bg-amber-500 text-white' :
+                              adherence.color === 'red' ? 'bg-red-500 text-white' :
+                              'bg-gray-400 text-white'
+                            }`}>
+                              {adherence.score}
+                            </div>
                             <div className="text-left">
-                              <p className={`text-xs font-bold text-${adherence.color}-900`}>{adherence.label}</p>
-                              <p className={`text-[10px] text-${adherence.color}-700`}>Score: {adherence.score}%</p>
+                              <p className={`text-xs font-bold ${
+                                adherence.color === 'emerald' ? 'text-emerald-900' :
+                                adherence.color === 'amber' ? 'text-amber-900' :
+                                adherence.color === 'red' ? 'text-red-900' :
+                                'text-gray-900'
+                              }`}>{adherence.label}</p>
+                              <p className="text-[10px] text-gray-500">Score de prioridade</p>
                             </div>
                           </div>
                           
