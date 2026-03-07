@@ -421,6 +421,35 @@ const withRetry = async (fn, maxRetries = 2) => {
   return { data: null, error: extractSafeError(lastError) };
 };
 
+/**
+ * Limpa payload da anamnese - remove campos que não pertencem à tabela anamnesis
+ * e garante formato correto de arrays
+ */
+const cleanAnamnesisPayload = (data) => {
+  // Campos que pertencem a patient_profiles, não a anamnesis
+  const excludeFields = ['current_weight', 'height', 'goal_weight', '_draft_saved_at'];
+  
+  const cleanData = { ...data };
+  
+  // Remover campos excluídos
+  excludeFields.forEach(field => {
+    delete cleanData[field];
+  });
+  
+  // Garantir formato de arrays
+  if (cleanData.medical_conditions && !Array.isArray(cleanData.medical_conditions)) {
+    cleanData.medical_conditions = [];
+  }
+  if (cleanData.allergies && !Array.isArray(cleanData.allergies)) {
+    cleanData.allergies = [];
+  }
+  if (cleanData.food_intolerances && !Array.isArray(cleanData.food_intolerances)) {
+    cleanData.food_intolerances = [];
+  }
+  
+  return cleanData;
+};
+
 export const createAnamnesis = async (data) => {
   // VALIDATE
   if (!data.patient_id || !data.professional_id) {

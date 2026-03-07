@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, CheckCircle2, Activity, Heart, Utensils, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, CheckCircle2, Activity, Heart, Utensils, Download, Trash2, AlertTriangle, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateAnamnesis, createAnamnesis, createAutomaticTips, deleteAnamnesis } from '@/lib/supabase';
 import { generateAnamnesePDF } from '@/utils/pdfGenerator';
@@ -25,16 +25,73 @@ const AnamneseFormComplete = ({
   professionalId, 
   patient, 
   professionalInfo,
-  isPatientView = false, // true se paciente está preenchendo
+  isPatientView = false,
   onUpdate,
-  onComplete 
+  onComplete,
+  onDirtyChange
 }) => {
   const [data, setData] = useState(anamnesis || {});
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [currentSection, setCurrentSection] = useState('clinical'); // clinical, lifestyle, nutrition, sports
+  const [currentSection, setCurrentSection] = useState('clinical');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const autoSaveTimerRef = useRef(null);
+
+  // ─── Chave do rascunho no localStorage ────────────────────────────
+  const draftKey = `anamnese_draft_${patientId}`;
+
+  // ─── Restaurar rascunho do localStorage ao montar ─────────────────
+  useEffect(() => {
+    if (!patientId) return;
+    try {
+      const savedDraft = localStorage.getItem(draftKey);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        // Só restaurar se o rascunho é mais recente que os dados do DB
+        const draftTime = parsed._draft_saved_at || 0;
+        const dbTime = anamnesis?.updated_at ? new Date(anamnesis.updated_at).getTime() : 0;
+        if (draftTime > dbTime) {
+          const { _draft_saved_at, ...draftData } = parsed;
+          setData(prev => ({ ...prev, ...draftData }));
+          setDraftRestored(true);
+          setHasChanges(true);
+          toast.info('Rascunho restaurado! Suas alterações anteriores foram recuperadas.', { duration: 5000 });
+        } else {
+          // Draft mais antigo que o DB, limpar
+          localStorage.removeItem(draftKey);
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao restaurar rascunho:', e);
+    }
+  }, [patientId]);
+
+  // ─── Salvar rascunho no localStorage a cada mudança ───────────────
+  useEffect(() => {
+    if (!hasChanges || !patientId) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        ...data,
+        _draft_saved_at: Date.now(),
+      }));
+    } catch (e) {
+      // localStorage cheio ou indisponível — silenciar
+    }
+  }, [data, hasChanges, patientId, draftKey]);
+
+  // ─── Guard: beforeunload para fechar aba/refresh ──────────────────
+  useEffect(() => {
+    if (!hasChanges) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Você tem alterações não salvas na anamnese. Deseja sair?';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasChanges]);
 
   useEffect(() => {
     setData(anamnesis || {});
@@ -43,6 +100,7 @@ const AnamneseFormComplete = ({
   const handleChange = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
+    if (onDirtyChange) onDirtyChange(true);
   };
 
   // Calcular progresso da anamnese
@@ -138,6 +196,10 @@ const AnamneseFormComplete = ({
       
       toast.success(markComplete ? 'Anamnese concluída!' : 'Rascunho salvo!');
       setHasChanges(false);
+      setDraftRestored(false);
+      if (onDirtyChange) onDirtyChange(false);
+      // Limpar draft do localStorage após salvar com sucesso
+      try { localStorage.removeItem(draftKey); } catch (e) { /* ok */ }
       
       // Se marcar como completa, gerar e enviar dicas automaticamente
       if (markComplete && !isPatientView && professionalId && patientId) {
@@ -177,13 +239,16 @@ const AnamneseFormComplete = ({
     }
   };
 
-  // Auto-save a cada 30 segundos
+  // Auto-save a cada 30 segundos (funciona para NOVO e EXISTENTE)
   useEffect(() => {
-    if (!hasChanges || !anamnesis?.id) return;
-    const timer = setTimeout(() => {
+    if (!hasChanges) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
       handleSave(false);
     }, 30000);
-    return () => clearTimeout(timer);
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
   }, [data, hasChanges]);
 
   // Função para excluir anamnese e começar nova
@@ -240,7 +305,13 @@ const AnamneseFormComplete = ({
                 <Badge variant={data.status === 'complete' ? 'default' : 'secondary'} className="text-sm">
                   {data.status === 'complete' ? '✓ Completa' : data.status === 'draft' ? '📝 Rascunho' : '⚠️ Incompleta'}
                 </Badge>
-                {hasChanges && <span className="text-xs text-amber-600">Alterações não salvas</span>}
+                {hasChanges && (
+                  <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                    <Shield size={12} />
+                    Alterações não salvas
+                    {draftRestored && ' (rascunho restaurado)'}
+                  </span>
+                )}
                 {isPatientView && (
                   <span className="text-xs text-blue-600">Modo: Paciente</span>
                 )}
@@ -600,7 +671,7 @@ const AnamneseFormComplete = ({
                   <Label>Tabagismo</Label>
                   <Select value={data.smoking || ''} onValueChange={(v) => handleChange('smoking', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="never">Nunca fumou</SelectItem>
                       <SelectItem value="former">Ex-fumante</SelectItem>
                       <SelectItem value="current">Fumante</SelectItem>
@@ -611,7 +682,7 @@ const AnamneseFormComplete = ({
                   <Label>Álcool</Label>
                   <Select value={data.alcohol || ''} onValueChange={(v) => handleChange('alcohol', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="never">Não bebe</SelectItem>
                       <SelectItem value="social">Social</SelectItem>
                       <SelectItem value="regular">Regular</SelectItem>
@@ -632,7 +703,7 @@ const AnamneseFormComplete = ({
                   <Label>Qualidade do Sono</Label>
                   <Select value={data.sleep_quality || ''} onValueChange={(v) => handleChange('sleep_quality', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="excellent">Excelente</SelectItem>
                       <SelectItem value="good">Boa</SelectItem>
                       <SelectItem value="fair">Regular</SelectItem>
@@ -647,7 +718,7 @@ const AnamneseFormComplete = ({
                   <Label>Nível de Estresse</Label>
                   <Select value={data.stress_level || ''} onValueChange={(v) => handleChange('stress_level', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="low">Baixo</SelectItem>
                       <SelectItem value="moderate">Moderado</SelectItem>
                       <SelectItem value="high">Alto</SelectItem>
@@ -700,7 +771,7 @@ const AnamneseFormComplete = ({
                   <Label>Preferência Alimentar</Label>
                   <Select value={data.food_preference || ''} onValueChange={(v) => handleChange('food_preference', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="omnivore">Onívoro</SelectItem>
                       <SelectItem value="vegetarian">Vegetariano</SelectItem>
                       <SelectItem value="vegan">Vegano</SelectItem>
@@ -755,7 +826,7 @@ const AnamneseFormComplete = ({
                   <Label>Pratica Atividade Física?</Label>
                   <Select value={data.exercises_regularly || ''} onValueChange={(v) => handleChange('exercises_regularly', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="yes">Sim, regularmente</SelectItem>
                       <SelectItem value="sometimes">Às vezes</SelectItem>
                       <SelectItem value="no">Não pratico</SelectItem>
@@ -766,7 +837,7 @@ const AnamneseFormComplete = ({
                   <Label>Nível de Atividade</Label>
                   <Select value={data.physical_activity_level || ''} onValueChange={(v) => handleChange('physical_activity_level', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="sedentary">Sedentário</SelectItem>
                       <SelectItem value="light">Leve (1-2x/semana)</SelectItem>
                       <SelectItem value="moderate">Moderado (3-4x/semana)</SelectItem>
@@ -809,7 +880,7 @@ const AnamneseFormComplete = ({
                   <Label>Horário Preferido</Label>
                   <Select value={data.training_time || ''} onValueChange={(v) => handleChange('training_time', v)}>
                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       <SelectItem value="morning">Manhã</SelectItem>
                       <SelectItem value="afternoon">Tarde</SelectItem>
                       <SelectItem value="evening">Noite</SelectItem>
@@ -822,7 +893,7 @@ const AnamneseFormComplete = ({
                 <Label>Objetivo Principal</Label>
                 <Select value={data.sports_goal || ''} onValueChange={(v) => handleChange('sports_goal', v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione seu objetivo" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     <SelectItem value="weight_loss">🔥 Emagrecimento</SelectItem>
                     <SelectItem value="muscle_gain">💪 Ganho de Massa Muscular</SelectItem>
                     <SelectItem value="maintenance">⚖️ Manutenção</SelectItem>
@@ -836,7 +907,7 @@ const AnamneseFormComplete = ({
                 <Label>Experiência com Treinos</Label>
                 <Select value={data.training_experience || ''} onValueChange={(v) => handleChange('training_experience', v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     <SelectItem value="beginner">Iniciante (menos de 6 meses)</SelectItem>
                     <SelectItem value="intermediate">Intermediário (6 meses - 2 anos)</SelectItem>
                     <SelectItem value="advanced">Avançado (mais de 2 anos)</SelectItem>
