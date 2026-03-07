@@ -521,33 +521,43 @@ export const updateAnamnesis = async (anamnesisId, updates) => {
 
   console.log('🔄 Atualizando anamnese:', anamnesisId, '| Campos:', Object.keys(cleanUpdates).length);
 
-  return await withRetry(async () => {
-    // Usar .select() (sem maybeSingle) para detectar "0 linhas atualizadas"
+  const doUpdate = async (payload) => {
     const { data, error } = await supabase
       .from('anamnesis')
-      .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
+      .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', anamnesisId)
       .select();
 
     if (error) return { data: null, error };
 
-    // data é array; se vazio → RLS bloqueou silenciosamente ou id errado
     if (!data || data.length === 0) {
       console.warn('⚠️ updateAnamnesis: 0 linhas atualizadas (RLS ou id inválido)', { anamnesisId });
       return {
         data: null,
         error: {
-          message: 'Sem permissão para atualizar (RLS bloqueou) ou registro não encontrado.',
+          message: 'Sem permissão para atualizar. Verifique as políticas RLS da tabela anamnesis.',
           code: 'RLS_BLOCKED',
           details: `anamnesisId: ${anamnesisId}`,
-          hint: 'Verifique as políticas RLS da tabela anamnesis no Supabase.',
+          hint: 'A policy anamnesis_update deve incluir patient_id = auth.uid().',
         },
       };
     }
-
     console.log('✅ Anamnese atualizada com sucesso');
     return { data: data[0], error: null };
-  });
+  };
+
+  // Tentativa 1: payload completo
+  const result = await withRetry(() => doUpdate(cleanUpdates));
+
+  // Tentativa 2 (fallback): se 400 por coluna desconhecida, tentar sem last_edited_by
+  if (result.error?.status === 400 || result.error?.code === '42703') {
+    console.warn('⚠️ Fallback: removendo last_edited_by e tentando novamente...');
+    const fallbackPayload = { ...cleanUpdates };
+    delete fallbackPayload.last_edited_by;
+    return await withRetry(() => doUpdate(fallbackPayload));
+  }
+
+  return result;
 };
 
 export const saveAnamnesisDraft = async (patientId, professionalId, updates) => {

@@ -51,7 +51,6 @@ const AnamneseFormComplete = ({
       const savedDraft = localStorage.getItem(draftKey);
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
-        // Só restaurar se o rascunho é mais recente que os dados do DB
         const draftTime = parsed._draft_saved_at || 0;
         const dbTime = anamnesis?.updated_at ? new Date(anamnesis.updated_at).getTime() : 0;
         if (draftTime > dbTime) {
@@ -61,7 +60,6 @@ const AnamneseFormComplete = ({
           setHasChanges(true);
           toast.info('Rascunho restaurado! Suas alterações anteriores foram recuperadas.', { duration: 5000 });
         } else {
-          // Draft mais antigo que o DB, limpar
           localStorage.removeItem(draftKey);
         }
       }
@@ -69,6 +67,15 @@ const AnamneseFormComplete = ({
       console.warn('Erro ao restaurar rascunho:', e);
     }
   }, [patientId]);
+
+  // ─── Sync silencioso: quando anamnesis prop muda (após onUpdate silent) ────
+  // Só atualiza se NÃO há edições em andamento (hasChanges=false)
+  // Usa updated_at como sentinela para não re-renderizar sem necessidade
+  useEffect(() => {
+    if (!anamnesis?.updated_at) return;
+    if (hasChanges || draftRestored) return; // Não sobrescrever edições em andamento
+    setData(anamnesis);
+  }, [anamnesis?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Salvar rascunho no localStorage a cada mudança ───────────────
   useEffect(() => {
@@ -133,6 +140,25 @@ const AnamneseFormComplete = ({
   const progress = calculateProgress();
 
   const handleSave = async (markComplete = false) => {
+    // ─── Validação mínima antes de Concluir ────────────────────────────────
+    if (markComplete) {
+      const requiredFilled = [
+        data.current_weight || data.weight,
+        data.height,
+        data.food_preference || data.diet_type,
+        data.medical_conditions?.length > 0 || data.no_medical_conditions,
+        data.sports_goal || data.main_goal,
+      ].filter(Boolean).length;
+
+      const MIN_PROGRESS = 50; // pelo menos 50% preenchido
+      if (progress < MIN_PROGRESS) {
+        toast.error(
+          `Preencha mais informações antes de concluir. Progresso atual: ${progress}% (mínimo: ${MIN_PROGRESS}%)`,
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
     setSaving(true);
     saveStatus.markSaving();
     try {
