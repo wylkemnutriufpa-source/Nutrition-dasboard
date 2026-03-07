@@ -877,7 +877,7 @@ const AdminProjetoEditor = () => {
                             <div className="flex gap-1.5 flex-shrink-0">
                               <button
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors"
-                                onClick={() => navigate(`/professional/patients/${p.patient_id}?tab=projeto`)}>
+                                onClick={() => navigate(`/professional/patient/${p.patient_id}?tab=projeto`)}>
                                 Ver projeto
                               </button>
                             </div>
