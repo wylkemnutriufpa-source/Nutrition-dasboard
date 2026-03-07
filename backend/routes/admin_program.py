@@ -194,7 +194,7 @@ async def patients_overview(
             headers=_h(),
             params={
                 "professional_id": f"eq.{professional_id}",
-                "select": "patient_id,created_at,full_name",
+                "select": "patient_id,created_at",
                 "order": "created_at.desc",
                 "limit": "200",
             },
@@ -227,7 +227,7 @@ async def patients_overview(
             headers=_h(),
             params={
                 "id": f"in.({','.join(patient_ids)})",
-                "select": "id,full_name,email",
+                "select": "id,name,email",
             },
         )
         profile_map: dict = {}
@@ -289,7 +289,7 @@ async def patients_overview(
 
         result.append({
             "patient_id": pid,
-            "full_name": pf.get("full_name") or p.get("full_name") or "—",
+            "full_name": pf.get("name") or p.get("name") or "—",
             "email": pf.get("email", ""),
             "plan_start_date": start_str,
             "plan_name": (journey or {}).get("plan_name", ""),
