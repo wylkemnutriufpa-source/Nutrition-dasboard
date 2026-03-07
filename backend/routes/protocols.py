@@ -216,7 +216,26 @@ async def activate_protocol(
                 )
             
             patient_protocol = pp_resp.json()[0]
-            
+            patient_protocol_id = patient_protocol["id"]
+
+            # 🎯 AUTO SYNC: Injetar protocol_tasks no checklist do paciente
+            sync_result = {"injected": 0, "skipped": 0}
+            try:
+                from routes.protocol_checklist import sync_protocol_tasks_to_checklist
+
+                # Criar um CurrentUser simulado para o sync interno
+                sync_result = await sync_protocol_tasks_to_checklist(
+                    patient_protocol_id=patient_protocol_id,
+                    current_user=current_user,
+                )
+                logger.info(
+                    f"✅ Auto-sync: {sync_result.get('injected', 0)} tasks injetadas no checklist "
+                    f"de {request.patient_id} via protocolo '{protocol.get('name')}'"
+                )
+            except Exception as sync_err:
+                # Sync é best-effort: não bloqueia ativação
+                logger.warning(f"⚠️ Auto-sync falhou (não crítico): {sync_err}")
+
             # 🟢 LOG: Protocolo ativado
             log_operation(
                 action="activate_protocol",
@@ -226,14 +245,20 @@ async def activate_protocol(
                 route="/api/professional/protocols/activate",
                 extra_data={
                     "protocol_name": protocol.get('name'),
-                    "duration_days": duration
+                    "duration_days": duration,
+                    "tasks_injected": sync_result.get("injected", 0),
                 }
             )
-            
+
             return {
                 "success": True,
                 "patient_protocol": patient_protocol,
-                "message": f"Protocolo '{protocol.get('name')}' ativado para o paciente"
+                "tasks_injected": sync_result.get("injected", 0),
+                "tasks_skipped": sync_result.get("skipped", 0),
+                "message": (
+                    f"Protocolo '{protocol.get('name')}' ativado. "
+                    f"{sync_result.get('injected', 0)} tarefa(s) adicionada(s) ao checklist do paciente."
+                ),
             }
     
     except HTTPException:
@@ -282,6 +307,17 @@ async def deactivate_protocol(
                     detail="Erro ao desativar protocolo"
                 )
             
+            # 🗑️ Remover tasks do checklist (best-effort)
+            try:
+                from routes.protocol_checklist import remove_protocol_tasks_from_checklist
+                remove_result = await remove_protocol_tasks_from_checklist(
+                    patient_protocol_id=patient_protocol_id,
+                    current_user=current_user,
+                )
+                logger.info(f"🗑️ Auto-remove: {remove_result.get('removed', 0)} tasks removidas do checklist")
+            except Exception as rm_err:
+                logger.warning(f"⚠️ Auto-remove falhou (não crítico): {rm_err}")
+
             log_operation(
                 action="deactivate_protocol",
                 status="success",
@@ -290,7 +326,7 @@ async def deactivate_protocol(
                 extra_data={"patient_protocol_id": patient_protocol_id}
             )
             
-            return {"success": True, "message": "Protocolo desativado"}
+            return {"success": True, "message": "Protocolo desativado e tarefas removidas do checklist"}
     
     except HTTPException:
         raise

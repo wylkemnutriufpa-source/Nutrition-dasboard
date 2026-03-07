@@ -789,31 +789,95 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
     }
   };
 
-  // 🎯 PROTOCOLOS - Controle do Profissional
-  const [availableProtocols] = useState([
-    { id: 'agua', name: 'Protocolo de Água', category: 'hidratacao', duration: 14 },
-    { id: 'chas', name: 'Protocolo de Chás', category: 'termogenicos', duration: 30 },
-    { id: 'jejum', name: 'Protocolo de Jejum', category: 'alimentacao', duration: 21 }
-  ]);
-  const [activatingProtocol, setActivatingProtocol] = useState(false);
+  // 🎯 PROTOCOLOS - Controle do Profissional (dados reais da API)
+  const [availableProtocols, setAvailableProtocols] = useState([]);
+  const [activePatientProtocols, setActivePatientProtocols] = useState([]);
+  const [loadingProtocols, setLoadingProtocols] = useState(false);
+  const [activatingProtocol, setActivatingProtocol] = useState(null); // id do protocolo sendo ativado
+  const [deactivatingProtocol, setDeactivatingProtocol] = useState(null); // id do patient_protocol sendo desativado
+
+  useEffect(() => {
+    loadProtocols();
+  }, [patientId]);
+
+  const loadProtocols = async () => {
+    setLoadingProtocols(true);
+    try {
+      const { authenticatedGet } = await import('@/lib/apiClient');
+      const [listData, activeData] = await Promise.all([
+        authenticatedGet('/api/professional/protocols/list'),
+        authenticatedGet(`/api/professional/patients/${patientId}/active-protocols`),
+      ]);
+      setAvailableProtocols(listData.protocols || []);
+      setActivePatientProtocols(activeData.patient_protocols || []);
+    } catch (err) {
+      console.error('Erro ao carregar protocolos:', err);
+      // Tabelas podem não existir ainda — não quebrar o componente
+    } finally {
+      setLoadingProtocols(false);
+    }
+  };
+
+  // IDs de protocolos já ativos para este paciente
+  const activeProtocolIds = new Set(
+    activePatientProtocols.filter(p => p.status === 'active').map(p => p.protocol_id)
+  );
 
   const handleActivateProtocol = async (protocolId) => {
-    setActivatingProtocol(true);
+    setActivatingProtocol(protocolId);
     try {
-      // TODO: Chamar API real quando tabelas estiverem criadas
-      // const { authenticatedPost } = await import('@/lib/apiClient');
-      // await authenticatedPost('/api/professional/protocols/activate', {
-      //   patient_id: patientId,
-      //   protocol_id: protocolId
-      // });
-      
-      toast.success('Protocolo ativado! (Mock - aguardando criação das tabelas SQL)');
-      console.log('🎯 Protocolo ativado:', protocolId, 'para paciente:', patientId);
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const result = await authenticatedPost('/api/professional/protocols/activate', {
+        patient_id: patientId,
+        protocol_id: protocolId,
+      });
+      const injected = result?.tasks_injected ?? 0;
+      toast.success(
+        injected > 0
+          ? `✅ Protocolo ativado! ${injected} tarefa(s) adicionada(s) ao checklist do paciente.`
+          : '✅ Protocolo ativado! (Sem tasks cadastradas no protocolo ainda)'
+      );
+      await loadProtocols(); // Recarregar estado
     } catch (error) {
       console.error('Erro ao ativar protocolo:', error);
-      toast.error('Erro ao ativar protocolo');
+      const msg = error?.message || error?.detail || 'Erro ao ativar protocolo';
+      toast.error(msg);
     } finally {
-      setActivatingProtocol(false);
+      setActivatingProtocol(null);
+    }
+  };
+
+  const handleDeactivateProtocol = async (patientProtocolId) => {
+    setDeactivatingProtocol(patientProtocolId);
+    try {
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const result = await authenticatedPost(
+        `/api/professional/protocols/deactivate/${patientProtocolId}`,
+        {}
+      );
+      toast.success(result?.message || 'Protocolo desativado.');
+      await loadProtocols();
+    } catch (error) {
+      console.error('Erro ao desativar protocolo:', error);
+      toast.error('Erro ao desativar protocolo');
+    } finally {
+      setDeactivatingProtocol(null);
+    }
+  };
+
+  const handleSyncTasks = async (patientProtocolId, protocolName) => {
+    try {
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const result = await authenticatedPost(
+        `/api/professional/protocols/${patientProtocolId}/sync-tasks`,
+        {}
+      );
+      toast.success(result?.message || `Tasks sincronizadas`);
+      await loadProtocols();
+    } catch (error) {
+      console.error('Erro ao sincronizar tasks:', error);
+      const msg = error?.message || 'Erro ao sincronizar tasks do protocolo';
+      toast.error(msg);
     }
   };
 
@@ -966,47 +1030,136 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
             Protocolos do Programa
           </CardTitle>
           <p className="text-sm text-gray-600 mt-1">
-            Ative protocolos para guiar a jornada do paciente no Projeto Biquíni Branco
+            Ative protocolos para guiar a jornada do paciente no Projeto Biquíni Branco.
+            As tarefas do protocolo são automaticamente adicionadas ao checklist diário.
           </p>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {availableProtocols.map((protocol) => (
-              <div 
-                key={protocol.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">{protocol.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {protocol.category} • {protocol.duration} dias
-                  </p>
-                </div>
-                <Button 
-                  onClick={() => handleActivateProtocol(protocol.id)}
-                  disabled={activatingProtocol}
-                  size="sm"
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {activatingProtocol ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Ativando...
-                    </>
-                  ) : (
-                    <>
-                      <PlayCircle className="w-4 h-4 mr-2" />
-                      Ativar
-                    </>
-                  )}
-                </Button>
+        <CardContent className="space-y-4">
+
+          {/* Protocolos já ativos do paciente */}
+          {activePatientProtocols.filter(p => p.status === 'active').length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ativos agora</p>
+              <div className="space-y-2">
+                {activePatientProtocols.filter(p => p.status === 'active').map((pp) => (
+                  <div key={pp.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">🟣</span>
+                      <div>
+                        <p className="font-semibold text-purple-900 text-sm">{pp.protocol_name}</p>
+                        <p className="text-xs text-purple-600">
+                          {pp.protocol_category}
+                          {pp.start_date && ` • Início: ${new Date(pp.start_date).toLocaleDateString('pt-BR')}`}
+                          {pp.injected_tasks > 0 && ` • ${pp.injected_tasks} task(s) no checklist`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-100"
+                        onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}
+                        title="Sincronizar tarefas no checklist"
+                      >
+                        🔄 Sync
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                        disabled={deactivatingProtocol === pp.id}
+                        onClick={() => handleDeactivateProtocol(pp.id)}
+                      >
+                        {deactivatingProtocol === pp.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          'Desativar'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* Lista de protocolos disponíveis */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              {loadingProtocols ? 'Carregando protocolos...' : `Disponíveis (${availableProtocols.length})`}
+            </p>
+
+            {loadingProtocols ? (
+              <div className="flex items-center gap-2 py-4 text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Carregando...</span>
+              </div>
+            ) : availableProtocols.length === 0 ? (
+              <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
+                <p className="text-sm text-gray-500">Nenhum protocolo cadastrado ainda.</p>
+                <p className="text-xs text-gray-400 mt-1">Crie protocolos na área administrativa para ativá-los aqui.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {availableProtocols.map((protocol) => {
+                  const isActive = activeProtocolIds.has(protocol.id);
+                  const isActivating = activatingProtocol === protocol.id;
+                  return (
+                    <div
+                      key={protocol.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                        isActive
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200 hover:border-purple-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900 text-sm">{protocol.name}</p>
+                          {isActive && (
+                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">ATIVO</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {protocol.category}
+                          {protocol.default_duration_days && ` • ${protocol.default_duration_days} dias`}
+                          {protocol.task_count != null && ` • ${protocol.task_count} tarefa(s)`}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={isActive || isActivating}
+                        onClick={() => handleActivateProtocol(protocol.id)}
+                        className={isActive
+                          ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                        }
+                      >
+                        {isActivating ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            Ativando...
+                          </>
+                        ) : isActive ? (
+                          '✓ Ativo'
+                        ) : (
+                          <>
+                            <PlayCircle className="w-3 h-3 mr-1" />
+                            Ativar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
-              <strong>💡 Dica:</strong> Os protocolos ativados aparecerão automaticamente no dashboard do paciente em <strong>"Meu Projeto"</strong>.
+              <strong>💡 Como funciona:</strong> Ao ativar um protocolo, as tarefas são automaticamente adicionadas ao checklist diário do paciente em <strong>"Minha Jornada"</strong>. Use o botão 🔄 Sync para sincronizar novamente se necessário.
             </p>
           </div>
         </CardContent>

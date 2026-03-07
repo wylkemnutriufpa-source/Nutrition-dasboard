@@ -249,71 +249,101 @@ const ChecklistSimple = ({ patientId, isPatientView = true }) => {
               </Button>
             </div>
           ) : (
-            tasks.map((task) => (
-              <div
-                key={task.id}
-                className={`
-                  flex items-center gap-3 p-3 rounded-lg border transition-all
-                  ${task.completed 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-white border-gray-200 hover:border-teal-300'
-                  }
-                `}
-              >
-                {/* Checkbox */}
-                <button
-                  onClick={() => handleToggle(task.id, task.completed)}
-                  className="flex-shrink-0"
+            tasks.map((task) => {
+              // Detectar se é task de protocolo pelo campo source ou pelo título marcado
+              const isProtocolTask = task.source === 'protocol' || /^\[🎯/.test(task.title);
+
+              // Extrair título limpo (remover marcador se existir)
+              const displayTitle = isProtocolTask
+                ? task.title.replace(/^\[🎯[^\]]*\]\s*/, '')
+                : task.title;
+
+              // Extrair nome do protocolo do marcador no título
+              const protocolBadge = isProtocolTask
+                ? (task.title.match(/^\[🎯 ([^\]]+)\]/) || [])[1] || 'Protocolo'
+                : null;
+
+              return (
+                <div
+                  key={task.id}
+                  className={`
+                    flex items-center gap-3 p-3 rounded-lg border transition-all group
+                    ${task.completed 
+                      ? 'bg-green-50 border-green-200' 
+                      : isProtocolTask
+                        ? 'bg-purple-50 border-purple-200 hover:border-purple-400'
+                        : 'bg-white border-gray-200 hover:border-teal-300'
+                    }
+                  `}
                 >
-                  {task.completed ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-500" />
+                  {/* Checkbox */}
+                  <button
+                    onClick={() => handleToggle(task.id, task.completed)}
+                    className="flex-shrink-0"
+                  >
+                    {task.completed ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    ) : (
+                      <Circle className={`h-6 w-6 ${isProtocolTask ? 'text-purple-300 hover:text-purple-500' : 'text-gray-300 hover:text-teal-500'}`} />
+                    )}
+                  </button>
+
+                  {/* Título */}
+                  {editingId === task.id && !isProtocolTask ? (
+                    <div className="flex-1 flex gap-2">
+                      <Input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="flex-1 h-8"
+                        autoFocus
+                        onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(task.id)}
+                      />
+                      <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(task.id)}>
+                        <Check className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
+                        <X className="h-4 w-4 text-gray-400" />
+                      </Button>
+                    </div>
                   ) : (
-                    <Circle className="h-6 w-6 text-gray-300 hover:text-teal-500" />
+                    <div className="flex-1 min-w-0">
+                      <span className={`block ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                        {displayTitle}
+                      </span>
+                      {isProtocolTask && protocolBadge && (
+                        <span className="inline-block mt-0.5 text-[10px] font-semibold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
+                          🎯 {protocolBadge}
+                        </span>
+                      )}
+                    </div>
                   )}
-                </button>
 
-                {/* Título */}
-                {editingId === task.id ? (
-                  <div className="flex-1 flex gap-2">
-                    <Input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="flex-1 h-8"
-                      autoFocus
-                      onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(task.id)}
-                    />
-                    <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(task.id)}>
-                      <Check className="h-4 w-4 text-green-600" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                      <X className="h-4 w-4 text-gray-400" />
-                    </Button>
-                  </div>
-                ) : (
-                  <span className={`flex-1 ${task.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>
-                    {task.title}
-                  </span>
-                )}
-
-                {/* Ações */}
-                {!editingId && (
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEdit(task)}
-                      className="p-1 text-gray-400 hover:text-teal-600"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))
+                  {/* Ações - tarefas de protocolo não têm edição/deleção manual */}
+                  {!editingId && !isProtocolTask && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEdit(task)}
+                        className="p-1 text-gray-400 hover:text-teal-600"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(task.id)}
+                        className="p-1 text-gray-400 hover:text-red-500"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {/* Protocolo task: tooltip de read-only */}
+                  {!editingId && isProtocolTask && (
+                    <span className="text-[10px] text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" title="Gerenciado pelo protocolo">
+                      🔒
+                    </span>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
 

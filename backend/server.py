@@ -432,6 +432,10 @@ api_router.include_router(professional_reset_password_router)
 from routes.protocols import router as protocols_router
 api_router.include_router(protocols_router)
 
+# Import protocol-checklist integration routes
+from routes.protocol_checklist import router as protocol_checklist_router
+api_router.include_router(protocol_checklist_router)
+
 from routes.patient_scoring import router as patient_scoring_router
 api_router.include_router(patient_scoring_router)
 
