@@ -172,9 +172,9 @@ const AnamneseFormComplete = ({
         console.log('📝 Atualizando anamnese existente:', anamnesis.id);
         const { data: result, error } = await updateAnamnesis(anamnesis.id, cleanData);
         if (error) {
-          console.error('❌ Erro ao atualizar:', String(error.message || error));
-          const errorMsg = String(error.message || error.hint || error.details || 'Erro desconhecido ao atualizar');
-          throw new Error(errorMsg);
+          console.error('❌ Erro ao atualizar:', error);
+          const errorMsg = error.message || error.hint || error.details || 'Erro desconhecido ao atualizar';
+          throw new Error(String(errorMsg));
         }
         console.log('✅ Atualizada com sucesso:', result);
       } else {

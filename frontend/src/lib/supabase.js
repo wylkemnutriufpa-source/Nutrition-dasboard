@@ -393,6 +393,7 @@ const extractSafeError = (error) => {
 
 /**
  * Executa operação Supabase com retry automático (até 2 tentativas)
+ * NÃO faz retry para erros 4xx (erros de cliente são determinísticos)
  */
 const withRetry = async (fn, maxRetries = 2) => {
   let lastError = null;
@@ -400,25 +401,38 @@ const withRetry = async (fn, maxRetries = 2) => {
     try {
       const result = await fn();
       if (result.error) {
-        lastError = result.error;
-        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, extractSafeError(result.error));
+        // Extrair erro IMEDIATAMENTE antes de qualquer outra operação
+        // para evitar "body stream already read" em tentativas subsequentes
+        const safeError = extractSafeError(result.error);
+        lastError = safeError;
+        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, safeError);
+
+        // Não retry para 4xx: são erros de cliente (coluna errada, RLS, etc.)
+        // Retry apenas para 5xx (servidor) ou erros de rede (sem status)
+        const status = result.error?.status || result.error?.statusCode || 0;
+        const isClientError = status >= 400 && status < 500;
+        if (isClientError) {
+          return { data: null, error: safeError };
+        }
+
         if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 500 * (attempt + 1))); // Backoff
+          await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
           continue;
         }
-        return { data: null, error: extractSafeError(lastError) };
+        return { data: null, error: safeError };
       }
       return result;
     } catch (err) {
-      lastError = err;
-      console.warn(`⚠️ Exceção tentativa ${attempt + 1}:`, String(err.message || err));
+      const safeMsg = String(err.message || err);
+      lastError = { message: safeMsg, code: '', details: '', hint: '' };
+      console.warn(`⚠️ Exceção tentativa ${attempt + 1}:`, safeMsg);
       if (attempt < maxRetries) {
         await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
     }
   }
-  return { data: null, error: extractSafeError(lastError) };
+  return { data: null, error: lastError || { message: 'Erro desconhecido' } };
 };
 
 /**
@@ -427,7 +441,15 @@ const withRetry = async (fn, maxRetries = 2) => {
  */
 const cleanAnamnesisPayload = (data) => {
   // Campos que pertencem a patient_profiles, não a anamnesis
-  const excludeFields = ['current_weight', 'height', 'goal_weight', '_draft_saved_at'];
+  // Campos de UI apenas (não existem na tabela anamnesis)
+  const excludeFields = [
+    // patient_profiles fields
+    'current_weight', 'height', 'goal_weight',
+    // UI-only flags (não são colunas da tabela anamnesis)
+    '_draft_saved_at', 'no_medical_conditions',
+    // Relações (não devem ir no payload)
+    'patient', 'professional', 'profiles',
+  ];
   
   const cleanData = { ...data };
   
