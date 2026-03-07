@@ -62,6 +62,7 @@ class CreatePatientRequest(BaseModel):
     name: str
     email: EmailStr
     professional_id: str
+    password: Optional[str] = None
     phone: Optional[str] = None
     birth_date: Optional[str] = None
 
@@ -139,9 +140,8 @@ async def create_patient(
             # Limite de pacientes removido — todos os tiers podem criar pacientes livremente
 
             # ── 1. Criar auth user ─────────────────────────────────────────────
-            # Gera senha temporária apenas para satisfazer o schema do Auth;
-            # o paciente NUNCA recebe essa senha – acesso é feito via magic link.
-            temp_password = secrets.token_urlsafe(24)
+            # Usa a senha enviada pelo formulário. Se não informada, gera uma aleatória.
+            user_password = request.password if request.password and len(request.password) >= 6 else secrets.token_urlsafe(16)
 
             # 🛡️ IDEMPOTÊNCIA: Verificar se email já existe
             check_resp = await client.get(
@@ -168,7 +168,7 @@ async def create_patient(
                 headers=_supabase_headers(),
                 json={
                     "email": request.email,
-                    "password": temp_password,
+                    "password": user_password,
                     "email_confirm": True,
                     "user_metadata": {"name": request.name, "role": "patient"},
                 },
@@ -186,24 +186,29 @@ async def create_patient(
             logger.info(f"✅ Auth user criado: {patient_id} (prof tier: {prof_tier})")
 
             # ── 2. Aguardar trigger criar profile automaticamente ─────────────
-            # Supabase trigger cria profile automaticamente após auth user
-            logger.info("⏳ Aguardando trigger do Supabase criar profile...")
+            # Polling robusto: até 5 tentativas, 1 seg entre cada
             import asyncio
-            await asyncio.sleep(2)
+            logger.info("⏳ Aguardando trigger do Supabase criar profile...")
+            profile_found = False
+            for attempt in range(5):
+                await asyncio.sleep(1)
+                profile_check = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/profiles",
+                    headers=_supabase_headers(),
+                    params={"id": f"eq.{patient_id}", "select": "*"}
+                )
+                if profile_check.status_code == 200 and profile_check.json():
+                    profile_found = True
+                    logger.info(f"✅ Profile detectado na tentativa {attempt + 1}")
+                    break
+                logger.info(f"⏳ Tentativa {attempt + 1}/5 — profile ainda não criado")
             
-            # Verificar se profile foi criado
-            profile_check = await client.get(
-                f"{SUPABASE_URL}/rest/v1/profiles",
-                headers=_supabase_headers(),
-                params={"id": f"eq.{patient_id}", "select": "*"}
-            )
-            
-            if profile_check.status_code != 200 or not profile_check.json():
-                logger.error("❌ Trigger não criou profile - abortando")
+            if not profile_found:
+                logger.error("❌ Trigger não criou profile após 5 tentativas - abortando")
                 await _delete_auth_user(client, patient_id)
                 raise HTTPException(
                     status_code=500,
-                    detail="Erro: profile não foi criado automaticamente"
+                    detail="Erro: profile não foi criado automaticamente após 5 tentativas"
                 )
             
             # Atualizar profile com dados adicionais
@@ -278,17 +283,19 @@ async def create_patient(
             extra_data={"tier": patient_tier, "email": request.email}
         )
 
-        # ── Resposta final – temp_password NUNCA é retornada ──────────────────
+        # ── Resposta final ─────────────────────────────────────────────────
+        password_was_custom = bool(request.password and len(request.password) >= 6)
         return {
             "success": True,
             "patient_id": patient_id,
             "email": request.email,
             "tier": patient_tier,
             "access_days": 7 if prof_tier == "trial" else None,
+            "password_set": password_was_custom,
             "message": (
                 f"Paciente criado com sucesso! "
                 f"{'(Trial – 7 dias de acesso) ' if prof_tier == 'trial' else ''}"
-                "Envie o magic link para que o paciente faça o primeiro acesso."
+                f"{'O paciente pode fazer login com a senha informada.' if password_was_custom else 'Envie o magic link para o primeiro acesso.'}"
             ),
         }
 

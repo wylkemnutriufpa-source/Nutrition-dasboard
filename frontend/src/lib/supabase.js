@@ -330,6 +330,7 @@ export const createPatientByProfessional = async (professionalId, patientData) =
       name: patientData.name,
       email: patientData.email,
       professional_id: professionalId,
+      password: patientData.password || null,
       phone: patientData.phone || null,
       birth_date: patientData.birth_date || null,
     });
