@@ -541,7 +541,7 @@ const PatientsList = () => {
                   <Filter size={16} className="mr-2" />
                   <SelectValue placeholder="Profissional" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" sideOffset={5}>
                   <SelectItem value="all">Todos Profissionais</SelectItem>
                   {professionals.map(prof => (
                     <SelectItem key={prof.id} value={prof.id}>{prof.name}</SelectItem>
@@ -555,7 +555,7 @@ const PatientsList = () => {
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={5}>
                 <SelectItem value="all">Todos Status</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="inactive">Inativos</SelectItem>
@@ -567,7 +567,7 @@ const PatientsList = () => {
               <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Tier" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={5}>
                 <SelectItem value="all">Todos Tiers</SelectItem>
                 <SelectItem value="basic">Basic</SelectItem>
                 <SelectItem value="pro">PRO</SelectItem>
@@ -580,7 +580,7 @@ const PatientsList = () => {
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Objetivo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={5}>
                 <SelectItem value="all">Todos Objetivos</SelectItem>
                 <SelectItem value="emagrecimento">Emagrecimento</SelectItem>
                 <SelectItem value="massa">Ganho de Massa</SelectItem>
@@ -593,7 +593,7 @@ const PatientsList = () => {
                 <ArrowUpDown size={16} className="mr-2" />
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" sideOffset={5}>
                 <SelectItem value="recent">Mais recentes</SelectItem>
                 <SelectItem value="name">Alfabético</SelectItem>
               </SelectContent>
@@ -643,7 +643,7 @@ const PatientsList = () => {
                       <SelectTrigger>
                         <SelectValue placeholder="🏠 Seus Pacientes (você como professional)" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5}>
                         {professionals.map(prof => (
                           <SelectItem key={prof.id} value={prof.id}>
                             👤 {prof.name || prof.email} ({prof.email})
@@ -720,7 +720,7 @@ const PatientsList = () => {
                       <Label>Sexo</Label>
                       <Select value={formGender} onValueChange={setFormGender}>
                         <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
+                        <SelectContent position="popper" sideOffset={5}>
                           <SelectItem value="male">Masculino</SelectItem>
                           <SelectItem value="female">Feminino</SelectItem>
                           <SelectItem value="other">Outro</SelectItem>
@@ -777,7 +777,7 @@ const PatientsList = () => {
                   </h4>
                   <Select value={formGoal} onValueChange={setFormGoal}>
                     <SelectTrigger><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" sideOffset={5}>
                       <SelectItem value="weight_loss">Emagrecimento</SelectItem>
                       <SelectItem value="muscle_gain">Ganho de Massa Muscular</SelectItem>
                       <SelectItem value="maintenance">Manutenção</SelectItem>
@@ -1243,7 +1243,7 @@ const PatientsList = () => {
                     <Label>Sexo</Label>
                     <Select value={formGender} onValueChange={setFormGender}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={5}>
                         <SelectItem value="male">Masculino</SelectItem>
                         <SelectItem value="female">Feminino</SelectItem>
                         <SelectItem value="other">Outro</SelectItem>
@@ -1295,7 +1295,7 @@ const PatientsList = () => {
                 </h4>
                 <Select value={formGoal} onValueChange={setFormGoal}>
                   <SelectTrigger><SelectValue placeholder="Selecione o objetivo" /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" sideOffset={5}>
                     <SelectItem value="weight_loss">Emagrecimento</SelectItem>
                     <SelectItem value="muscle_gain">Ganho de Massa Muscular</SelectItem>
                     <SelectItem value="maintenance">Manutenção</SelectItem>
