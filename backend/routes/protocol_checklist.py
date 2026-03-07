@@ -17,6 +17,11 @@ Endpoints:
   DELETE /api/professional/protocols/{patient_protocol_id}/sync-tasks
         Remove do checklist_tasks as tarefas geradas por este protocolo.
 
+  POST /api/patient/checklist/sync-protocols   [NOVO]
+        Endpoint acessível pelo PACIENTE logado.
+        Auto-sync: busca patient_protocols ativos e injeta tasks faltantes.
+        Chamado automaticamente ao abrir o checklist.
+
 Anti-duplicação:
   1. Preferencial: coluna protocol_task_id (índice único por patient_id)
   2. Fallback: título com marcador "[🎯 NomeProtocolo]" se colunas não existirem ainda
@@ -26,7 +31,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import os
 import httpx
 import logging
-from security.auth import get_current_user_with_db_role, CurrentUser
+from security.auth import get_current_user_with_db_role, get_current_user, CurrentUser
 from utils.structured_logger import log_operation
 
 logger = logging.getLogger(__name__)
@@ -409,4 +414,154 @@ async def remove_protocol_tasks_from_checklist(
     return {
         "removed": removed_count,
         "message": f"🗑️ {removed_count} tarefa(s) do protocolo removida(s) do checklist.",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/patient/checklist/sync-protocols
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/patient/checklist/sync-protocols")
+async def patient_auto_sync_protocols(
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Auto-sync: chamado pelo paciente ao abrir o checklist.
+
+    1. Busca patient_protocols ativos para o patient_id autenticado
+    2. Para cada protocolo ativo, busca protocol_tasks
+    3. Injeta tasks faltantes no checklist_tasks (idempotente, sem duplicação)
+    4. Retorna contagem total de tasks injetadas
+
+    Segurança: usa apenas o user_id do JWT (não aceita patient_id externo).
+    """
+    patient_id = current_user.user_id
+    total_injected = 0
+    total_skipped = 0
+    synced_protocols = []
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # 1. Buscar patient_protocols ativos para este paciente
+            pp_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/patient_protocols",
+                headers=_h(),
+                params={
+                    "patient_id": f"eq.{patient_id}",
+                    "status": "eq.active",
+                    "select": "id,protocol_id,protocols(id,name,category)",
+                },
+            )
+
+            if pp_resp.status_code != 200:
+                logger.warning(f"⚠️ auto-sync: falha ao buscar patient_protocols: {pp_resp.status_code}")
+                return {"injected": 0, "skipped": 0, "synced_protocols": [], "message": "OK (sem protocolos)"}
+
+            active_protocols = pp_resp.json()
+
+            if not active_protocols:
+                return {"injected": 0, "skipped": 0, "synced_protocols": [], "message": "OK (sem protocolos ativos)"}
+
+            # 2. Buscar checklist existente do paciente (para dedup global, 1 query apenas)
+            existing_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/checklist_tasks",
+                headers=_h(),
+                params={"patient_id": f"eq.{patient_id}", "select": "id,title,protocol_task_id"},
+            )
+            existing_tasks = existing_resp.json() if existing_resp.status_code == 200 else []
+            existing_protocol_task_ids = {
+                t.get("protocol_task_id") for t in existing_tasks if t.get("protocol_task_id")
+            }
+            existing_titles = {t["title"] for t in existing_tasks}
+
+            # 3. Para cada protocolo ativo, sincronizar tasks
+            for pp in active_protocols:
+                protocol_info = pp.get("protocols") or {}
+                protocol_name = protocol_info.get("name", "Protocolo")
+                protocol_id = pp.get("protocol_id")
+                patient_protocol_id = pp["id"]
+
+                # Buscar protocol_tasks ativas
+                pt_resp = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+                    headers=_h(),
+                    params={
+                        "protocol_id": f"eq.{protocol_id}",
+                        "active": "eq.true",
+                        "select": "id,title,description,frequency,order_index",
+                        "order": "order_index.asc",
+                    },
+                )
+
+                if pt_resp.status_code != 200:
+                    logger.warning(f"⚠️ auto-sync: falha ao buscar tasks do protocolo {protocol_name}")
+                    continue
+
+                protocol_tasks = pt_resp.json()
+                proto_injected = 0
+
+                for pt in protocol_tasks:
+                    task_title = pt.get("title", "").strip()
+                    if not task_title:
+                        continue
+
+                    pt_id = pt["id"]
+                    marked_title = f"[🎯 {protocol_name}] {task_title}"
+
+                    # Dedup camada 1: protocol_task_id
+                    if pt_id in existing_protocol_task_ids:
+                        total_skipped += 1
+                        continue
+
+                    # Dedup camada 2: título marcado
+                    if marked_title in existing_titles:
+                        total_skipped += 1
+                        continue
+
+                    # Inserir
+                    insert_payload = {
+                        "patient_id": patient_id,
+                        "title": marked_title,
+                        "completed": False,
+                        "source": "protocol",
+                        "protocol_task_id": pt_id,
+                        "patient_protocol_id": patient_protocol_id,
+                    }
+
+                    insert_resp = await client.post(
+                        f"{SUPABASE_URL}/rest/v1/checklist_tasks",
+                        headers={**_h(), "Prefer": "return=representation,resolution=ignore-duplicates"},
+                        json=insert_payload,
+                    )
+
+                    if insert_resp.status_code in (200, 201):
+                        proto_injected += 1
+                        total_injected += 1
+                        # Atualizar sets de dedup para próximas iterações
+                        existing_protocol_task_ids.add(pt_id)
+                        existing_titles.add(marked_title)
+                    elif insert_resp.status_code == 409:
+                        total_skipped += 1
+                    else:
+                        logger.warning(f"⚠️ auto-sync insert falhou ({insert_resp.status_code}): {task_title}")
+
+                if proto_injected > 0:
+                    synced_protocols.append({"name": protocol_name, "injected": proto_injected})
+
+        logger.info(
+            f"🔄 auto-sync paciente {patient_id}: "
+            f"{total_injected} injetadas, {total_skipped} já existiam, "
+            f"{len(active_protocols)} protocolo(s) ativo(s)"
+        )
+
+    except Exception as exc:
+        logger.error(f"❌ auto-sync error: {exc}")
+        # Não falhar o checklist — retornar silenciosamente
+        return {"injected": 0, "skipped": 0, "synced_protocols": [], "message": "OK (erro interno, silent)"}
+
+    return {
+        "injected": total_injected,
+        "skipped": total_skipped,
+        "synced_protocols": synced_protocols,
+        "message": f"OK ({total_injected} sincronizadas, {total_skipped} já existiam)",
     }

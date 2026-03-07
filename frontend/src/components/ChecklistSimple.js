@@ -7,6 +7,7 @@ import { CheckCircle2, Circle, Loader2, Plus, X, Edit2, Check, Sparkles, Flame, 
 import { getChecklistTasks, toggleChecklistTask, createChecklistTask, deleteChecklistTask, updateChecklistTask, createBulkChecklistTasks } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
+import { authenticatedPost } from '@/lib/apiClient';
 
 // 10 Sugestões de hábitos saudáveis padrão
 const DEFAULT_HEALTH_HABITS = [
@@ -40,6 +41,16 @@ const ChecklistSimple = ({ patientId, isPatientView = true }) => {
     
     setLoading(true);
     try {
+      // Auto-sync: se paciente, garantir que protocol_tasks estejam no checklist
+      if (isPatientView) {
+        try {
+          await authenticatedPost('/api/patient/checklist/sync-protocols', {});
+        } catch (syncErr) {
+          // Silencioso: não impede o carregamento do checklist
+          console.debug('Auto-sync protocols (silent):', syncErr?.message || syncErr);
+        }
+      }
+
       const { data, error } = await getChecklistTasks(patientId);
       if (error) throw error;
       setTasks(data || []);
