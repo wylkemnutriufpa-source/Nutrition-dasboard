@@ -40,31 +40,34 @@ Plataforma de nutrição full-stack (React + FastAPI + Supabase/PostgreSQL) com 
 - package_type e professional_id adicionados à subscription
 - Limite de 3 pacientes TRIAL removido
 - Diretórios duplicados removidos (lib/lib/, components/components/)
-- Select components com position="popper"
+- Select components com position="popper" nos formulários
 
 ### Fase 5 - Score de Prioridade do Paciente (2026-03-07) (DONE)
-- **Backend service**: `backend/services/patient_scoring.py`
-  - Score determinístico 0-100 com 6 fatores:
-    - checklist_adherence (40pts), recency_login (20pts), feedback (10pts), peso (10pts), fotos (10pts), protocolos (10pts)
-  - Faixas: green (80-100 Engajado), yellow (50-79 Atenção), red (0-49 Risco alto)
-  - Alertas acionáveis gerados automaticamente
-  - Handles missing data gracefully (neutral scores)
-- **Backend routes**: `backend/routes/patient_scoring.py`
-  - GET /api/scoring/patients/{id}/score (single)
-  - POST /api/scoring/patients/scores (batch, max 100)
-- **Frontend**: Score badge integrado na lista de pacientes
-  - Badge numérico colorido (verde/amarelo/vermelho)
-  - Label (Engajado/Atenção/Risco alto) + alertas
-  - Versão compacta em telas menores
-- **Ganchos para automação futura**: patient.score_dropped, patient.score_critical, patient.ready_for_next_phase
-- **Testes**: 100% (13/13 backend, todos frontend)
+- Backend service: backend/services/patient_scoring.py
+- Score 0-100 com 6 fatores (checklist 40, login 20, feedback 10, peso 10, fotos 10, protocolos 10)
+- API: GET /api/scoring/patients/{id}/score + POST /api/scoring/patients/scores (batch)
+- Frontend: Badge numérico colorido na lista de pacientes
+
+### Fase 6 - Fix Anamnese P0 (2026-03-07) (DONE)
+- **Causa raiz:** 12 SelectContent sem position="popper" causavam perda de foco e navegação indevida
+- **Correções aplicadas:**
+  - position="popper" em todos os 12 SelectContent do AnamneseFormComplete
+  - Autosave em localStorage como rascunho a cada mudança de campo
+  - Restauração automática do rascunho ao voltar à tela
+  - Guard beforeunload para prevenir perda ao fechar aba/refresh
+  - Guard popstate para interceptar botão voltar do browser
+  - Dialog de confirmação ao sair com dados não salvos
+  - Auto-save no servidor a cada 30s agora funciona para novas anamneses
+  - Removido showBack do Layout para evitar navegação acidental
+  - Callback onDirtyChange para comunicar estado ao componente pai
+  - Bug fix: cleanAnamnesisPayload adicionado ao supabase.js
+- **Testes:** 100% (11/11 frontend tests passed)
 
 ## Backlog (Priorizado)
 
 ### P1
 - Conectar protocol_tasks ao checklist diário do paciente (Projeto Biquíni Branco)
-- Integração com motor de automação (eventos do programa)
-- Automação de score: patient.score_dropped → notificar profissional
+- Integração com motor de automação (eventos do programa + score)
 
 ### P2
 - Evoluir Dashboard do Paciente (fotos comparativas, gráficos de peso)
