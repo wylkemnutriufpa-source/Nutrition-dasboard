@@ -199,8 +199,9 @@ async def sync_protocol_tasks_to_checklist(
             headers=_h(),
             params={
                 "protocol_id": f"eq.{pp['protocol_id']}",
-                "select": "id,title,description,day_number,order",
-                "order": "day_number.asc,order.asc",
+                "active": "eq.true",
+                "select": "id,title,description,frequency,order_index",
+                "order": "order_index.asc",
             },
         )
 
