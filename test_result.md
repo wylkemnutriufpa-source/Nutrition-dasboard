@@ -991,32 +991,32 @@ agent_communication:
          └─ Screenshot: p1_login.png
       
       ✅ P2: /patient/meal-plan sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p2_mealplan_redirect.png
       
       ✅ P3: /patient/dashboard sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p3_dashboard_redirect.png
       
       ✅ P4: /professional/dashboard sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p4_professional_redirect.png
       
       ✅ P5: /admin/dashboard sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p5_admin_redirect.png
       
       ✅ P6: /professional/patients sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p6_professional_patients_redirect.png
       
       ✅ P7: /admin/features sem auth → redirect para /
-         └─ URL final: https://fitjourney-login.preview.emergentagent.com/
+         └─ URL final: https://fix-anamne-patch.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p7_admin_features_redirect.png
       
@@ -1711,3 +1711,50 @@ agent_communication:
       ✅ Formatos de resposta sync-tasks e remove-tasks corretos
       
       PROTOCOL → CHECKLIST INTEGRATION: 100% SEGURO E FUNCIONANDO ✅
+
+
+  - agent: "main"
+    message: |
+      BUG FIX: Anamnese PATCH 400 Bad Request + "body stream already read"
+      
+      CAUSA RAIZ IDENTIFICADA E CONFIRMADA VIA TESTES DIRETOS NO SUPABASE:
+      
+      1. cleanAnamnesisPayload usava BLACKLIST (removia apenas alguns campos)
+         Campos inválidos que passavam para o PATCH:
+         - id (PK do registro, vinha do select('*'))
+         - waist_circumference (campo do formulário, NÃO é coluna)
+         - hip_circumference (campo do formulário, NÃO é coluna)
+         - blood_pressure (campo do formulário, NÃO é coluna)
+         - heart_rate (campo do formulário, NÃO é coluna)
+         - weight (campo do formulário, NÃO é coluna)
+         - current_weight, height, goal_weight (campos patient_profiles)
+         - _draft_saved_at (UI-only)
+         
+         Supabase retorna: 400 PGRST204 "Could not find the 'X' column"
+      
+      2. extractSafeError não preservava status do erro
+         - Fallback para last_edited_by nunca era ativado (status === undefined)
+      
+      3. no_medical_conditions (coluna REAL da tabela) estava em excludeFields
+         - Nunca era salvo nas atualizações
+      
+      CORREÇÕES APLICADAS (arquivo: frontend/src/lib/supabase.js):
+      
+      A. cleanAnamnesisPayload: Mudou de BLACKLIST → WHITELIST
+         - ANAMNESIS_VALID_COLUMNS: Set com todas as 62 colunas reais da tabela
+         - Apenas colunas válidas passam para o payload
+         - id, patient_id, professional_id, created_at filtrados automaticamente
+      
+      B. extractSafeError: Preserva status
+         - safe.status = Number(error.status || error.statusCode || 0)
+         - Fallback para last_edited_by agora funciona se necessário
+      
+      C. updateAnamnesis: delete cleanUpdates.id (defesa em profundidade)
+      
+      D. createAnamnesis: Re-adiciona patient_id e professional_id após whitelist
+      
+      E. no_medical_conditions: Incluído no whitelist (é coluna real)
+      
+      VALIDAÇÃO DIRETA NO SUPABASE:
+      - PATCH com waist_circumference → 400 PGRST204 (confirmou o bug)
+      - PATCH com sleep_quality + no_medical_conditions → 204 OK (confirmou o fix)

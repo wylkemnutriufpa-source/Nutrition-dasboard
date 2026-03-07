@@ -22,7 +22,7 @@ import sys
 from datetime import datetime
 
 # Backend URL from frontend/.env
-BACKEND_URL = "https://fitjourney-login.preview.emergentagent.com"
+BACKEND_URL = "https://fix-anamne-patch.preview.emergentagent.com"
 
 # Test constants
 PATIENT_ID = "12345678-1234-1234-1234-123456789abc"
