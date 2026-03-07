@@ -56,6 +56,11 @@ def _require_professional_or_admin(current_user: CurrentUser):
         raise HTTPException(status_code=403, detail="Acesso negado: requer professional ou admin")
 
 
+def _require_patient(current_user: CurrentUser):
+    if current_user.app_role != "patient":
+        raise HTTPException(status_code=403, detail="Acesso negado: exclusivo para pacientes")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /api/professional/protocols/list
 # ─────────────────────────────────────────────────────────────────────────────
@@ -127,7 +132,7 @@ async def get_patient_active_protocols(
             headers=_h(),
             params={
                 "patient_id": f"eq.{patient_id}",
-                "select": "id,protocol_id,status,start_date,end_date,progress_day,protocols(id,name,category)",
+                "select": "id,protocol_id,status,start_date,end_date,progress_day,protocols(name,category)",
                 "order": "created_at.desc",
             },
         )
@@ -201,7 +206,7 @@ async def sync_protocol_tasks_to_checklist(
             headers=_h(),
             params={
                 "id": f"eq.{patient_protocol_id}",
-                "select": "id,patient_id,protocol_id,status,protocols(id,name,category)",
+                "select": "id,patient_id,protocol_id,status,protocols(name)",
             },
         )
 
@@ -400,7 +405,8 @@ async def remove_protocol_tasks_from_checklist(
             logger.info(f"🗑️ Removeu {len(removed_by_col)} tasks via patient_protocol_id")
 
         # Estratégia 2 (fallback): delete por prefixo de título
-        if protocol_name:
+        # Só executa se Strategy 1 não removeu nada (patient_protocol_id ausente ou não indexado)
+        if removed_count == 0 and protocol_name:
             prefix = f"[🎯 {protocol_name}]"
             # Buscar tasks com esse prefixo
             find_resp = await client.get(
@@ -444,7 +450,7 @@ async def remove_protocol_tasks_from_checklist(
 
 @router.post("/patient/checklist/sync-protocols")
 async def patient_auto_sync_protocols(
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
 ):
     """
     Auto-sync: chamado pelo paciente ao abrir o checklist.
@@ -454,8 +460,10 @@ async def patient_auto_sync_protocols(
     3. Injeta tasks faltantes no checklist_tasks (idempotente, sem duplicação)
     4. Retorna contagem total de tasks injetadas
 
-    Segurança: usa apenas o user_id do JWT (não aceita patient_id externo).
+    Segurança: requer app_role = patient (verificado via profiles).
+               Usa apenas o user_id do JWT (não aceita patient_id externo).
     """
+    _require_patient(current_user)
     patient_id = current_user.user_id
     total_injected = 0
     total_skipped = 0
@@ -470,7 +478,7 @@ async def patient_auto_sync_protocols(
                 params={
                     "patient_id": f"eq.{patient_id}",
                     "status": "eq.active",
-                    "select": "id,protocol_id,protocols(id,name,category)",
+                    "select": "id,protocol_id,protocols(name)",
                 },
             )
 
