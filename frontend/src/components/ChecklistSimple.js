@@ -36,29 +36,36 @@ const ChecklistSimple = ({ patientId, isPatientView = true }) => {
     loadTasks();
   }, [patientId]);
 
-  const loadTasks = async () => {
+  const loadTasks = async (isPostSyncReload = false) => {
     if (!patientId) return;
-    
-    setLoading(true);
-    try {
-      // Auto-sync: se paciente, garantir que protocol_tasks estejam no checklist
-      if (isPatientView) {
-        try {
-          await authenticatedPost('/api/patient/checklist/sync-protocols', {});
-        } catch (syncErr) {
-          // Silencioso: não impede o carregamento do checklist
-          console.debug('Auto-sync protocols (silent):', syncErr?.message || syncErr);
-        }
-      }
 
+    // Exibir spinner apenas no carregamento inicial, não no re-fetch pós-sync
+    if (!isPostSyncReload) setLoading(true);
+
+    // Fire-and-forget: dispara sem await para não bloquear a UI.
+    // Se o sync injetar tasks novas, faz um re-fetch silencioso ao terminar.
+    if (isPatientView && !isPostSyncReload) {
+      authenticatedPost('/api/patient/checklist/sync-protocols', {})
+        .then(result => {
+          if ((result?.injected ?? 0) > 0) {
+            // Novas tasks de protocolo foram injetadas — atualizar lista sem spinner
+            loadTasks(true);
+          }
+        })
+        .catch(err => console.debug('Auto-sync protocols (silent):', err?.message || err));
+    }
+
+    try {
       const { data, error } = await getChecklistTasks(patientId);
       if (error) throw error;
       setTasks(data || []);
     } catch (error) {
-      console.error('Erro ao carregar tarefas:', error);
-      toast.error('Erro ao carregar checklist');
+      if (!isPostSyncReload) {
+        console.error('Erro ao carregar tarefas:', error);
+        toast.error('Erro ao carregar checklist');
+      }
     } finally {
-      setLoading(false);
+      if (!isPostSyncReload) setLoading(false);
     }
   };
 
