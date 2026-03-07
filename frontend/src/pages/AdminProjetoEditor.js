@@ -14,10 +14,11 @@ import {
   CheckCircle, Zap, Target, Gift, Star, Heart,
   ArrowRight, ChevronRight, Gem, ExternalLink,
   Layout as LayoutIcon, Type, Package, MessageSquare,
-  Settings, Palette
+  Settings, Palette, PlayCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { authenticatedGet } from '@/lib/apiClient';
 
 const AdminProjetoEditor = () => {
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,11 @@ const AdminProjetoEditor = () => {
   const [activeTab, setActiveTab] = useState('hero');
   const fileInputRef = useRef(null);
   const [uploadingImage, setUploadingImage] = useState(null);
+
+  // Estado da aba Protocolos
+  const [protocols, setProtocols] = useState([]);
+  const [protocolsLoading, setProtocolsLoading] = useState(false);
+  const [protocolPatientCounts, setProtocolPatientCounts] = useState({});
   
   const [projectData, setProjectData] = useState({
     // Hero Section
@@ -328,6 +334,36 @@ const AdminProjetoEditor = () => {
     }
   };
 
+  // Carrega protocolos apenas quando a aba é acessada pela primeira vez
+  useEffect(() => {
+    if (activeTab !== 'protocolos' || protocols.length > 0) return;
+    const load = async () => {
+      setProtocolsLoading(true);
+      try {
+        const data = await authenticatedGet('/api/professional/protocols/list');
+        const list = data?.protocols || [];
+        setProtocols(list);
+        if (list.length > 0) {
+          const { data: ppRows } = await supabase
+            .from('patient_protocols')
+            .select('protocol_id')
+            .eq('status', 'active');
+          if (ppRows) {
+            const counts = {};
+            ppRows.forEach(r => { counts[r.protocol_id] = (counts[r.protocol_id] || 0) + 1; });
+            setProtocolPatientCounts(counts);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar protocolos:', err);
+        toast.error('Não foi possível carregar os protocolos.');
+      } finally {
+        setProtocolsLoading(false);
+      }
+    };
+    load();
+  }, [activeTab, protocols.length]);
+
   // Tab configuration
   const tabs = [
     { id: 'hero', label: 'Hero', icon: Sparkles, gradient: 'from-pink-500 to-rose-500' },
@@ -335,7 +371,8 @@ const AdminProjetoEditor = () => {
     { id: 'conteudo', label: 'Conteúdo', icon: LayoutIcon, gradient: 'from-blue-500 to-cyan-500' },
     { id: 'planos', label: 'Planos', icon: Package, gradient: 'from-amber-500 to-orange-500' },
     { id: 'depoimentos', label: 'Depoimentos', icon: MessageSquare, gradient: 'from-green-500 to-emerald-500' },
-    { id: 'faq', label: 'FAQ', icon: HelpCircle, gradient: 'from-teal-500 to-cyan-500' }
+    { id: 'faq', label: 'FAQ', icon: HelpCircle, gradient: 'from-teal-500 to-cyan-500' },
+    { id: 'protocolos', label: 'Protocolos', icon: Zap, gradient: 'from-violet-500 to-purple-600' },
   ];
 
   if (loading) {
@@ -1106,6 +1143,98 @@ const AdminProjetoEditor = () => {
               Adicionar Pergunta
             </Button>
           </TabsContent>
+
+          {/* ==================== TAB PROTOCOLOS ==================== */}
+          <TabsContent value="protocolos" className="space-y-4 mt-4">
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-violet-500 to-purple-600" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-purple-600" />
+                  Catálogo de Protocolos
+                </CardTitle>
+                <CardDescription>
+                  Protocolos disponíveis para ativação no Projeto Biquíni Branco.
+                  Para ativar em um paciente, acesse o perfil dele → aba Projeto.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {protocolsLoading ? (
+                  <div className="flex items-center gap-3 py-8 justify-center text-gray-400">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Carregando protocolos...</span>
+                  </div>
+                ) : protocols.length === 0 ? (
+                  <div className="text-center py-10 border border-dashed border-purple-200 rounded-xl bg-purple-50">
+                    <Zap className="w-10 h-10 text-purple-300 mx-auto mb-3" />
+                    <p className="font-semibold text-purple-700">Nenhum protocolo cadastrado.</p>
+                    <p className="text-sm text-purple-500 mt-1">Crie protocolos via painel administrativo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {protocols.map((p) => {
+                      const activeCount = protocolPatientCounts[p.id] || 0;
+                      return (
+                        <div key={p.id}
+                          className="flex items-center justify-between p-4 bg-gray-50 hover:bg-purple-50 rounded-xl border border-gray-200 hover:border-purple-200 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                              <PlayCircle className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900">{p.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {p.category && <span className="mr-2">{p.category}</span>}
+                                {p.default_duration_days && <span className="mr-2">⏱ {p.default_duration_days} dias</span>}
+                                {p.task_count != null && <span>📋 {p.task_count} tarefa(s)</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-2xl font-black text-purple-600">{activeCount}</p>
+                            <p className="text-[11px] text-gray-400 whitespace-nowrap">
+                              {activeCount === 1 ? 'paciente ativo' : 'pacientes ativos'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Resumo operacional */}
+            {protocols.length > 0 && (
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <div className="h-2 bg-gradient-to-r from-violet-500 to-purple-600" />
+                <CardContent className="pt-5">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">{protocols.length}</p>
+                      <p className="text-xs text-purple-500 mt-1">Protocolos no catálogo</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">
+                        {Object.values(protocolPatientCounts).reduce((a, b) => a + b, 0)}
+                      </p>
+                      <p className="text-xs text-purple-500 mt-1">Ativações ativas</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">
+                        {protocols.reduce((s, p) => s + (p.task_count || 0), 0)}
+                      </p>
+                      <p className="text-xs text-purple-500 mt-1">Tasks no catálogo</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center mt-4">
+                    Para ativar um protocolo em um paciente, acesse: <strong>Pacientes → Perfil → aba Projeto → Protocolos</strong>
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
         </Tabs>
       </div>
     </Layout>

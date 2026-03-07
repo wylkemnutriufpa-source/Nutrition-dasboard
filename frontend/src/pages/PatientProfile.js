@@ -793,8 +793,10 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
   const [availableProtocols, setAvailableProtocols] = useState([]);
   const [activePatientProtocols, setActivePatientProtocols] = useState([]);
   const [loadingProtocols, setLoadingProtocols] = useState(false);
-  const [activatingProtocol, setActivatingProtocol] = useState(null); // id do protocolo sendo ativado
-  const [deactivatingProtocol, setDeactivatingProtocol] = useState(null); // id do patient_protocol sendo desativado
+  const [activatingProtocol, setActivatingProtocol] = useState(null);
+  const [deactivatingProtocol, setDeactivatingProtocol] = useState(null);
+  const [schedulingProtocol, setSchedulingProtocol] = useState(null); // id do protocolo com painel aberto
+  const [scheduleDate, setScheduleDate] = useState(''); // data para programação futura
 
   useEffect(() => {
     loadProtocols();
@@ -823,25 +825,33 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
     activePatientProtocols.filter(p => p.status === 'active').map(p => p.protocol_id)
   );
 
-  const handleActivateProtocol = async (protocolId) => {
+  const handleActivateProtocol = async (protocolId, startDate = null) => {
     setActivatingProtocol(protocolId);
     try {
       const { authenticatedPost } = await import('@/lib/apiClient');
       const result = await authenticatedPost('/api/professional/protocols/activate', {
         patient_id: patientId,
         protocol_id: protocolId,
+        ...(startDate ? { start_date: startDate } : {}),
       });
+      const isScheduled = result?.status === 'scheduled';
       const injected = result?.tasks_injected ?? 0;
-      toast.success(
-        injected > 0
-          ? `✅ Protocolo ativado! ${injected} tarefa(s) adicionada(s) ao checklist do paciente.`
-          : '✅ Protocolo ativado! (Sem tasks cadastradas no protocolo ainda)'
-      );
-      await loadProtocols(); // Recarregar estado
+      if (isScheduled) {
+        const dateLabel = new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR');
+        toast.success(`📅 Protocolo programado para ${dateLabel}!`);
+      } else {
+        toast.success(
+          injected > 0
+            ? `✅ Protocolo ativado! ${injected} tarefa(s) adicionada(s) ao checklist.`
+            : '✅ Protocolo ativado! (Sem tasks cadastradas ainda)'
+        );
+      }
+      setSchedulingProtocol(null);
+      setScheduleDate('');
+      await loadProtocols();
     } catch (error) {
       console.error('Erro ao ativar protocolo:', error);
-      const msg = error?.message || error?.detail || 'Erro ao ativar protocolo';
-      toast.error(msg);
+      toast.error(error?.message || error?.detail || 'Erro ao ativar protocolo');
     } finally {
       setActivatingProtocol(null);
     }
@@ -884,13 +894,201 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
 
   return (
     <div className="space-y-6">
-      {/* Configuração do Menu */}
-      <MenuConfigEditor 
-        patientId={patientId} 
-        professionalId={professionalId}
-      />
 
-      {/* Configuração da Jornada */}
+      {/* ══════════════════════════════════════════════════════
+          1. PROTOCOLOS — destaque, sempre primeiro
+      ══════════════════════════════════════════════════════ */}
+      <Card className="border-purple-200 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100 pb-4">
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <Zap className="w-5 h-5 text-purple-600" />
+            Protocolos do Programa
+          </CardTitle>
+          <p className="text-sm text-purple-600 mt-0.5">
+            Ative ou programe protocolos para guiar a jornada do paciente.
+            As tarefas são adicionadas automaticamente ao checklist diário.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5 pt-5">
+
+          {/* Ativos */}
+          {activePatientProtocols.filter(p => p.status === 'active').length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-green-500 rounded-full inline-block" />
+                Ativos agora
+              </p>
+              <div className="space-y-2">
+                {activePatientProtocols.filter(p => p.status === 'active').map((pp) => (
+                  <div key={pp.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">🟢</span>
+                      <div>
+                        <p className="font-semibold text-green-900 text-sm">{pp.protocol_name}</p>
+                        <p className="text-xs text-green-700">
+                          {pp.protocol_category}
+                          {pp.start_date && ` • Início: ${new Date(pp.start_date + 'T12:00:00').toLocaleDateString('pt-BR')}`}
+                          {pp.injected_tasks > 0 && ` • ${pp.injected_tasks} task(s) no checklist`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button size="sm" variant="outline"
+                        className="text-xs border-green-300 text-green-700 hover:bg-green-100"
+                        onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}>
+                        🔄 Sync
+                      </Button>
+                      <Button size="sm" variant="outline"
+                        className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                        disabled={deactivatingProtocol === pp.id}
+                        onClick={() => handleDeactivateProtocol(pp.id)}>
+                        {deactivatingProtocol === pp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Desativar'}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Programados */}
+          {activePatientProtocols.filter(p => p.status === 'scheduled').length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-blue-400 rounded-full inline-block" />
+                Programados
+              </p>
+              <div className="space-y-2">
+                {activePatientProtocols.filter(p => p.status === 'scheduled').map((pp) => (
+                  <div key={pp.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start gap-2">
+                      <span className="text-base">📅</span>
+                      <div>
+                        <p className="font-semibold text-blue-900 text-sm">{pp.protocol_name}</p>
+                        <p className="text-xs text-blue-600">
+                          {pp.protocol_category}
+                          {pp.start_date && ` • Início em: ${new Date(pp.start_date + 'T12:00:00').toLocaleDateString('pt-BR')}`}
+                          {pp.end_date && ` → ${new Date(pp.end_date + 'T12:00:00').toLocaleDateString('pt-BR')}`}
+                        </p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline"
+                      className="text-xs border-red-200 text-red-500 hover:bg-red-50 flex-shrink-0"
+                      disabled={deactivatingProtocol === pp.id}
+                      onClick={() => handleDeactivateProtocol(pp.id)}>
+                      {deactivatingProtocol === pp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Cancelar'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Catálogo: disponíveis */}
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+              {loadingProtocols ? 'Carregando...' : `Disponíveis (${availableProtocols.length})`}
+            </p>
+            {loadingProtocols ? (
+              <div className="flex items-center gap-2 py-4 text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Carregando protocolos...</span>
+              </div>
+            ) : availableProtocols.length === 0 ? (
+              <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
+                <p className="text-sm text-gray-500">Nenhum protocolo cadastrado ainda.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {availableProtocols.map((protocol) => {
+                  const isActive = activeProtocolIds.has(protocol.id);
+                  const isActivating = activatingProtocol === protocol.id;
+                  const isSchedulingThis = schedulingProtocol === protocol.id;
+                  const today = new Date().toISOString().split('T')[0];
+                  return (
+                    <div key={protocol.id}
+                      className={`rounded-lg border transition-colors ${isActive ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center justify-between p-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-900 text-sm">{protocol.name}</p>
+                            {isActive && <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">ATIVO</span>}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {protocol.category}
+                            {protocol.default_duration_days && ` • ${protocol.default_duration_days} dias`}
+                            {protocol.task_count != null && ` • ${protocol.task_count} tarefa(s)`}
+                          </p>
+                        </div>
+                        {!isActive && (
+                          <Button size="sm" disabled={isActivating}
+                            onClick={() => { setSchedulingProtocol(isSchedulingThis ? null : protocol.id); setScheduleDate(''); }}
+                            className="bg-purple-600 hover:bg-purple-700 text-white flex-shrink-0">
+                            {isActivating ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Ativando...</> : <><PlayCircle className="w-3 h-3 mr-1" />Ativar</>}
+                          </Button>
+                        )}
+                      </div>
+                      {isSchedulingThis && !isActive && (
+                        <div className="px-3 pb-3">
+                          <div className="bg-white rounded-lg border border-purple-200 p-3 space-y-2">
+                            <p className="text-xs font-semibold text-purple-800">Escolha quando iniciar:</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <Input type="date" className="text-xs h-7 w-36 border-gray-300"
+                                  value={scheduleDate} min={today}
+                                  onChange={(e) => setScheduleDate(e.target.value)} />
+                              </div>
+                              <Button size="sm" disabled={isActivating}
+                                onClick={() => handleActivateProtocol(protocol.id, null)}
+                                className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-7 px-3">
+                                {isActivating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Ativar agora'}
+                              </Button>
+                              <Button size="sm" variant="outline"
+                                disabled={!scheduleDate || isActivating}
+                                onClick={() => handleActivateProtocol(protocol.id, scheduleDate)}
+                                className="border-blue-300 text-blue-700 hover:bg-blue-50 text-xs h-7 px-3">
+                                {isActivating ? <Loader2 className="w-3 h-3 animate-spin" /> : '📅 Programar'}
+                              </Button>
+                              <Button size="sm" variant="ghost"
+                                onClick={() => { setSchedulingProtocol(null); setScheduleDate(''); }}
+                                className="text-gray-400 hover:text-gray-600 text-xs h-7 px-2">
+                                Cancelar
+                              </Button>
+                            </div>
+                            {scheduleDate && new Date(scheduleDate + 'T12:00:00') > new Date() && (
+                              <p className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                                📅 Programado para {new Date(scheduleDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })} — tasks adicionadas ao checklist nesta data.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Como funciona:</strong> Ao ativar, as tarefas são adicionadas ao checklist imediatamente.
+              Ao programar, o protocolo aparece como <em>Programado</em> e inicia na data escolhida.
+              Use <strong>🔄 Sync</strong> para forçar reinjection se necessário.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ══════════════════════════════════════════════════════
+          2. CONFIGURAÇÃO DO MENU
+      ══════════════════════════════════════════════════════ */}
+      <MenuConfigEditor patientId={patientId} professionalId={professionalId} />
+
+      {/* ══════════════════════════════════════════════════════
+          3. CONFIGURAR JORNADA
+      ══════════════════════════════════════════════════════ */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -908,65 +1106,41 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Nome do Projeto/Plano</Label>
-                  <Input
-                    value={journeyForm.plan_name}
+                  <Input value={journeyForm.plan_name}
                     onChange={(e) => setJourneyForm({ ...journeyForm, plan_name: e.target.value })}
-                    placeholder="Ex: Projeto Biquíni Branco - 90 dias"
-                  />
+                    placeholder="Ex: Projeto Biquíni Branco - 90 dias" />
                 </div>
                 <div>
                   <Label>Data de Início</Label>
-                  <Input
-                    type="date"
-                    value={journeyForm.plan_start_date}
-                    onChange={(e) => setJourneyForm({ ...journeyForm, plan_start_date: e.target.value })}
-                  />
+                  <Input type="date" value={journeyForm.plan_start_date}
+                    onChange={(e) => setJourneyForm({ ...journeyForm, plan_start_date: e.target.value })} />
                 </div>
                 <div>
                   <Label>Data de Término</Label>
-                  <Input
-                    type="date"
-                    value={journeyForm.plan_end_date}
-                    onChange={(e) => setJourneyForm({ ...journeyForm, plan_end_date: e.target.value })}
-                  />
+                  <Input type="date" value={journeyForm.plan_end_date}
+                    onChange={(e) => setJourneyForm({ ...journeyForm, plan_end_date: e.target.value })} />
                 </div>
                 <div>
                   <Label>Peso Inicial (kg)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={journeyForm.initial_weight}
+                  <Input type="number" step="0.1" value={journeyForm.initial_weight}
                     onChange={(e) => setJourneyForm({ ...journeyForm, initial_weight: e.target.value })}
-                    placeholder="Ex: 75.5"
-                  />
+                    placeholder="Ex: 75.5" />
                 </div>
                 <div>
                   <Label>Peso Meta (kg)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={journeyForm.target_weight}
+                  <Input type="number" step="0.1" value={journeyForm.target_weight}
                     onChange={(e) => setJourneyForm({ ...journeyForm, target_weight: e.target.value })}
-                    placeholder="Ex: 65.0"
-                  />
+                    placeholder="Ex: 65.0" />
                 </div>
                 <div className="col-span-2">
                   <Label>Observações</Label>
-                  <Textarea
-                    value={journeyForm.notes}
+                  <Textarea value={journeyForm.notes}
                     onChange={(e) => setJourneyForm({ ...journeyForm, notes: e.target.value })}
-                    placeholder="Anotações sobre o projeto do paciente..."
-                    rows={3}
-                  />
+                    placeholder="Anotações sobre o projeto do paciente..." rows={3} />
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
-                <Button 
-                  onClick={handleSaveJourney} 
-                  disabled={saving}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700"
-                >
+                <Button onClick={handleSaveJourney} disabled={saving} className="flex-1 bg-teal-600 hover:bg-teal-700">
                   <Save size={16} className="mr-2" />
                   {saving ? 'Salvando...' : 'Salvar Configuração da Jornada'}
                 </Button>
@@ -977,7 +1151,9 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
         </CardContent>
       </Card>
 
-      {/* Plano Financeiro do Paciente */}
+      {/* ══════════════════════════════════════════════════════
+          4. PLANO FINANCEIRO — card correto e completo
+      ══════════════════════════════════════════════════════ */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -989,21 +1165,15 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Nome do Plano</Label>
-              <Input
-                value={planForm.plan_name}
+              <Input value={planForm.plan_name}
                 onChange={(e) => setPlanForm({ ...planForm, plan_name: e.target.value })}
-                placeholder="Ex: Projeto Biquíni Branco - Trimestral"
-              />
+                placeholder="Ex: Projeto Biquíni Branco - Trimestral" />
             </div>
             <div>
               <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={planForm.plan_price}
+              <Input type="number" step="0.01" value={planForm.plan_price}
                 onChange={(e) => setPlanForm({ ...planForm, plan_price: e.target.value })}
-                placeholder="Ex: 200,00"
-              />
+                placeholder="Ex: 200,00" />
             </div>
             <div>
               <Label>Status do Pagamento</Label>
@@ -1018,156 +1188,13 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
             </div>
             <div>
               <Label>Data de Início</Label>
-              <Input type="date" value={planForm.start_date} onChange={(e) => setPlanForm({ ...planForm, start_date: e.target.value })} />
+              <Input type="date" value={planForm.start_date}
+                onChange={(e) => setPlanForm({ ...planForm, start_date: e.target.value })} />
             </div>
-
-
-      {/* 🎯 SEÇÃO: PROTOCOLOS ATIVOS - CONTROLE DO PROFISSIONAL */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-purple-600" />
-            Protocolos do Programa
-          </CardTitle>
-          <p className="text-sm text-gray-600 mt-1">
-            Ative protocolos para guiar a jornada do paciente no Projeto Biquíni Branco.
-            As tarefas do protocolo são automaticamente adicionadas ao checklist diário.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-
-          {/* Protocolos já ativos do paciente */}
-          {activePatientProtocols.filter(p => p.status === 'active').length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ativos agora</p>
-              <div className="space-y-2">
-                {activePatientProtocols.filter(p => p.status === 'active').map((pp) => (
-                  <div key={pp.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg">🟣</span>
-                      <div>
-                        <p className="font-semibold text-purple-900 text-sm">{pp.protocol_name}</p>
-                        <p className="text-xs text-purple-600">
-                          {pp.protocol_category}
-                          {pp.start_date && ` • Início: ${new Date(pp.start_date).toLocaleDateString('pt-BR')}`}
-                          {pp.injected_tasks > 0 && ` • ${pp.injected_tasks} task(s) no checklist`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-100"
-                        onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}
-                        title="Sincronizar tarefas no checklist"
-                      >
-                        🔄 Sync
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs border-red-200 text-red-600 hover:bg-red-50"
-                        disabled={deactivatingProtocol === pp.id}
-                        onClick={() => handleDeactivateProtocol(pp.id)}
-                      >
-                        {deactivatingProtocol === pp.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          'Desativar'
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Lista de protocolos disponíveis */}
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              {loadingProtocols ? 'Carregando protocolos...' : `Disponíveis (${availableProtocols.length})`}
-            </p>
-
-            {loadingProtocols ? (
-              <div className="flex items-center gap-2 py-4 text-gray-400">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Carregando...</span>
-              </div>
-            ) : availableProtocols.length === 0 ? (
-              <div className="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
-                <p className="text-sm text-gray-500">Nenhum protocolo cadastrado ainda.</p>
-                <p className="text-xs text-gray-400 mt-1">Crie protocolos na área administrativa para ativá-los aqui.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {availableProtocols.map((protocol) => {
-                  const isActive = activeProtocolIds.has(protocol.id);
-                  const isActivating = activatingProtocol === protocol.id;
-                  return (
-                    <div
-                      key={protocol.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                        isActive
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-gray-50 border-gray-200 hover:border-purple-300'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-900 text-sm">{protocol.name}</p>
-                          {isActive && (
-                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">ATIVO</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          {protocol.category}
-                          {protocol.default_duration_days && ` • ${protocol.default_duration_days} dias`}
-                          {protocol.task_count != null && ` • ${protocol.task_count} tarefa(s)`}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        disabled={isActive || isActivating}
-                        onClick={() => handleActivateProtocol(protocol.id)}
-                        className={isActive
-                          ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                          : 'bg-purple-600 hover:bg-purple-700 text-white'
-                        }
-                      >
-                        {isActivating ? (
-                          <>
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            Ativando...
-                          </>
-                        ) : isActive ? (
-                          '✓ Ativo'
-                        ) : (
-                          <>
-                            <PlayCircle className="w-3 h-3 mr-1" />
-                            Ativar
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>💡 Como funciona:</strong> Ao ativar um protocolo, as tarefas são automaticamente adicionadas ao checklist diário do paciente em <strong>"Minha Jornada"</strong>. Use o botão 🔄 Sync para sincronizar novamente se necessário.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
             <div>
               <Label>Data de Término</Label>
-              <Input type="date" value={planForm.end_date} onChange={(e) => setPlanForm({ ...planForm, end_date: e.target.value })} />
+              <Input type="date" value={planForm.end_date}
+                onChange={(e) => setPlanForm({ ...planForm, end_date: e.target.value })} />
             </div>
             <div>
               <Label>Status do Plano</Label>
@@ -1182,12 +1209,9 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
             </div>
             <div className="col-span-2">
               <Label>Observações Financeiras</Label>
-              <Textarea
-                value={planForm.notes}
+              <Textarea value={planForm.notes}
                 onChange={(e) => setPlanForm({ ...planForm, notes: e.target.value })}
-                placeholder="Ex: Parcelado em 3x, desconto de indicação..."
-                rows={2}
-              />
+                placeholder="Ex: Parcelado em 3x, desconto de indicação..." rows={2} />
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1199,6 +1223,7 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
           </div>
         </CardContent>
       </Card>
+
     </div>
   );
 };

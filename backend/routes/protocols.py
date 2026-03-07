@@ -58,7 +58,7 @@ async def get_active_protocols(
         )
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # Buscar patient_protocols ativos
             pp_resp = await client.get(
                 f"{SUPABASE_URL}/rest/v1/patient_protocols",
@@ -129,7 +129,7 @@ async def get_protocol_details(
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # Buscar patient_protocol
             pp_resp = await client.get(
                 f"{SUPABASE_URL}/rest/v1/patient_protocols",
@@ -171,7 +171,7 @@ async def activate_protocol(
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # Buscar protocolo
             protocol_resp = await client.get(
                 f"{SUPABASE_URL}/rest/v1/protocols",
@@ -188,10 +188,13 @@ async def activate_protocol(
             
             protocol = protocols[0]
             
-            # Calcular datas
+            # Calcular datas e determinar status
             start = request.start_date or date.today().isoformat()
+            start_date_obj = date.fromisoformat(start)
+            # Protocolo futuro → scheduled; hoje ou passado → active imediatamente
+            proto_status = "scheduled" if start_date_obj > date.today() else "active"
             duration = request.duration_days or protocol.get('default_duration_days', 30)
-            end = (date.fromisoformat(start) + timedelta(days=duration)).isoformat()
+            end = (start_date_obj + timedelta(days=duration)).isoformat()
             
             # Criar patient_protocol
             pp_resp = await client.post(
@@ -201,7 +204,7 @@ async def activate_protocol(
                     "patient_id": request.patient_id,
                     "protocol_id": request.protocol_id,
                     "org_id": current_user.user_id,  # professional_id
-                    "status": "active",
+                    "status": proto_status,
                     "start_date": start,
                     "end_date": end,
                     "progress_day": 0
@@ -218,23 +221,27 @@ async def activate_protocol(
             patient_protocol = pp_resp.json()[0]
             patient_protocol_id = patient_protocol["id"]
 
-            # 🎯 AUTO SYNC: Injetar protocol_tasks no checklist do paciente
+            # 🎯 AUTO SYNC: só injeta tasks se o protocolo começa hoje (status=active)
             sync_result = {"injected": 0, "skipped": 0}
-            try:
-                from routes.protocol_checklist import sync_protocol_tasks_to_checklist
+            if proto_status == "active":
+                try:
+                    from routes.protocol_checklist import sync_protocol_tasks_to_checklist
 
-                # Criar um CurrentUser simulado para o sync interno
-                sync_result = await sync_protocol_tasks_to_checklist(
-                    patient_protocol_id=patient_protocol_id,
-                    current_user=current_user,
-                )
+                    sync_result = await sync_protocol_tasks_to_checklist(
+                        patient_protocol_id=patient_protocol_id,
+                        current_user=current_user,
+                    )
+                    logger.info(
+                        f"✅ Auto-sync: {sync_result.get('injected', 0)} tasks injetadas no checklist "
+                        f"de {request.patient_id} via protocolo '{protocol.get('name')}'"
+                    )
+                except Exception as sync_err:
+                    logger.warning(f"⚠️ Auto-sync falhou (não crítico): {sync_err}")
+            else:
                 logger.info(
-                    f"✅ Auto-sync: {sync_result.get('injected', 0)} tasks injetadas no checklist "
-                    f"de {request.patient_id} via protocolo '{protocol.get('name')}'"
+                    f"⏳ Protocolo '{protocol.get('name')}' programado para {start} "
+                    f"(status=scheduled — tasks serão injetadas na data de início)"
                 )
-            except Exception as sync_err:
-                # Sync é best-effort: não bloqueia ativação
-                logger.warning(f"⚠️ Auto-sync falhou (não crítico): {sync_err}")
 
             # 🟢 LOG: Protocolo ativado
             log_operation(
@@ -253,9 +260,13 @@ async def activate_protocol(
             return {
                 "success": True,
                 "patient_protocol": patient_protocol,
+                "status": proto_status,
                 "tasks_injected": sync_result.get("injected", 0),
                 "tasks_skipped": sync_result.get("skipped", 0),
                 "message": (
+                    f"Protocolo '{protocol.get('name')}' programado para {start}. "
+                    f"As tarefas serão adicionadas ao checklist na data de início."
+                ) if proto_status == "scheduled" else (
                     f"Protocolo '{protocol.get('name')}' ativado. "
                     f"{sync_result.get('injected', 0)} tarefa(s) adicionada(s) ao checklist do paciente."
                 ),
@@ -292,7 +303,7 @@ async def deactivate_protocol(
         raise HTTPException(status_code=403, detail="Acesso negado")
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             # Atualizar status para paused
             update_resp = await client.patch(
                 f"{SUPABASE_URL}/rest/v1/patient_protocols",
