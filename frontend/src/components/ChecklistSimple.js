@@ -23,6 +23,31 @@ const DEFAULT_HEALTH_HABITS = [
   { title: '🚶 Caminhar 10 mil passos', icon: '🚶', category: 'exercício' }
 ];
 
+// ─── Cooldown do sync de protocolos ──────────────────────────────────────────
+// Evita disparar sync a cada montagem do componente quando o paciente navega
+// entre páginas que contêm <ChecklistSimple> (PatientDashboard, PatientTarefas, etc.)
+// sessionStorage: limpa ao fechar a aba → garante ao menos 1 sync por sessão
+const SYNC_COOLDOWN_MS = 60_000; // 60 segundos entre syncs
+const SYNC_STORAGE_KEY = 'fitjourney_sync_protocols';
+
+const _shouldRunSync = () => {
+  try {
+    const last = parseInt(sessionStorage.getItem(SYNC_STORAGE_KEY) || '0', 10);
+    return Date.now() - last > SYNC_COOLDOWN_MS;
+  } catch {
+    return true; // sessionStorage indisponível (modo privado) → permite sync
+  }
+};
+
+const _markSyncRan = () => {
+  try {
+    sessionStorage.setItem(SYNC_STORAGE_KEY, Date.now().toString());
+  } catch {
+    // silencioso
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ChecklistSimple = ({ patientId, isPatientView = true }) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,8 +68,10 @@ const ChecklistSimple = ({ patientId, isPatientView = true }) => {
     if (!isPostSyncReload) setLoading(true);
 
     // Fire-and-forget: dispara sem await para não bloquear a UI.
+    // Cooldown de 60s evita syncs repetidos ao navegar entre páginas.
     // Se o sync injetar tasks novas, faz um re-fetch silencioso ao terminar.
-    if (isPatientView && !isPostSyncReload) {
+    if (isPatientView && !isPostSyncReload && _shouldRunSync()) {
+      _markSyncRan();
       authenticatedPost('/api/patient/checklist/sync-protocols', {})
         .then(result => {
           if ((result?.injected ?? 0) > 0) {
