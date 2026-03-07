@@ -260,6 +260,7 @@ async def create_patient(
                     "patient_id": patient_id,
                     "professional_id": request.professional_id,
                     "tier": patient_tier,
+                    "package_type": "mensal",
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat() if end_date else None,
                     "status": "active",
