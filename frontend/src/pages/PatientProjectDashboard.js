@@ -53,43 +53,16 @@ const PatientProjectDashboard = () => {
   ];
 
   useEffect(() => {
-    loadProtocols();
+    loadData();
   }, []);
 
-  const loadProtocols = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       const data = await authenticatedGet('/api/patient/protocols/active');
       setProtocols(data.protocols || []);
     } catch (error) {
       console.error('Erro ao carregar protocolos:', error);
-      // Mock data para desenvolvimento
-      setProtocols([
-        {
-          id: '1',
-          name: 'Protocolo de Água',
-          category: 'hidratacao',
-          status: 'active',
-          progress_day: 3,
-          default_duration_days: 14,
-          description: 'Protocolo de hiperhidratação para acelerar metabolismo',
-          instructions: 'Beber 3 litros de água ao longo do dia. Distribuir em garrafas e registrar consumo.',
-          icon: 'Droplet',
-          color: 'blue'
-        },
-        {
-          id: '2',
-          name: 'Protocolo de Chás',
-          category: 'termogenicos',
-          status: 'active',
-          progress_day: 5,
-          default_duration_days: 30,
-          description: 'Chás termogênicos para acelerar queima de gordura',
-          instructions: 'Consumir 3 xícaras ao dia: chá verde (manhã), hibisco (tarde), gengibre (noite).',
-          icon: 'Coffee',
-          color: 'green'
-        }
-      ]);
     } finally {
       setLoading(false);
     }
