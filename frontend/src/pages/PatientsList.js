@@ -948,10 +948,21 @@ const PatientsList = () => {
                         onClick={() => navigate(`/professional/patient/${patient.id}`)}
                       >
                         <img src={patient.avatar} alt={patient.name} className="w-16 h-16 rounded-full" />
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
-                          <p className="text-sm text-gray-600">{patient.email}</p>
-                          {patient.phone && <p className="text-sm text-gray-500">{patient.phone}</p>}
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
+                            <p className="text-sm text-gray-600">{patient.email}</p>
+                            {patient.phone && <p className="text-sm text-gray-500">{patient.phone}</p>}
+                          </div>
+                          {/* Score compacto em telas menores */}
+                          <div className={`xl:hidden flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            adherence.color === 'emerald' ? 'bg-emerald-500 text-white' :
+                            adherence.color === 'amber' ? 'bg-amber-500 text-white' :
+                            adherence.color === 'red' ? 'bg-red-500 text-white' :
+                            'bg-gray-400 text-white'
+                          }`} title={`${adherence.label} - Score: ${adherence.score}`}>
+                            {adherence.score}
+                          </div>
                         </div>
                       </div>
                       
