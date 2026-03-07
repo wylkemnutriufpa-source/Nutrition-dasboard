@@ -821,7 +821,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "NEW Patient Auto-sync Endpoint: POST /api/patient/checklist/sync-protocols"
+    - "Fase1: auth.py timeout + ChecklistSimple fire-and-forget"
+    - "Fase2: N+1 fix list_protocols + get_patient_active_protocols"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"

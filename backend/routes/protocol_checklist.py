@@ -31,6 +31,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import os
 import httpx
 import logging
+from collections import Counter
 from security.auth import get_current_user_with_db_role, get_current_user, CurrentUser
 from utils.structured_logger import log_operation
 
@@ -67,7 +68,7 @@ async def list_protocols(
     _require_professional_or_admin(current_user)
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Buscar protocolos
+        # Query 1: buscar todos os protocolos
         resp = await client.get(
             f"{SUPABASE_URL}/rest/v1/protocols",
             headers=_h(),
@@ -80,16 +81,29 @@ async def list_protocols(
 
         protocols = resp.json()
 
-        # Para cada protocolo, contar tasks
-        enriched = []
-        for p in protocols:
-            tasks_resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/protocol_tasks",
-                headers=_h(),
-                params={"protocol_id": f"eq.{p['id']}", "select": "id"},
-            )
-            task_count = len(tasks_resp.json()) if tasks_resp.status_code == 200 else 0
-            enriched.append({**p, "task_count": task_count})
+        if not protocols:
+            return {"protocols": []}
+
+        # Query 2 (única): buscar protocol_id de todas as tasks dos protocolos listados
+        # Substitui N queries (uma por protocolo) por uma só com filtro IN
+        protocol_ids = [p["id"] for p in protocols]
+        tasks_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+            headers=_h(),
+            params={
+                "protocol_id": f"in.({','.join(protocol_ids)})",
+                "select": "protocol_id",
+            },
+        )
+
+        task_counts: Counter = Counter()
+        if tasks_resp.status_code == 200:
+            for t in tasks_resp.json():
+                pid = t.get("protocol_id")
+                if pid:
+                    task_counts[pid] += 1
+
+        enriched = [{**p, "task_count": task_counts[p["id"]]} for p in protocols]
 
     return {"protocols": enriched}
 
@@ -107,6 +121,7 @@ async def get_patient_active_protocols(
     _require_professional_or_admin(current_user)
 
     async with httpx.AsyncClient(timeout=10.0) as client:
+        # Query 1: buscar patient_protocols do paciente
         resp = await client.get(
             f"{SUPABASE_URL}/rest/v1/patient_protocols",
             headers=_h(),
@@ -122,21 +137,27 @@ async def get_patient_active_protocols(
 
         data = resp.json()
 
-        # Contar tasks injetadas no checklist para cada patient_protocol
+        # Query 2 (única): buscar patient_protocol_id de todas as checklist_tasks do paciente
+        # Substitui N queries (uma por patient_protocol) por uma só
+        ct_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/checklist_tasks",
+            headers=_h(),
+            params={
+                "patient_id": f"eq.{patient_id}",
+                "patient_protocol_id": "not.is.null",
+                "select": "patient_protocol_id",
+            },
+        )
+
+        injected_counts: Counter = Counter()
+        if ct_resp.status_code == 200:
+            for t in ct_resp.json():
+                ppid = t.get("patient_protocol_id")
+                if ppid:
+                    injected_counts[ppid] += 1
+
         result = []
         for pp in data:
-            # Contar checklist_tasks derivadas deste patient_protocol
-            checklist_resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/checklist_tasks",
-                headers=_h(),
-                params={
-                    "patient_id": f"eq.{patient_id}",
-                    "patient_protocol_id": f"eq.{pp['id']}",
-                    "select": "id",
-                },
-            )
-            injected_count = len(checklist_resp.json()) if checklist_resp.status_code == 200 else 0
-
             protocol_info = pp.get("protocols") or {}
             result.append({
                 "id": pp["id"],
@@ -147,7 +168,7 @@ async def get_patient_active_protocols(
                 "start_date": pp.get("start_date"),
                 "end_date": pp.get("end_date"),
                 "progress_day": pp.get("progress_day", 0),
-                "injected_tasks": injected_count,
+                "injected_tasks": injected_counts[pp["id"]],
             })
 
     return {"patient_protocols": result}
