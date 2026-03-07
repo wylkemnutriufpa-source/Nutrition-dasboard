@@ -136,26 +136,7 @@ async def create_patient(
             prof_tier_data = prof_tier_resp.json() if prof_tier_resp.status_code == 200 else []
             prof_tier = prof_tier_data[0].get("tier", "trial") if prof_tier_data else "trial"
 
-            # Limite de 3 pacientes para trial
-            if prof_tier == "trial":
-                count_resp = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/patient_profiles",
-                    headers=_supabase_headers(),
-                    params={
-                        "professional_id": f"eq.{request.professional_id}",
-                        "select": "patient_id",
-                    },
-                )
-                count_data = count_resp.json() if count_resp.status_code == 200 else []
-                patient_count = len(count_data) if isinstance(count_data, list) else 0
-                if patient_count >= 3:
-                    raise HTTPException(
-                        status_code=403,
-                        detail=(
-                            "Profissionais Trial podem criar no máximo 3 pacientes. "
-                            "Faça upgrade para criar mais!"
-                        ),
-                    )
+            # Limite de pacientes removido — todos os tiers podem criar pacientes livremente
 
             # ── 1. Criar auth user ─────────────────────────────────────────────
             # Gera senha temporária apenas para satisfazer o schema do Auth;
@@ -272,6 +253,7 @@ async def create_patient(
                 headers={**_supabase_headers(), "Prefer": "return=representation"},
                 json={
                     "patient_id": patient_id,
+                    "professional_id": request.professional_id,
                     "tier": patient_tier,
                     "start_date": start_date.isoformat(),
                     "end_date": end_date.isoformat() if end_date else None,
