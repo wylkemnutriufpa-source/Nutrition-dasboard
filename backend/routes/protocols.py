@@ -237,11 +237,36 @@ async def activate_protocol(
                     )
                 except Exception as sync_err:
                     logger.warning(f"⚠️ Auto-sync falhou (não crítico): {sync_err}")
+
+                # 📅 TIMELINE: protocolo ativado (best-effort)
+                try:
+                    from utils.timeline_helpers import record_timeline_event
+                    await record_timeline_event(
+                        patient_id=request.patient_id,
+                        event_type="protocol_activated",
+                        payload={"protocol_name": protocol.get("name", "?")},
+                    )
+                except Exception:
+                    pass
             else:
                 logger.info(
                     f"⏳ Protocolo '{protocol.get('name')}' programado para {start} "
                     f"(status=scheduled — tasks serão injetadas na data de início)"
                 )
+
+                # 📅 TIMELINE: protocolo programado (best-effort)
+                try:
+                    from utils.timeline_helpers import record_timeline_event
+                    await record_timeline_event(
+                        patient_id=request.patient_id,
+                        event_type="protocol_scheduled",
+                        payload={
+                            "protocol_name": protocol.get("name", "?"),
+                            "start_date": start,
+                        },
+                    )
+                except Exception:
+                    pass
 
             # 🟢 LOG: Protocolo ativado
             log_operation(
@@ -415,6 +440,17 @@ async def promote_scheduled_protocols(
                     f"📅→✅ '{protocol_name}' promovido scheduled→active "
                     f"(patient: {patient_id}, professional: {current_user.user_id})"
                 )
+
+                # 📅 TIMELINE: protocolo promovido scheduled→active (best-effort)
+                try:
+                    from utils.timeline_helpers import record_timeline_event
+                    await record_timeline_event(
+                        patient_id=patient_id,
+                        event_type="protocol_activated",
+                        payload={"protocol_name": protocol_name},
+                    )
+                except Exception:
+                    pass
 
                 # Sync de tasks (best-effort — não bloqueia em caso de falha)
                 injected = 0

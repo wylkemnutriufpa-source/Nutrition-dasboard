@@ -343,6 +343,21 @@ async def sync_protocol_tasks_to_checklist(
         extra_data={"injected": len(injected), "skipped": len(skipped), "protocol_name": protocol_name},
     )
 
+    # 📅 TIMELINE: tasks sincronizadas (best-effort, apenas quando houve injeção real)
+    if len(injected) > 0:
+        try:
+            from utils.timeline_helpers import record_timeline_event
+            await record_timeline_event(
+                patient_id=patient_id,
+                event_type="protocol_tasks_synced",
+                payload={
+                    "protocol_name": protocol_name,
+                    "tasks_injected": len(injected),
+                },
+            )
+        except Exception:
+            pass
+
     return {
         "injected": len(injected),
         "skipped": len(skipped),
