@@ -31,7 +31,22 @@ const AnamneseFormComplete = ({
   onComplete,
   onDirtyChange
 }) => {
-  const [data, setData] = useState(anamnesis || {});
+  // ─── Helper: desempacotar measurements jsonb para campos do formulário ────
+  const unpackMeasurements = (anamnesisData) => {
+    if (!anamnesisData) return anamnesisData;
+    const result = { ...anamnesisData };
+    const m = result.measurements;
+    if (m && typeof m === 'object') {
+      ['waist_circumference', 'hip_circumference', 'blood_pressure', 'heart_rate'].forEach(field => {
+        if (m[field] !== undefined && !result[field]) {
+          result[field] = m[field];
+        }
+      });
+    }
+    return result;
+  };
+
+  const [data, setData] = useState(() => unpackMeasurements(anamnesis) || {});
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [currentSection, setCurrentSection] = useState('clinical');
@@ -70,11 +85,12 @@ const AnamneseFormComplete = ({
 
   // ─── Sync silencioso: quando anamnesis prop muda (após onUpdate silent) ────
   // Só atualiza se NÃO há edições em andamento (hasChanges=false)
-  // Usa updated_at como sentinela para não re-renderizar sem necessidade
+  // Usa MERGE (prev + anamnesis) para preservar campos locais (current_weight etc.)
   useEffect(() => {
     if (!anamnesis?.updated_at) return;
     if (hasChanges || draftRestored) return; // Não sobrescrever edições em andamento
-    setData(anamnesis);
+    const unpacked = unpackMeasurements(anamnesis);
+    setData(prev => ({ ...prev, ...unpacked }));
   }, [anamnesis?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Salvar rascunho no localStorage a cada mudança ───────────────
@@ -102,9 +118,8 @@ const AnamneseFormComplete = ({
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasChanges]);
 
-  useEffect(() => {
-    setData(anamnesis || {});
-  }, [anamnesis]);
+  // REMOVIDO: useEffect incondicional [anamnesis] que resetava o formulário
+  // A sincronização é feita pela linha 74-78 (com guard de hasChanges)
 
   const handleChange = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -172,8 +187,22 @@ const AnamneseFormComplete = ({
         last_edited_by: isPatientView ? 'patient' : 'professional',
         updated_at: new Date().toISOString()
       };
+
+      // Empacotar campos antropométricos extras na coluna measurements (jsonb)
+      // waist_circumference, hip_circumference, blood_pressure, heart_rate NÃO são colunas
+      // da tabela anamnesis — precisam ser salvos dentro de measurements
+      const measurementFields = ['waist_circumference', 'hip_circumference', 'blood_pressure', 'heart_rate'];
+      const currentMeasurements = (typeof cleanData.measurements === 'object' && cleanData.measurements !== null)
+        ? { ...cleanData.measurements }
+        : {};
+      measurementFields.forEach(field => {
+        if (cleanData[field] !== undefined && cleanData[field] !== null && cleanData[field] !== '') {
+          currentMeasurements[field] = cleanData[field];
+        }
+      });
+      cleanData.measurements = currentMeasurements;
       
-      console.log('💾 Salvando anamnese:', { patientId, professionalId, cleanData });
+      console.log('💾 Salvando anamnese:', { patientId, professionalId, fields: Object.keys(cleanData).length });
       
       // PASSO 1: Atualizar perfil do paciente com dados antropométricos PRIMEIRO
       // (current_weight, height, goal_weight pertencem a patient_profiles, não a anamnesis)
