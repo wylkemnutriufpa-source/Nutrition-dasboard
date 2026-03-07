@@ -344,3 +344,110 @@ async def deactivate_protocol(
     except Exception as e:
         logger.error(f"❌ Erro ao desativar protocolo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /api/professional/patients/{patient_id}/promote-scheduled-protocols
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/professional/patients/{patient_id}/promote-scheduled-protocols")
+async def promote_scheduled_protocols(
+    patient_id: str,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
+    """
+    Verifica e promove protocolos programados vencidos de um paciente.
+
+    - Requer: role = professional | admin
+    - Busca patient_protocols com status='scheduled' e start_date <= hoje
+    - Promove cada um para status='active'
+    - Executa sync de tasks para cada protocolo promovido
+    - Idempotente: filtra apenas 'scheduled', impossível reativar um já 'active'
+    """
+    if current_user.app_role not in ("professional", "admin"):
+        raise HTTPException(status_code=403, detail="Acesso negado: requer professional ou admin")
+
+    today = date.today().isoformat()
+    promoted_list = []
+    total_injected = 0
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+
+            # 1. Buscar protocolos programados vencidos
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/patient_protocols",
+                headers=_supabase_headers(),
+                params={
+                    "patient_id": f"eq.{patient_id}",
+                    "status":     "eq.scheduled",
+                    "start_date": f"lte.{today}",
+                    "select":     "id,protocol_id,protocols(name)",
+                },
+            )
+
+            if resp.status_code != 200:
+                logger.warning(f"⚠️ promote-scheduled: falha ao consultar patient_protocols: {resp.status_code}")
+                return {"promoted": 0, "tasks_injected": 0, "promoted_protocols": [], "message": "OK (erro ao consultar)"}
+
+            due = resp.json()
+
+            if not due:
+                return {"promoted": 0, "tasks_injected": 0, "promoted_protocols": [], "message": "OK (nenhum protocolo no vencimento)"}
+
+            # 2. Promover cada um para active e sincronizar tasks
+            for pp in due:
+                protocol_name = (pp.get("protocols") or {}).get("name", "?")
+
+                # PATCH status='scheduled' → 'active'
+                patch = await client.patch(
+                    f"{SUPABASE_URL}/rest/v1/patient_protocols",
+                    headers={**_supabase_headers(), "Prefer": "return=minimal"},
+                    params={"id": f"eq.{pp['id']}"},
+                    json={"status": "active"},
+                )
+
+                if patch.status_code not in (200, 204):
+                    logger.warning(f"⚠️ promote-scheduled: falha ao promover {pp['id']}: {patch.status_code}")
+                    continue
+
+                logger.info(
+                    f"📅→✅ '{protocol_name}' promovido scheduled→active "
+                    f"(patient: {patient_id}, professional: {current_user.user_id})"
+                )
+
+                # Sync de tasks (best-effort — não bloqueia em caso de falha)
+                injected = 0
+                try:
+                    from routes.protocol_checklist import sync_protocol_tasks_to_checklist
+                    sync_result = await sync_protocol_tasks_to_checklist(
+                        patient_protocol_id=pp["id"],
+                        current_user=current_user,
+                    )
+                    injected = sync_result.get("injected", 0)
+                    total_injected += injected
+                except Exception as sync_err:
+                    logger.warning(f"⚠️ Sync pós-promoção falhou para {pp['id']}: {sync_err}")
+
+                promoted_list.append({
+                    "patient_protocol_id": pp["id"],
+                    "protocol_name": protocol_name,
+                    "tasks_injected": injected,
+                })
+
+        return {
+            "promoted": len(promoted_list),
+            "tasks_injected": total_injected,
+            "promoted_protocols": promoted_list,
+            "message": (
+                f"OK ({len(promoted_list)} promovido(s), {total_injected} task(s) injetada(s))"
+                if promoted_list else
+                "OK (nenhum protocolo no vencimento)"
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ promote-scheduled error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -802,10 +802,26 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
     loadProtocols();
   }, [patientId]);
 
-  const loadProtocols = async () => {
+  // skipPromotion=true evita loop: o re-fetch pós-promoção não dispara nova promoção
+  const loadProtocols = async (skipPromotion = false) => {
     setLoadingProtocols(true);
     try {
-      const { authenticatedGet } = await import('@/lib/apiClient');
+      const { authenticatedGet, authenticatedPost } = await import('@/lib/apiClient');
+
+      // Fire-and-forget: promover protocolos programados vencidos antes de carregar.
+      // Se algum for promovido, re-fetch silencioso para mostrar o estado atualizado.
+      if (!skipPromotion && patientId) {
+        authenticatedPost(
+          `/api/professional/patients/${patientId}/promote-scheduled-protocols`, {}
+        )
+          .then(result => {
+            if ((result?.promoted ?? 0) > 0) {
+              loadProtocols(true); // re-fetch sem spinner, sem nova promoção
+            }
+          })
+          .catch(err => console.debug('Promote scheduled (silent):', err?.message));
+      }
+
       const [listData, activeData] = await Promise.all([
         authenticatedGet('/api/professional/protocols/list'),
         authenticatedGet(`/api/professional/patients/${patientId}/active-protocols`),
@@ -814,7 +830,6 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
       setActivePatientProtocols(activeData.patient_protocols || []);
     } catch (err) {
       console.error('Erro ao carregar protocolos:', err);
-      // Tabelas podem não existir ainda — não quebrar o componente
     } finally {
       setLoadingProtocols(false);
     }

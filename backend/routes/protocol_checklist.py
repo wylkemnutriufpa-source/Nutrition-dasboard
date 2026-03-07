@@ -31,6 +31,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import os
 import httpx
 import logging
+from datetime import date
 from collections import Counter
 from security.auth import get_current_user_with_db_role, get_current_user, CurrentUser
 from utils.structured_logger import log_operation
@@ -465,12 +466,52 @@ async def patient_auto_sync_protocols(
     """
     _require_patient(current_user)
     patient_id = current_user.user_id
+    today = date.today().isoformat()
     total_injected = 0
     total_skipped = 0
+    total_promoted = 0
     synced_protocols = []
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
+
+            # ── ETAPA 0: Promover protocolos programados vencidos ────────────
+            # Busca patient_protocols com status='scheduled' e start_date <= hoje.
+            # Uma vez promovidos para 'active', entram automaticamente na etapa 1.
+            # Idempotente: o filtro status='scheduled' garante que não serão
+            # processados novamente em chamadas futuras.
+            sched_resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/patient_protocols",
+                headers=_h(),
+                params={
+                    "patient_id": f"eq.{patient_id}",
+                    "status":     "eq.scheduled",
+                    "start_date": f"lte.{today}",
+                    "select":     "id,protocols(name)",
+                },
+            )
+            due_scheduled = sched_resp.json() if sched_resp.status_code == 200 else []
+
+            for pp in due_scheduled:
+                patch_resp = await client.patch(
+                    f"{SUPABASE_URL}/rest/v1/patient_protocols",
+                    headers={**_h(), "Prefer": "return=minimal"},
+                    params={"id": f"eq.{pp['id']}"},
+                    json={"status": "active"},
+                )
+                if patch_resp.status_code in (200, 204):
+                    total_promoted += 1
+                    pname = (pp.get("protocols") or {}).get("name", "?")
+                    logger.info(
+                        f"📅→✅ Protocolo '{pname}' promovido scheduled→active "
+                        f"(patient: {patient_id})"
+                    )
+                else:
+                    logger.warning(
+                        f"⚠️ Falha ao promover patient_protocol {pp['id']}: "
+                        f"{patch_resp.status_code}"
+                    )
+            # ─────────────────────────────────────────────────────────────────
             # 1. Buscar patient_protocols ativos para este paciente
             pp_resp = await client.get(
                 f"{SUPABASE_URL}/rest/v1/patient_protocols",
@@ -580,17 +621,18 @@ async def patient_auto_sync_protocols(
         logger.info(
             f"🔄 auto-sync paciente {patient_id}: "
             f"{total_injected} injetadas, {total_skipped} já existiam, "
+            f"{total_promoted} promovidas, "
             f"{len(active_protocols)} protocolo(s) ativo(s)"
         )
 
     except Exception as exc:
         logger.error(f"❌ auto-sync error: {exc}")
-        # Não falhar o checklist — retornar silenciosamente
-        return {"injected": 0, "skipped": 0, "synced_protocols": [], "message": "OK (erro interno, silent)"}
+        return {"injected": 0, "skipped": 0, "promoted": 0, "synced_protocols": [], "message": "OK (erro interno, silent)"}
 
     return {
         "injected": total_injected,
         "skipped": total_skipped,
+        "promoted": total_promoted,
         "synced_protocols": synced_protocols,
-        "message": f"OK ({total_injected} sincronizadas, {total_skipped} já existiam)",
+        "message": f"OK ({total_injected} sincronizadas, {total_skipped} já existiam, {total_promoted} promovidas)",
     }
