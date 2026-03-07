@@ -754,13 +754,13 @@ frontend:
 
   - task: "Protocol → Checklist Integration (frontend)"
     implemented: true
-    working: "NA"
+    working: true
     file: "frontend/src/pages/PatientProfile.js, frontend/src/components/ChecklistSimple.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
         comment: |
           PatientProfile.js ProjetoTab:
@@ -770,12 +770,12 @@ frontend:
           - handleActivateProtocol: chama POST /api/professional/protocols/activate (API real)
           - handleDeactivateProtocol: chama POST /api/professional/protocols/deactivate/{id}
           - handleSyncTasks: chama POST /api/professional/protocols/{id}/sync-tasks
-          - UI mostra: ATIVO badge, contador de tasks injetadas, botão 🔄 Sync, botão Desativar
+          - UI mostra: ATIVO badge, contador de tasks injetadas, botão Sync, botão Desativar
           ChecklistSimple.js:
           - isProtocolTask: detecta por task.source === 'protocol' OU título /^\\[🎯/
-          - displayTitle: remove marcador [🎯 NomeProt.] do título para exibição limpa
+          - displayTitle: remove marcador do título para exibição limpa
           - protocolBadge: badge roxo com nome do protocolo
-          - Sem botão de delete/edit para protocol tasks (read-only, 🔒)
+          - Sem botão de delete/edit para protocol tasks (read-only)
           - Lint: aprovado.
 
 metadata:
@@ -796,9 +796,6 @@ agent_communication:
   - agent: "main"
     message: |
       Correções críticas implementadas (sessão atual):
-
-      BACKEND:
-      1. admin_patients.py – /api/admin/patients/create:
          - Operação agora atômica com _delete_auth_user() rollback
          - profile failure → rollback + 400; patient_profile failure → rollback + 400
          - subscription = best-effort (log warning, não bloqueia)
