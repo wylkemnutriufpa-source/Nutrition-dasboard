@@ -461,6 +461,93 @@ async def remove_protocol_tasks_from_checklist(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# GET /api/professional/protocols/{patient_protocol_id}/tasks
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/professional/protocols/{patient_protocol_id}/tasks")
+async def get_protocol_checklist_tasks(
+    patient_protocol_id: str,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
+    """
+    Retorna as checklist_tasks vinculadas a um patient_protocol específico.
+
+    Estratégia dupla de busca:
+      1. Por patient_protocol_id (coluna direta, se existir)
+      2. Fallback: por título com marcador '[🎯 NomeProtocolo]'
+
+    Retorna: { tasks: [...], protocol_name, total, completed }
+    """
+    _require_professional_or_admin(current_user)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Buscar patient_protocol para obter patient_id e nome do protocolo
+        pp_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/patient_protocols",
+            headers=_h(),
+            params={
+                "id": f"eq.{patient_protocol_id}",
+                "select": "id,patient_id,protocols(name)",
+            },
+        )
+
+        if pp_resp.status_code != 200 or not pp_resp.json():
+            raise HTTPException(status_code=404, detail="patient_protocol não encontrado")
+
+        pp = pp_resp.json()[0]
+        patient_id = pp["patient_id"]
+        protocol_name = (pp.get("protocols") or {}).get("name", "")
+
+        tasks = []
+
+        # Estratégia 1: busca por patient_protocol_id (mais precisa)
+        tasks_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/checklist_tasks",
+            headers=_h(),
+            params={
+                "patient_id": f"eq.{patient_id}",
+                "patient_protocol_id": f"eq.{patient_protocol_id}",
+                "select": "id,title,completed,updated_at,created_at,source,patient_protocol_id",
+                "order": "created_at.asc",
+            },
+        )
+
+        if tasks_resp.status_code == 200 and tasks_resp.json():
+            tasks = tasks_resp.json()
+        elif protocol_name:
+            # Estratégia 2: fallback por marcador no título
+            marker = f"[🎯 {protocol_name}]"
+            tasks_fallback = await client.get(
+                f"{SUPABASE_URL}/rest/v1/checklist_tasks",
+                headers=_h(),
+                params={
+                    "patient_id": f"eq.{patient_id}",
+                    "title": f"like.{marker}%",
+                    "select": "id,title,completed,updated_at,created_at,source,patient_protocol_id",
+                    "order": "created_at.asc",
+                },
+            )
+            if tasks_fallback.status_code == 200:
+                tasks = tasks_fallback.json()
+
+        # Limpar título de exibição (remover marcador [🎯 NomeProtocolo] )
+        import re
+        marker_re = re.compile(r"^\[🎯[^\]]*\]\s*")
+        for t in tasks:
+            t["display_title"] = marker_re.sub("", t.get("title", "")).strip()
+
+        completed_count = sum(1 for t in tasks if t.get("completed"))
+
+        return {
+            "tasks": tasks,
+            "protocol_name": protocol_name,
+            "patient_protocol_id": patient_protocol_id,
+            "total": len(tasks),
+            "completed": completed_count,
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # POST /api/patient/checklist/sync-protocols
 # ─────────────────────────────────────────────────────────────────────────────
 

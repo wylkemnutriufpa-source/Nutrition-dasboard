@@ -14,7 +14,8 @@ import {
   Calendar, FileText, Utensils, AlertTriangle, Edit, Loader2, User, Save, Plus,
   ClipboardList, MessageSquare, CheckCircle2, Circle, Trash2, Send, Pin, Settings2,
   DollarSign, Download, ChefHat, Eye, Bell, Shield, Activity, TrendingUp, Scale,
-  Heart, Target, Sparkles, ArrowRight, Clock, Star, Zap, PlayCircle, Brain
+  Heart, Target, Sparkles, ArrowRight, Clock, Star, Zap, PlayCircle, Brain,
+  ChevronDown, ChevronUp, ListChecks
 } from 'lucide-react';
 import RiskScoreCard from '@/components/RiskScoreCard';
 import MealPlanTimeline from '@/components/MealPlanTimeline';
@@ -29,7 +30,7 @@ import {
   getChecklistAdherence, upsertPatientJourney, getPatientJourney, getPatientPlan, upsertPatientPlan,
   getCurrentUser, getDraftMealPlan, saveDraftMealPlan, updateDraftMealPlan, createAutomaticTips,
   createPersonalizedTip, createFeedbackReminder, createPlanExpirationReminder, syncTemplatesForPatient,
-  getLatestPhysicalAssessment
+  getLatestPhysicalAssessment, toggleChecklistTask
 } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
@@ -798,6 +799,11 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
   const [schedulingProtocol, setSchedulingProtocol] = useState(null); // id do protocolo com painel aberto
   const [scheduleDate, setScheduleDate] = useState(''); // data para programação futura
 
+  // 🗂️ TASKS DO PROTOCOLO — expandir/colapsar inline
+  const [expandedProtocolTasks, setExpandedProtocolTasks] = useState({}); // { [patient_protocol_id]: boolean }
+  const [protocolTasksData, setProtocolTasksData] = useState({});         // { [patient_protocol_id]: { tasks, loading } }
+  const [togglingTask, setTogglingTask] = useState(null);                  // taskId sendo toggled
+
   useEffect(() => {
     loadProtocols();
   }, [patientId]);
@@ -898,11 +904,78 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
         {}
       );
       toast.success(result?.message || `Tasks sincronizadas`);
+      // Recarregar tasks se expandidas
+      if (expandedProtocolTasks[patientProtocolId]) {
+        await loadProtocolTasks(patientProtocolId);
+      }
       await loadProtocols();
     } catch (error) {
       console.error('Erro ao sincronizar tasks:', error);
       const msg = error?.message || 'Erro ao sincronizar tasks do protocolo';
       toast.error(msg);
+    }
+  };
+
+  // 🗂️ Carregar tasks de um protocolo específico
+  const loadProtocolTasks = async (patientProtocolId) => {
+    setProtocolTasksData(prev => ({
+      ...prev,
+      [patientProtocolId]: { ...(prev[patientProtocolId] || {}), loading: true },
+    }));
+    try {
+      const { authenticatedGet } = await import('@/lib/apiClient');
+      const data = await authenticatedGet(`/api/professional/protocols/${patientProtocolId}/tasks`);
+      setProtocolTasksData(prev => ({
+        ...prev,
+        [patientProtocolId]: { tasks: data.tasks || [], total: data.total || 0, completed: data.completed || 0, loading: false },
+      }));
+    } catch (err) {
+      console.error('Erro ao carregar tasks do protocolo:', err);
+      setProtocolTasksData(prev => ({
+        ...prev,
+        [patientProtocolId]: { tasks: [], total: 0, completed: 0, loading: false },
+      }));
+    }
+  };
+
+  // 🔄 Expandir/colapsar tasks de um protocolo
+  const handleToggleExpandTasks = async (patientProtocolId) => {
+    const isCurrentlyExpanded = expandedProtocolTasks[patientProtocolId];
+    setExpandedProtocolTasks(prev => ({ ...prev, [patientProtocolId]: !isCurrentlyExpanded }));
+    // Se está abrindo e ainda não carregou, buscar agora
+    if (!isCurrentlyExpanded && !protocolTasksData[patientProtocolId]?.tasks) {
+      await loadProtocolTasks(patientProtocolId);
+    }
+  };
+
+  // ✅ Marcar/desmarcar uma task de protocolo
+  const handleToggleProtocolTask = async (taskId, currentCompleted, patientProtocolId) => {
+    setTogglingTask(taskId);
+    // Optimistic update imediato
+    setProtocolTasksData(prev => {
+      const pd = prev[patientProtocolId] || {};
+      const tasks = (pd.tasks || []).map(t =>
+        t.id === taskId ? { ...t, completed: !currentCompleted } : t
+      );
+      const completed = tasks.filter(t => t.completed).length;
+      return { ...prev, [patientProtocolId]: { ...pd, tasks, completed } };
+    });
+    try {
+      const { error } = await toggleChecklistTask(taskId, !currentCompleted);
+      if (error) throw error;
+    } catch (err) {
+      // Reverter em caso de erro
+      setProtocolTasksData(prev => {
+        const pd = prev[patientProtocolId] || {};
+        const tasks = (pd.tasks || []).map(t =>
+          t.id === taskId ? { ...t, completed: currentCompleted } : t
+        );
+        const completed = tasks.filter(t => t.completed).length;
+        return { ...prev, [patientProtocolId]: { ...pd, tasks, completed } };
+      });
+      toast.error('Erro ao atualizar tarefa');
+    } finally {
+      setTogglingTask(null);
     }
   };
 
@@ -934,34 +1007,120 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
                 Ativos agora
               </p>
               <div className="space-y-2">
-                {activePatientProtocols.filter(p => p.status === 'active').map((pp) => (
-                  <div key={pp.id} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-start gap-2">
-                      <span className="text-base">🟢</span>
-                      <div>
-                        <p className="font-semibold text-green-900 text-sm">{pp.protocol_name}</p>
-                        <p className="text-xs text-green-700">
-                          {pp.protocol_category}
-                          {pp.start_date && ` • Início: ${new Date(pp.start_date + 'T12:00:00').toLocaleDateString('pt-BR')}`}
-                          {pp.injected_tasks > 0 && ` • ${pp.injected_tasks} task(s) no checklist`}
-                        </p>
+                {activePatientProtocols.filter(p => p.status === 'active').map((pp) => {
+                  const isExpanded = expandedProtocolTasks[pp.id];
+                  const pd = protocolTasksData[pp.id];
+                  const taskCount = pd?.total ?? pp.injected_tasks ?? 0;
+                  const completedCount = pd?.completed ?? 0;
+                  const progressPct = taskCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0;
+
+                  return (
+                    <div key={pp.id} className="rounded-lg border border-green-200 bg-green-50 overflow-hidden">
+                      {/* Cabeçalho do protocolo ativo */}
+                      <div className="flex items-center justify-between p-3">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span className="text-base flex-shrink-0">🟢</span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-green-900 text-sm truncate">{pp.protocol_name}</p>
+                            <p className="text-xs text-green-700">
+                              {pp.protocol_category}
+                              {pp.start_date && ` • Início: ${new Date(pp.start_date + 'T12:00:00').toLocaleDateString('pt-BR')}`}
+                              {taskCount > 0 && ` • ${completedCount}/${taskCount} concluídas`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5 flex-shrink-0 ml-2">
+                          {/* Botão Ver Tarefas */}
+                          <Button size="sm" variant="outline"
+                            className={`text-xs ${isExpanded ? 'bg-green-100 border-green-400 text-green-800' : 'border-green-300 text-green-700 hover:bg-green-100'}`}
+                            onClick={() => handleToggleExpandTasks(pp.id)}>
+                            <ListChecks className="w-3 h-3 mr-1" />
+                            {isExpanded ? 'Fechar' : `Tarefas${taskCount > 0 ? ` (${taskCount})` : ''}`}
+                            {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                          </Button>
+                          <Button size="sm" variant="outline"
+                            className="text-xs border-green-300 text-green-700 hover:bg-green-100"
+                            onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}>
+                            🔄
+                          </Button>
+                          <Button size="sm" variant="outline"
+                            className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                            disabled={deactivatingProtocol === pp.id}
+                            onClick={() => handleDeactivateProtocol(pp.id)}>
+                            {deactivatingProtocol === pp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Desativar'}
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Painel expandível de tasks */}
+                      {isExpanded && (
+                        <div className="border-t border-green-200 bg-white">
+                          {/* Barra de progresso */}
+                          {taskCount > 0 && (
+                            <div className="px-4 pt-3 pb-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-500 font-medium">Progresso</span>
+                                <span className="text-xs font-bold text-green-700">{completedCount}/{taskCount} ({progressPct}%)</span>
+                              </div>
+                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                  style={{ width: `${progressPct}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Lista de tasks */}
+                          <div className="p-3 space-y-1">
+                            {pd?.loading ? (
+                              <div className="flex items-center gap-2 py-3 text-gray-400 justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span className="text-xs">Carregando tarefas...</span>
+                              </div>
+                            ) : !pd?.tasks || pd.tasks.length === 0 ? (
+                              <div className="text-center py-4">
+                                <p className="text-xs text-gray-400">Nenhuma tarefa no checklist ainda.</p>
+                                <Button size="sm" variant="outline"
+                                  className="mt-2 text-xs border-green-300 text-green-700 hover:bg-green-50"
+                                  onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}>
+                                  🔄 Sincronizar agora
+                                </Button>
+                              </div>
+                            ) : (
+                              pd.tasks.map((task) => (
+                                <div
+                                  key={task.id}
+                                  className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer group transition-colors ${
+                                    task.completed ? 'bg-green-50' : 'bg-gray-50 hover:bg-gray-100'
+                                  }`}
+                                  onClick={() => handleToggleProtocolTask(task.id, task.completed, pp.id)}
+                                >
+                                  {/* Checkbox */}
+                                  <div className="flex-shrink-0">
+                                    {togglingTask === task.id ? (
+                                      <Loader2 className="w-5 h-5 text-green-500 animate-spin" />
+                                    ) : task.completed ? (
+                                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                    ) : (
+                                      <Circle className="w-5 h-5 text-gray-300 group-hover:text-green-400 transition-colors" />
+                                    )}
+                                  </div>
+                                  {/* Título */}
+                                  <span className={`text-sm flex-1 leading-snug ${
+                                    task.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                                  }`}>
+                                    {task.display_title || task.title}
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Button size="sm" variant="outline"
-                        className="text-xs border-green-300 text-green-700 hover:bg-green-100"
-                        onClick={() => handleSyncTasks(pp.id, pp.protocol_name)}>
-                        🔄 Sync
-                      </Button>
-                      <Button size="sm" variant="outline"
-                        className="text-xs border-red-200 text-red-600 hover:bg-red-50"
-                        disabled={deactivatingProtocol === pp.id}
-                        onClick={() => handleDeactivateProtocol(pp.id)}>
-                        {deactivatingProtocol === pp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Desativar'}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
