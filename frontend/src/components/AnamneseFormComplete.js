@@ -13,6 +13,7 @@ import { generateAnamnesePDF } from '@/utils/pdfGenerator';
 import LiveTipsPreview from '@/components/LiveTipsPreview';
 import { generateAnamnesisTips } from '@/utils/dynamicTips';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { SaveStatusIndicator, useSaveStatus } from '@/components/SaveStatusIndicator';
 
 /**
  * AnamneseFormComplete - Formulário completo de anamnese
@@ -38,6 +39,7 @@ const AnamneseFormComplete = ({
   const [deleting, setDeleting] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const autoSaveTimerRef = useRef(null);
+  const saveStatus = useSaveStatus();
 
   // ─── Chave do rascunho no localStorage ────────────────────────────
   const draftKey = `anamnese_draft_${patientId}`;
@@ -100,6 +102,7 @@ const AnamneseFormComplete = ({
   const handleChange = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
+    saveStatus.markUnsaved();
     if (onDirtyChange) onDirtyChange(true);
   };
 
@@ -131,6 +134,7 @@ const AnamneseFormComplete = ({
 
   const handleSave = async (markComplete = false) => {
     setSaving(true);
+    saveStatus.markSaving();
     try {
       // Garantir que arrays estão no formato correto
       const cleanData = {
@@ -197,6 +201,7 @@ const AnamneseFormComplete = ({
       toast.success(markComplete ? 'Anamnese concluída!' : 'Rascunho salvo!');
       setHasChanges(false);
       setDraftRestored(false);
+      saveStatus.markSaved();
       if (onDirtyChange) onDirtyChange(false);
       // Limpar draft do localStorage após salvar com sucesso
       try { localStorage.removeItem(draftKey); } catch (e) { /* ok */ }
@@ -234,7 +239,7 @@ const AnamneseFormComplete = ({
     } catch (error) {
       console.error('💥 Error saving anamnesis:', error);
       toast.error(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`);
-    } finally {
+      saveStatus.markError();    } finally {
       setSaving(false);
     }
   };
@@ -312,6 +317,7 @@ const AnamneseFormComplete = ({
                     {draftRestored && ' (rascunho restaurado)'}
                   </span>
                 )}
+                <SaveStatusIndicator status={saveStatus.status} />
                 {isPatientView && (
                   <span className="text-xs text-blue-600">Modo: Paciente</span>
                 )}

@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { trackProfessionalFeature } from '@/utils/featureTracking';
 import { authenticatedPost } from '@/lib/apiClient';
 import { upsertPatientSubscription } from '@/lib/supabase';
+import EmptyState from '@/components/EmptyState';
 
 const PatientsList = () => {
   const navigate = useNavigate();
@@ -909,23 +910,13 @@ const PatientsList = () => {
             <Loader2 className="h-8 w-8 animate-spin text-teal-700" />
           </div>
         ) : filteredPatients.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <User className="mx-auto text-gray-400 mb-4" size={48} />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                {searchTerm ? 'Nenhum paciente encontrado' : 'Nenhum paciente cadastrado'}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {searchTerm ? 'Tente outra busca' : 'Comece cadastrando seu primeiro paciente'}
-              </p>
-              {!searchTerm && (
-                <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-teal-700 hover:bg-teal-800">
-                  <Plus size={18} className="mr-2" />
-                  Cadastrar Paciente
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <EmptyState 
+            type={searchTerm ? 'generic' : 'pacientes'} 
+            title={searchTerm ? 'Nenhum paciente encontrado' : undefined}
+            description={searchTerm ? 'Tente outra busca ou ajuste os filtros.' : undefined}
+            action={!searchTerm ? () => setIsCreateDialogOpen(true) : undefined}
+            actionLabel="Cadastrar Paciente"
+          />
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filteredPatients.map((patient) => {

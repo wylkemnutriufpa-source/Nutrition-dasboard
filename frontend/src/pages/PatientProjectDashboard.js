@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authenticatedGet } from '@/lib/apiClient';
+import EmptyState from '@/components/EmptyState';
 
 const PatientProjectDashboard = () => {
   const { profile } = useAuth();
@@ -209,13 +210,10 @@ const PatientProjectDashboard = () => {
           </div>
 
           {protocols.length === 0 ? (
-            <Card className="border-2 border-dashed border-gray-300">
-              <CardContent className="py-12 text-center">
-                <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-600 mb-2">Nenhum protocolo ativo no momento</p>
-                <p className="text-sm text-gray-500">Seu profissional irá ativar protocolos conforme sua evolução</p>
-              </CardContent>
-            </Card>
+            <EmptyState 
+              type="protocolo" 
+              description="Seu profissional irá ativar protocolos conforme sua evolução no programa."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {protocols.map((protocol) => (

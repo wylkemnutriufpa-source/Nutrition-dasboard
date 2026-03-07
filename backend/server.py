@@ -435,6 +435,9 @@ api_router.include_router(protocols_router)
 from routes.patient_scoring import router as patient_scoring_router
 api_router.include_router(patient_scoring_router)
 
+from routes.patient_timeline import router as patient_timeline_router
+api_router.include_router(patient_timeline_router)
+
 # Include the router in the main app (AFTER all routes are defined)
 app.include_router(api_router)
 

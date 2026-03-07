@@ -19,6 +19,9 @@ import {
 import RiskScoreCard from '@/components/RiskScoreCard';
 import MealPlanTimeline from '@/components/MealPlanTimeline';
 import RecipeGenerator from '@/components/RecipeGenerator';
+import PatientTimeline from '@/components/PatientTimeline';
+import EmptyState from '@/components/EmptyState';
+import { SaveStatusIndicator, useSaveStatus } from '@/components/SaveStatusIndicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   getPatientById, updatePatient, getPatientMealPlan, getAnamnesis, updateAnamnesis, createAnamnesis,
@@ -40,7 +43,7 @@ import PhysicalAssessmentEditor from '@/components/PhysicalAssessmentEditor';
 import MealPlanViewerModal from '@/components/MealPlanViewerModal';
 
 // Componente de Aba Resumo — Visual Premium
-const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate, assessment }) => {
+const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate, assessment, patientId }) => {
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
     const today = new Date();
@@ -178,6 +181,11 @@ const ResumoTab = ({ patient, mealPlan, anamnesis, adherence, onNavigate, assess
           <p className="text-gray-700 whitespace-pre-wrap text-sm">{patient.notes}</p>
         </div>
       )}
+
+      {/* Timeline de Atividade Recente */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" data-testid="resumo-timeline-card">
+        <PatientTimeline patientId={patientId} limit={10} />
+      </div>
     </div>
   );
 };
@@ -626,12 +634,7 @@ const RecadosTab = ({ patientId, professionalId }) => {
       </div>
 
       {messages.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <MessageSquare className="mx-auto text-gray-400 mb-4" size={48} />
-            <p className="text-gray-600">Nenhum recado enviado</p>
-          </CardContent>
-        </Card>
+        <EmptyState type="feedback" title="Nenhum recado enviado" description="Envie recados ao paciente usando o botão acima. Recados fixados ficam sempre visíveis." />
       ) : (
         <div className="space-y-3">
           {messages.map((msg) => (
@@ -673,6 +676,8 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
   const [journey, setJourney] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const journeySave = useSaveStatus();
+  const planSave = useSaveStatus();
   const [journeyForm, setJourneyForm] = useState({
     plan_name: '',
     plan_start_date: '',
@@ -718,13 +723,14 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
 
   const handleSavePlan = async () => {
     setSavingPlan(true);
+    planSave.markSaving();
     const { error } = await upsertPatientPlan(patientId, {
       ...planForm,
       plan_price: planForm.plan_price ? parseFloat(planForm.plan_price) : null,
       professional_id: professionalId
     });
-    if (error) { toast.error('Erro ao salvar plano'); }
-    else { toast.success('Plano financeiro salvo!'); loadPatientPlan(); }
+    if (error) { toast.error('Erro ao salvar plano'); planSave.markError(); }
+    else { toast.success('Plano financeiro salvo!'); planSave.markSaved(); loadPatientPlan(); }
     setSavingPlan(false);
   };
 
@@ -758,6 +764,7 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
 
   const handleSaveJourney = async () => {
     setSaving(true);
+    journeySave.markSaving();
     try {
       const { error } = await upsertPatientJourney(patientId, {
         ...journeyForm,
@@ -767,13 +774,16 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
 
       if (error) {
         toast.error('Erro ao salvar jornada');
+        journeySave.markError();
         return;
       }
 
       toast.success('Jornada do paciente atualizada!');
+      journeySave.markSaved();
       loadJourney();
     } catch (error) {
       toast.error('Erro ao salvar');
+      journeySave.markError();
     } finally {
       setSaving(false);
     }
@@ -887,14 +897,17 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
                 </div>
               </div>
 
-              <Button 
-                onClick={handleSaveJourney} 
-                disabled={saving}
-                className="w-full bg-teal-600 hover:bg-teal-700"
-              >
-                <Save size={16} className="mr-2" />
-                {saving ? 'Salvando...' : 'Salvar Configuração da Jornada'}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button 
+                  onClick={handleSaveJourney} 
+                  disabled={saving}
+                  className="flex-1 bg-teal-600 hover:bg-teal-700"
+                >
+                  <Save size={16} className="mr-2" />
+                  {saving ? 'Salvando...' : 'Salvar Configuração da Jornada'}
+                </Button>
+                <SaveStatusIndicator status={journeySave.status} />
+              </div>
             </>
           )}
         </CardContent>
@@ -1024,10 +1037,13 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
               />
             </div>
           </div>
-          <Button onClick={handleSavePlan} disabled={savingPlan} className="w-full bg-teal-600 hover:bg-teal-700">
-            <Save size={16} className="mr-2" />
-            {savingPlan ? 'Salvando...' : 'Salvar Plano Financeiro'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSavePlan} disabled={savingPlan} className="flex-1 bg-teal-600 hover:bg-teal-700">
+              <Save size={16} className="mr-2" />
+              {savingPlan ? 'Salvando...' : 'Salvar Plano Financeiro'}
+            </Button>
+            <SaveStatusIndicator status={planSave.status} />
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -1392,6 +1408,7 @@ const PatientProfile = () => {
               adherence={adherence}
               assessment={assessment}
               onNavigate={handleNavigateTab}
+              patientId={id}
             />
           </TabsContent>
 
