@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 # Configuration
-BACKEND_URL = "https://projeto-fase3.preview.emergentagent.com/api"
+BACKEND_URL = "https://timeline-sync-3.preview.emergentagent.com/api"
 SUPABASE_URL = "https://safovouvjiikaickutvi.supabase.co"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZm92b3V2amlpa2FpY2t1dHZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTk2ODM4MCwiZXhwIjoyMDg3NTQ0MzgwfQ.1mQSmHPNfzqx6cbi3tCYnrScH6-MZhbJsHZvM7t-GFg"
 

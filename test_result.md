@@ -918,32 +918,32 @@ agent_communication:
          └─ Screenshot: p1_login.png
       
       ✅ P2: /patient/meal-plan sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p2_mealplan_redirect.png
       
       ✅ P3: /patient/dashboard sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p3_dashboard_redirect.png
       
       ✅ P4: /professional/dashboard sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p4_professional_redirect.png
       
       ✅ P5: /admin/dashboard sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p5_admin_redirect.png
       
       ✅ P6: /professional/patients sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p6_professional_patients_redirect.png
       
       ✅ P7: /admin/features sem auth → redirect para /
-         └─ URL final: https://projeto-fase3.preview.emergentagent.com/
+         └─ URL final: https://timeline-sync-3.preview.emergentagent.com/
          └─ Redirecionamento funcionando corretamente
          └─ Screenshot: p7_admin_features_redirect.png
       
