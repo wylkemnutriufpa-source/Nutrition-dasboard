@@ -3086,7 +3086,7 @@ export const getPatientDashboardStats = async (patientId) => {
       .from('meal_plans')
       .select('id')
       .eq('patient_id', patientId)
-      .eq('status', 'active')
+      .eq('is_active', true)
       .limit(1);
 
     const hasActivePlan = activePlan && activePlan.length > 0;
