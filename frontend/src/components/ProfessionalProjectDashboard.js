@@ -271,6 +271,60 @@ const ProtocolsSection = ({ patientId }) => {
   const [deactivating, setDeactivating] = useState(null);
   const [scheduling, setScheduling] = useState(null);
   const [scheduleDate, setScheduleDate] = useState('');
+  // ── Catálogo editável
+  const [showNewProtocolForm, setShowNewProtocolForm] = useState(false);
+  const [editingProtocol, setEditingProtocol] = useState(null);
+  const [protocolForm, setProtocolForm] = useState({ name: '', category: '', description: '', instructions: '', default_duration_days: 30 });
+  const [savingProtocol, setSavingProtocol] = useState(false);
+
+  const openNewProtocolForm = () => {
+    setProtocolForm({ name: '', category: '', description: '', instructions: '', default_duration_days: 30 });
+    setEditingProtocol(null);
+    setShowNewProtocolForm(true);
+  };
+  const openEditProtocol = (p) => {
+    setProtocolForm({ name: p.name || '', category: p.category || '', description: p.description || '', instructions: p.instructions || '', default_duration_days: p.default_duration_days || 30 });
+    setEditingProtocol(p);
+    setShowNewProtocolForm(true);
+  };
+  const handleSaveProtocol = async () => {
+    if (!protocolForm.name.trim()) { toast.error('Nome obrigatório'); return; }
+    setSavingProtocol(true);
+    try {
+      const method = editingProtocol ? 'PUT' : 'POST';
+      const url = editingProtocol
+        ? `/api/professional/protocols/${editingProtocol.id}`
+        : '/api/professional/protocols';
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${backendUrl}${url}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(protocolForm),
+      });
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.detail || 'Erro ao salvar'); }
+      toast.success(editingProtocol ? 'Protocolo atualizado!' : 'Protocolo criado!');
+      setShowNewProtocolForm(false); setEditingProtocol(null);
+      load(true);
+    } catch (err) { toast.error(err.message || 'Erro ao salvar'); }
+    finally { setSavingProtocol(false); }
+  };
+  const handleDeleteProtocol = async (protocolId) => {
+    if (!window.confirm('Remover do catálogo? Ativações existentes não são afetadas.')) return;
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(`${backendUrl}/api/professional/protocols/${protocolId}`, {
+        method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error('Erro ao excluir');
+      toast.success('Protocolo removido do catálogo'); load(true);
+    } catch (err) { toast.error('Erro ao remover protocolo'); }
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -510,11 +564,52 @@ const ProtocolsSection = ({ patientId }) => {
 
       {/* Catálogo */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-          Disponíveis ({availableProtocols.length})
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Disponíveis ({availableProtocols.length})
+          </p>
+          <Button size="sm" variant="outline"
+            className="h-6 px-2 text-[11px] border-purple-300 text-purple-700 hover:bg-purple-50"
+            onClick={openNewProtocolForm}>
+            <Plus size={11} className="mr-1" /> Novo
+          </Button>
+        </div>
+
+        {/* Form inline criar/editar */}
+        {showNewProtocolForm && (
+          <div className="mb-3 border border-purple-200 rounded-xl p-3 bg-purple-50 space-y-2">
+            <p className="text-xs font-semibold text-purple-800">
+              {editingProtocol ? `Editar: ${editingProtocol.name}` : 'Novo protocolo no catálogo'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2">
+                <Input value={protocolForm.name} onChange={e => setProtocolForm({ ...protocolForm, name: e.target.value })}
+                  placeholder="Nome *" className="h-7 text-xs" />
+              </div>
+              <Input value={protocolForm.category} onChange={e => setProtocolForm({ ...protocolForm, category: e.target.value })}
+                placeholder="Categoria" className="h-7 text-xs" />
+              <Input type="number" value={protocolForm.default_duration_days}
+                onChange={e => setProtocolForm({ ...protocolForm, default_duration_days: parseInt(e.target.value) || 30 })}
+                placeholder="Dias" className="h-7 text-xs" />
+              <div className="col-span-2">
+                <Textarea value={protocolForm.description} onChange={e => setProtocolForm({ ...protocolForm, description: e.target.value })}
+                  placeholder="Descrição (opcional)" className="h-14 text-xs resize-none" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="ghost" className="h-6 text-xs"
+                onClick={() => { setShowNewProtocolForm(false); setEditingProtocol(null); }}>Cancelar</Button>
+              <Button size="sm" disabled={savingProtocol}
+                className="h-6 text-xs bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={handleSaveProtocol}>
+                {savingProtocol ? <Loader2 size={10} className="animate-spin" /> : (editingProtocol ? 'Salvar' : 'Criar')}
+              </Button>
+            </div>
+          </div>
+        )}
+
         {availableProtocols.length === 0 ? (
-          <p className="text-xs text-gray-400 py-2 text-center">Nenhum protocolo cadastrado.</p>
+          <p className="text-xs text-gray-400 py-2 text-center">Nenhum protocolo cadastrado. Clique em "Novo" para criar.</p>
         ) : (
           <div className="space-y-2">
             {availableProtocols.map(p => {
@@ -534,14 +629,24 @@ const ProtocolsSection = ({ patientId }) => {
                         {p.task_count != null && ` • ${p.task_count} tarefa(s)`}
                       </p>
                     </div>
-                    {!isActive && (
-                      <Button size="sm" disabled={isActivating}
-                        onClick={() => { setScheduling(isSchedulingThis ? null : p.id); setScheduleDate(''); }}
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-7 px-3 flex-shrink-0">
-                        {isActivating ? <Loader2 size={11} className="animate-spin mr-1" /> : <PlayCircle size={11} className="mr-1" />}
-                        {isActivating ? 'Ativando...' : 'Ativar'}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
+                        title="Editar protocolo" onClick={() => openEditProtocol(p)}>
+                        <Edit2 size={12} />
                       </Button>
-                    )}
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                        title="Remover do catálogo" onClick={() => handleDeleteProtocol(p.id)}>
+                        <X size={12} />
+                      </Button>
+                      {!isActive && (
+                        <Button size="sm" disabled={isActivating}
+                          onClick={() => { setScheduling(isSchedulingThis ? null : p.id); setScheduleDate(''); }}
+                          className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-7 px-3">
+                          {isActivating ? <Loader2 size={11} className="animate-spin mr-1" /> : <PlayCircle size={11} className="mr-1" />}
+                          {isActivating ? 'Ativando...' : 'Ativar'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   {isSchedulingThis && !isActive && (
                     <div className="px-3 pb-3">
