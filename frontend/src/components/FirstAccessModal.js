@@ -148,32 +148,60 @@ const FirstAccessModal = ({ show, onClose, onStartAnamnesis, anamnesisStatus }) 
 
 /**
  * AnamneseBanner - Banner persistente no dashboard
- * Lembra o paciente de preencher a anamnese
+ * Lembra o paciente de preencher/atualizar a anamnese
+ * - draft/null → banner de urgência
+ * - complete → banner suave de atualização (paciente sempre pode editar)
  */
 export const AnamneseBanner = ({ anamnesisStatus, onStartAnamnesis }) => {
-  if (anamnesisStatus === 'complete') return null;
-
+  const isComplete = anamnesisStatus === 'complete';
   const isDraft = anamnesisStatus === 'draft';
+  const isEmpty = !anamnesisStatus;
 
+  // Anamnese completa: mostrar banner suave de atualização (paciente pode sempre editar)
+  if (isComplete) {
+    return (
+      <Alert className="bg-green-50 border-green-200">
+        <FileText className="h-5 w-5 text-green-700" />
+        <div className="flex items-center justify-between w-full">
+          <AlertDescription className="text-sm">
+            <strong className="text-green-900">✅ Anamnese concluída</strong>
+            <p className="text-green-800 mt-1">
+              Seus dados estão salvos. Você pode atualizar suas informações sempre que precisar.
+            </p>
+          </AlertDescription>
+          <Button
+            onClick={onStartAnamnesis}
+            variant="outline"
+            className="border-green-600 text-green-700 hover:bg-green-100 ml-4 flex-shrink-0"
+            size="sm"
+          >
+            Atualizar
+          </Button>
+        </div>
+      </Alert>
+    );
+  }
+
+  // Anamnese incompleta (draft ou vazia): banner de urgência
   return (
-    <Alert className="bg-gradient-to-r from-teal-50 to-blue-50 border-teal-200">
-      <FileText className="h-5 w-5 text-teal-700" />
+    <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300">
+      <FileText className="h-5 w-5 text-amber-700" />
       <div className="flex items-center justify-between w-full">
         <div>
           <AlertDescription className="text-sm">
-            <strong className="text-teal-900">
+            <strong className="text-amber-900">
               {isDraft ? '📝 Continue sua anamnese' : '⚠️ Ação necessária'}
             </strong>
-            <p className="text-teal-800 mt-1">
-              {isDraft 
+            <p className="text-amber-800 mt-1">
+              {isDraft
                 ? 'Você começou a preencher sua anamnese. Complete-a para receber seu plano alimentar personalizado!'
-                : 'Preencha sua anamnese completa para que seu nutricionista possa elaborar seu plano alimentar personalizado.'}
+                : 'Preencha sua anamnese para que seu nutricionista possa elaborar seu plano alimentar personalizado.'}
             </p>
           </AlertDescription>
         </div>
-        <Button 
+        <Button
           onClick={onStartAnamnesis}
-          className="bg-teal-700 hover:bg-teal-800 ml-4 flex-shrink-0"
+          className="bg-amber-600 hover:bg-amber-700 ml-4 flex-shrink-0"
           size="sm"
         >
           {isDraft ? 'Continuar' : 'Preencher Agora'}

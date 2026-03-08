@@ -31,7 +31,22 @@ const AnamneseFormComplete = ({
   onComplete,
   onDirtyChange
 }) => {
-  const [data, setData] = useState(anamnesis || {});
+  // ─── Helper: desempacotar measurements jsonb para campos do formulário ────
+  const unpackMeasurements = (anamnesisData) => {
+    if (!anamnesisData) return anamnesisData;
+    const result = { ...anamnesisData };
+    const m = result.measurements;
+    if (m && typeof m === 'object') {
+      ['waist_circumference', 'hip_circumference', 'blood_pressure', 'heart_rate'].forEach(field => {
+        if (m[field] !== undefined && !result[field]) {
+          result[field] = m[field];
+        }
+      });
+    }
+    return result;
+  };
+
+  const [data, setData] = useState(() => unpackMeasurements(anamnesis) || {});
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [currentSection, setCurrentSection] = useState('clinical');
@@ -51,7 +66,6 @@ const AnamneseFormComplete = ({
       const savedDraft = localStorage.getItem(draftKey);
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
-        // Só restaurar se o rascunho é mais recente que os dados do DB
         const draftTime = parsed._draft_saved_at || 0;
         const dbTime = anamnesis?.updated_at ? new Date(anamnesis.updated_at).getTime() : 0;
         if (draftTime > dbTime) {
@@ -61,7 +75,6 @@ const AnamneseFormComplete = ({
           setHasChanges(true);
           toast.info('Rascunho restaurado! Suas alterações anteriores foram recuperadas.', { duration: 5000 });
         } else {
-          // Draft mais antigo que o DB, limpar
           localStorage.removeItem(draftKey);
         }
       }
@@ -69,6 +82,16 @@ const AnamneseFormComplete = ({
       console.warn('Erro ao restaurar rascunho:', e);
     }
   }, [patientId]);
+
+  // ─── Sync silencioso: quando anamnesis prop muda (após onUpdate silent) ────
+  // Só atualiza se NÃO há edições em andamento (hasChanges=false)
+  // Usa MERGE (prev + anamnesis) para preservar campos locais (current_weight etc.)
+  useEffect(() => {
+    if (!anamnesis?.updated_at) return;
+    if (hasChanges || draftRestored) return; // Não sobrescrever edições em andamento
+    const unpacked = unpackMeasurements(anamnesis);
+    setData(prev => ({ ...prev, ...unpacked }));
+  }, [anamnesis?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Salvar rascunho no localStorage a cada mudança ───────────────
   useEffect(() => {
@@ -95,9 +118,8 @@ const AnamneseFormComplete = ({
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasChanges]);
 
-  useEffect(() => {
-    setData(anamnesis || {});
-  }, [anamnesis]);
+  // REMOVIDO: useEffect incondicional [anamnesis] que resetava o formulário
+  // A sincronização é feita pela linha 74-78 (com guard de hasChanges)
 
   const handleChange = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -133,6 +155,25 @@ const AnamneseFormComplete = ({
   const progress = calculateProgress();
 
   const handleSave = async (markComplete = false) => {
+    // ─── Validação mínima antes de Concluir ────────────────────────────────
+    if (markComplete) {
+      const requiredFilled = [
+        data.current_weight || data.weight,
+        data.height,
+        data.food_preference || data.diet_type,
+        data.medical_conditions?.length > 0 || data.no_medical_conditions,
+        data.sports_goal || data.main_goal,
+      ].filter(Boolean).length;
+
+      const MIN_PROGRESS = 50; // pelo menos 50% preenchido
+      if (progress < MIN_PROGRESS) {
+        toast.error(
+          `Preencha mais informações antes de concluir. Progresso atual: ${progress}% (mínimo: ${MIN_PROGRESS}%)`,
+          { duration: 6000 }
+        );
+        return;
+      }
+    }
     setSaving(true);
     saveStatus.markSaving();
     try {
@@ -146,8 +187,22 @@ const AnamneseFormComplete = ({
         last_edited_by: isPatientView ? 'patient' : 'professional',
         updated_at: new Date().toISOString()
       };
+
+      // Empacotar campos antropométricos extras na coluna measurements (jsonb)
+      // waist_circumference, hip_circumference, blood_pressure, heart_rate NÃO são colunas
+      // da tabela anamnesis — precisam ser salvos dentro de measurements
+      const measurementFields = ['waist_circumference', 'hip_circumference', 'blood_pressure', 'heart_rate'];
+      const currentMeasurements = (typeof cleanData.measurements === 'object' && cleanData.measurements !== null)
+        ? { ...cleanData.measurements }
+        : {};
+      measurementFields.forEach(field => {
+        if (cleanData[field] !== undefined && cleanData[field] !== null && cleanData[field] !== '') {
+          currentMeasurements[field] = cleanData[field];
+        }
+      });
+      cleanData.measurements = currentMeasurements;
       
-      console.log('💾 Salvando anamnese:', { patientId, professionalId, cleanData });
+      console.log('💾 Salvando anamnese:', { patientId, professionalId, fields: Object.keys(cleanData).length });
       
       // PASSO 1: Atualizar perfil do paciente com dados antropométricos PRIMEIRO
       // (current_weight, height, goal_weight pertencem a patient_profiles, não a anamnesis)
@@ -172,9 +227,9 @@ const AnamneseFormComplete = ({
         console.log('📝 Atualizando anamnese existente:', anamnesis.id);
         const { data: result, error } = await updateAnamnesis(anamnesis.id, cleanData);
         if (error) {
-          console.error('❌ Erro ao atualizar:', String(error.message || error));
-          const errorMsg = String(error.message || error.hint || error.details || 'Erro desconhecido ao atualizar');
-          throw new Error(errorMsg);
+          console.error('❌ Erro ao atualizar:', error);
+          const errorMsg = error.message || error.hint || error.details || 'Erro desconhecido ao atualizar';
+          throw new Error(String(errorMsg));
         }
         console.log('✅ Atualizada com sucesso:', result);
       } else {

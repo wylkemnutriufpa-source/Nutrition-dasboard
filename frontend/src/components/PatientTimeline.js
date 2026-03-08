@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, FileText, Scale, MessageSquare, Image, Target, Bell, UserPlus, Loader2, Clock, List, Calendar, Pause } from 'lucide-react';
+import { CheckCircle2, FileText, Scale, MessageSquare, Image, Target, Bell, UserPlus, Loader2, Clock, Calendar, ListChecks } from 'lucide-react';
 import { authenticatedGet } from '@/lib/apiClient';
 import EmptyState from '@/components/EmptyState';
 
@@ -17,9 +17,9 @@ const iconMap = {
   target: Target,
   bell: Bell,
   user: UserPlus,
-  list: List,
+  // novos: eventos de protocolo
   calendar: Calendar,
-  pause: Pause,
+  'list-checks': ListChecks,
 };
 
 const colorMap = {
@@ -32,6 +32,9 @@ const colorMap = {
   orange: { dot: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
   gray: { dot: 'bg-gray-400', bg: 'bg-gray-50', text: 'text-gray-600' },
   green: { dot: 'bg-green-500', bg: 'bg-green-50', text: 'text-green-700' },
+  // novos: eventos de protocolo
+  orange: { dot: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
+  purple: { dot: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700' },
 };
 
 const formatTimeAgo = (timestamp) => {

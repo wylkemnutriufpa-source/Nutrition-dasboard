@@ -14,10 +14,14 @@ import {
   CheckCircle, Zap, Target, Gift, Star, Heart,
   ArrowRight, ChevronRight, Gem, ExternalLink,
   Layout as LayoutIcon, Type, Package, MessageSquare,
-  Settings, Palette
+  Settings, Palette, PlayCircle, ChevronDown, ChevronUp,
+  AlertTriangle, RefreshCw, Activity, Calendar,
+  CheckCircle2, Circle, ListChecks, TrendingUp, Clock, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { authenticatedGet, authenticatedPost, authenticatedDelete } from '@/lib/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 const AdminProjetoEditor = () => {
   const [loading, setLoading] = useState(true);
@@ -25,6 +29,23 @@ const AdminProjetoEditor = () => {
   const [activeTab, setActiveTab] = useState('hero');
   const fileInputRef = useRef(null);
   const [uploadingImage, setUploadingImage] = useState(null);
+
+  // Estado da aba Protocolos
+  const [protocols, setProtocols] = useState([]);
+  const [protocolsLoading, setProtocolsLoading] = useState(false);
+  const [protocolPatientCounts, setProtocolPatientCounts] = useState({});
+
+  // ── Gestão do Programa ──────────────────────────────────────────
+  const [gestaoLoading, setGestaoLoading] = useState(false);
+  const [gestaoOverview, setGestaoOverview] = useState(null); // { patients, rules, summary }
+  const [applyingRules, setApplyingRules] = useState(false);
+  const [applyResult, setApplyResult] = useState(null);
+  // Nova regra
+  const [showRuleForm, setShowRuleForm] = useState(false);
+  const [ruleForm, setRuleForm] = useState({ protocol_id: '', protocol_name: '', trigger_month: 1, auto_activate: false, notes: '' });
+  const [savingRule, setSavingRule] = useState(false);
+  const [deletingRule, setDeletingRule] = useState(null);
+  const navigate = useNavigate();
   
   const [projectData, setProjectData] = useState({
     // Hero Section
@@ -156,6 +177,63 @@ const AdminProjetoEditor = () => {
       console.error('Erro ao carregar:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Handlers de Gestão ──────────────────────────────────────────
+  const handleCreateRule = async () => {
+    if (!ruleForm.protocol_id || !ruleForm.trigger_month) {
+      toast.error('Selecione o protocolo e o mês de ativação');
+      return;
+    }
+    setSavingRule(true);
+    try {
+      await authenticatedPost('/api/admin/program/protocol-rules', {
+        ...ruleForm,
+        trigger_month: parseInt(ruleForm.trigger_month),
+        program_id: 'biquini_branco',
+      });
+      toast.success('Regra criada!');
+      setShowRuleForm(false);
+      setRuleForm({ protocol_id: '', protocol_name: '', trigger_month: 1, auto_activate: false, notes: '' });
+      await loadGestao(true);
+    } catch (err) {
+      toast.error('Erro ao criar regra');
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const handleDeleteRule = async (ruleId) => {
+    setDeletingRule(ruleId);
+    try {
+      await authenticatedDelete(`/api/admin/program/protocol-rules/${ruleId}`);
+      toast.success('Regra removida');
+      await loadGestao(true);
+    } catch {
+      toast.error('Erro ao remover regra');
+    } finally {
+      setDeletingRule(null);
+    }
+  };
+
+  const handleApplyRules = async (dryRun = false) => {
+    setApplyingRules(true);
+    setApplyResult(null);
+    try {
+      const result = await authenticatedPost('/api/admin/program/apply-rules', {
+        program_id: 'biquini_branco',
+        dry_run: dryRun,
+      });
+      setApplyResult(result);
+      if (!dryRun) {
+        toast.success(`✅ ${result.activated_count} protocolo(s) ativado(s)!`);
+        await loadGestao(true);
+      }
+    } catch {
+      toast.error('Erro ao aplicar regras');
+    } finally {
+      setApplyingRules(false);
     }
   };
 
@@ -328,14 +406,69 @@ const AdminProjetoEditor = () => {
     }
   };
 
+  // Carrega protocolos apenas quando a aba é acessada pela primeira vez
+  useEffect(() => {
+    if (activeTab !== 'protocolos' || protocols.length > 0) return;
+    const load = async () => {
+      setProtocolsLoading(true);
+      try {
+        const data = await authenticatedGet('/api/professional/protocols/list');
+        const list = data?.protocols || [];
+        setProtocols(list);
+        if (list.length > 0) {
+          const { data: ppRows } = await supabase
+            .from('patient_protocols')
+            .select('protocol_id')
+            .eq('status', 'active');
+          if (ppRows) {
+            const counts = {};
+            ppRows.forEach(r => { counts[r.protocol_id] = (counts[r.protocol_id] || 0) + 1; });
+            setProtocolPatientCounts(counts);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar protocolos:', err);
+        toast.error('Não foi possível carregar os protocolos.');
+      } finally {
+        setProtocolsLoading(false);
+      }
+    };
+    load();
+  }, [activeTab, protocols.length]);
+
+  // Carrega overview de gestão
+  const loadGestao = async (silent = false) => {
+    if (!silent) setGestaoLoading(true);
+    try {
+      // Garantir que temos o catálogo de protocolos
+      if (protocols.length === 0) {
+        const data = await authenticatedGet('/api/professional/protocols/list');
+        setProtocols(data?.protocols || []);
+      }
+      const data = await authenticatedGet('/api/admin/program/patients-overview?program_id=biquini_branco');
+      setGestaoOverview(data);
+    } catch (err) {
+      console.error('Erro ao carregar gestão:', err);
+      if (!silent) toast.error('Erro ao carregar visão do programa');
+    } finally {
+      setGestaoLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'gestao') loadGestao();
+  }, [activeTab]);
+
   // Tab configuration
   const tabs = [
+    { id: 'gestao', label: '🎯 Gestão', icon: Target, gradient: 'from-violet-600 to-purple-700' },
     { id: 'hero', label: 'Hero', icon: Sparkles, gradient: 'from-pink-500 to-rose-500' },
     { id: 'titulos', label: 'Títulos', icon: Type, gradient: 'from-purple-500 to-indigo-500' },
     { id: 'conteudo', label: 'Conteúdo', icon: LayoutIcon, gradient: 'from-blue-500 to-cyan-500' },
     { id: 'planos', label: 'Planos', icon: Package, gradient: 'from-amber-500 to-orange-500' },
     { id: 'depoimentos', label: 'Depoimentos', icon: MessageSquare, gradient: 'from-green-500 to-emerald-500' },
-    { id: 'faq', label: 'FAQ', icon: HelpCircle, gradient: 'from-teal-500 to-cyan-500' }
+    { id: 'faq', label: 'FAQ', icon: HelpCircle, gradient: 'from-teal-500 to-cyan-500' },
+    { id: 'protocolos', label: 'Protocolos', icon: Zap, gradient: 'from-violet-500 to-purple-600' },
   ];
 
   if (loading) {
@@ -447,6 +580,316 @@ const AdminProjetoEditor = () => {
               );
             })}
           </TabsList>
+
+          {/* ==================== TAB GESTÃO DO PROGRAMA ==================== */}
+          <TabsContent value="gestao" className="space-y-5 mt-4">
+
+            {gestaoLoading ? (
+              <div className="flex items-center justify-center py-20 gap-3 text-purple-600">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span className="font-medium">Carregando visão global do programa...</span>
+              </div>
+            ) : (
+              <>
+                {/* ── HEADER ────────────────────────────── */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 p-6 text-white shadow-xl">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl pointer-events-none" />
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white/15 rounded-xl">
+                        <Target className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold">Central de Gestão do Programa</h2>
+                        <p className="text-white/70 text-sm">Regras globais · Visão de todos os pacientes · Ativações em lote</p>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost"
+                      className="text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
+                      onClick={() => loadGestao()}>
+                      <RefreshCw className="w-4 h-4 mr-1" />Atualizar
+                    </Button>
+                  </div>
+
+                  {/* KPIs */}
+                  {gestaoOverview?.summary && (
+                    <div className="grid grid-cols-4 gap-3 mt-5">
+                      {[
+                        { label: 'Pacientes', value: gestaoOverview.summary.total, icon: Users },
+                        { label: 'Precisam atenção', value: gestaoOverview.summary.needs_attention, icon: AlertTriangle },
+                        { label: 'No caminho certo', value: gestaoOverview.summary.on_track, icon: CheckCircle },
+                        { label: 'Regras ativas', value: gestaoOverview.summary.rules_total, icon: Zap },
+                      ].map((k, i) => (
+                        <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 text-center">
+                          <k.icon className="w-4 h-4 mx-auto mb-1 opacity-80" />
+                          <p className="text-2xl font-black">{k.value}</p>
+                          <p className="text-[11px] text-white/70 leading-tight">{k.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── REGRAS DO PROGRAMA ────────────────── */}
+                <Card className="border-purple-200 shadow-sm overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-600" />
+                  <CardHeader className="bg-purple-50/50 border-b border-purple-100 pb-3 pt-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2 text-purple-900 text-base">
+                        <Zap className="w-4 h-4 text-purple-600" />
+                        Regras de Ativação do Programa
+                      </CardTitle>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline"
+                          className="border-amber-300 text-amber-700 hover:bg-amber-50 text-xs h-8"
+                          disabled={applyingRules}
+                          onClick={() => handleApplyRules(true)}>
+                          {applyingRules ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Activity className="w-3 h-3 mr-1" />}
+                          Simular
+                        </Button>
+                        <Button size="sm"
+                          className="bg-violet-600 hover:bg-violet-700 text-white text-xs h-8"
+                          disabled={applyingRules}
+                          onClick={() => handleApplyRules(false)}>
+                          {applyingRules ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <PlayCircle className="w-3 h-3 mr-1" />}
+                          Aplicar regras automáticas
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          className="border-purple-300 text-purple-700 hover:bg-purple-50 text-xs h-8"
+                          onClick={() => setShowRuleForm(p => !p)}>
+                          <Plus className="w-3 h-3 mr-1" />Nova regra
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+
+                    {/* Formulário nova regra */}
+                    {showRuleForm && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+                        <p className="text-sm font-bold text-purple-900">Nova Regra de Protocolo</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500 font-medium">Protocolo</label>
+                            <select
+                              className="mt-1 w-full h-9 px-3 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-purple-400"
+                              value={ruleForm.protocol_id}
+                              onChange={e => {
+                                const p = protocols.find(p => p.id === e.target.value);
+                                setRuleForm(f => ({ ...f, protocol_id: e.target.value, protocol_name: p?.name || '' }));
+                              }}>
+                              <option value="">Selecione...</option>
+                              {protocols.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 font-medium">Ativar no Mês</label>
+                            <input type="number" min="1" max="24"
+                              className="mt-1 w-full h-9 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-purple-400"
+                              value={ruleForm.trigger_month}
+                              onChange={e => setRuleForm(f => ({ ...f, trigger_month: e.target.value }))} />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-xs text-gray-500 font-medium">Observações (opcional)</label>
+                            <input type="text"
+                              className="mt-1 w-full h-9 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-purple-400"
+                              placeholder="Ex: Protocolo de retenção hídrica"
+                              value={ruleForm.notes}
+                              onChange={e => setRuleForm(f => ({ ...f, notes: e.target.value }))} />
+                          </div>
+                          <div className="col-span-2 flex items-center gap-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input type="checkbox"
+                                className="w-4 h-4 rounded accent-purple-600"
+                                checked={ruleForm.auto_activate}
+                                onChange={e => setRuleForm(f => ({ ...f, auto_activate: e.target.checked }))} />
+                              <span className="text-xs font-medium text-gray-700">
+                                Ativar automaticamente (sem precisar ir ao perfil)
+                              </span>
+                            </label>
+                            {!ruleForm.auto_activate && (
+                              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                ⚠️ Você será notificado para ativar manualmente
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" variant="ghost" className="text-gray-500 text-xs h-8"
+                            onClick={() => setShowRuleForm(false)}>
+                            <X className="w-3 h-3 mr-1" />Cancelar
+                          </Button>
+                          <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
+                            disabled={savingRule} onClick={handleCreateRule}>
+                            {savingRule ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                            Salvar regra
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lista de regras */}
+                    {(!gestaoOverview?.rules || gestaoOverview.rules.length === 0) && !showRuleForm ? (
+                      <div className="text-center py-8 border border-dashed border-purple-200 rounded-xl">
+                        <Zap className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-purple-700">Nenhuma regra configurada</p>
+                        <p className="text-xs text-purple-400 mt-1">Crie regras para automatizar a ativação de protocolos por mês</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {(gestaoOverview?.rules || []).map(rule => (
+                          <div key={rule.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-purple-200 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0">
+                                <span className="font-black text-sm">M{rule.trigger_month}</span>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900 text-sm">{rule.protocol_name || rule.protocol_id}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs text-gray-500">Mês {rule.trigger_month}</span>
+                                  {rule.auto_activate ? (
+                                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold">AUTO</span>
+                                  ) : (
+                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">MANUAL</span>
+                                  )}
+                                  {rule.notes && <span className="text-xs text-gray-400 truncate max-w-32">{rule.notes}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <button className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                              disabled={deletingRule === rule.id}
+                              onClick={() => handleDeleteRule(rule.id)}>
+                              {deletingRule === rule.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Resultado de aplicação */}
+                    {applyResult && (
+                      <div className={`p-4 rounded-xl border text-sm ${applyResult.dry_run ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'}`}>
+                        <p className="font-bold mb-2">
+                          {applyResult.dry_run ? '🔍 Simulação:' : '✅ Resultado:'}
+                        </p>
+                        <div className="space-y-1 text-xs">
+                          <p className="text-green-700">✅ {applyResult.activated_count} protocolo(s) {applyResult.dry_run ? 'seriam ativados' : 'ativados'}</p>
+                          {applyResult.manual_pending_count > 0 && (
+                            <p className="text-amber-700">⚠️ {applyResult.manual_pending_count} aguardam ativação manual</p>
+                          )}
+                          {applyResult.manual_pending?.map((m, i) => (
+                            <p key={i} className="text-amber-600 pl-3">→ {m.patient_name}: {m.protocol_name} (Mês {m.trigger_month})</p>
+                          ))}
+                          {applyResult.error_count > 0 && (
+                            <p className="text-red-600">❌ {applyResult.error_count} erro(s)</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                  </CardContent>
+                </Card>
+
+                {/* ── VISÃO GLOBAL DOS PACIENTES ────────── */}
+                <Card className="shadow-sm overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-600" />
+                  <CardHeader className="pb-3 pt-4 border-b">
+                    <CardTitle className="flex items-center gap-2 text-gray-800 text-base">
+                      <Users className="w-4 h-4 text-gray-500" />
+                      Pacientes do Programa
+                      {gestaoOverview?.summary?.needs_attention > 0 && (
+                        <span className="ml-2 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold border border-amber-200">
+                          {gestaoOverview.summary.needs_attention} precisam atenção
+                        </span>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {(!gestaoOverview?.patients || gestaoOverview.patients.length === 0) ? (
+                      <div className="text-center py-12">
+                        <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400">Nenhum paciente encontrado</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {gestaoOverview.patients.map(p => (
+                          <div key={p.patient_id}
+                            className={`flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 transition-colors ${p.needs_attention ? 'bg-amber-50/40' : ''}`}>
+
+                            {/* Avatar + info */}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white text-sm font-bold ${p.needs_attention ? 'bg-amber-500' : 'bg-gradient-to-br from-violet-500 to-purple-600'}`}>
+                                {p.full_name?.[0] || '?'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-900 text-sm truncate">{p.full_name}</p>
+                                <p className="text-xs text-gray-400 truncate">{p.email}</p>
+                              </div>
+                            </div>
+
+                            {/* Mês relativo */}
+                            <div className="text-center flex-shrink-0 w-20">
+                              <div className={`text-lg font-black ${p.relative_month >= 3 ? 'text-purple-700' : p.relative_month === 2 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                                Mês {p.relative_month}
+                              </div>
+                              {p.plan_start_date && (
+                                <p className="text-[10px] text-gray-400">desde {new Date(p.plan_start_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                              )}
+                            </div>
+
+                            {/* Status de protocolos */}
+                            <div className="flex-shrink-0 w-44">
+                              {p.needs_attention ? (
+                                <div className="space-y-1">
+                                  {p.pending_rules.map((r, i) => (
+                                    <div key={i} className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                      <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                                      <span className="truncate">{r.protocol_name} pendente</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : p.active_protocols.length > 0 ? (
+                                <div className="space-y-1">
+                                  {p.active_protocols.slice(0, 2).map((ap, i) => (
+                                    <div key={i} className="flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                                      <span className="truncate">{ap.name}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Sem protocolo ativo</span>
+                              )}
+                            </div>
+
+                            {/* Próximo protocolo */}
+                            <div className="flex-shrink-0 w-36 hidden md:block">
+                              {p.upcoming_rules.length > 0 ? (
+                                <div className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 truncate">
+                                  📅 Mês {p.upcoming_rules[0].trigger_month}: {p.upcoming_rules[0].protocol_name}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-300">—</span>
+                              )}
+                            </div>
+
+                            {/* Ações */}
+                            <div className="flex gap-1.5 flex-shrink-0">
+                              <button
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors"
+                                onClick={() => navigate(`/professional/patient/${p.patient_id}?tab=projeto`)}>
+                                Ver projeto
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
 
           {/* ==================== TAB HERO ==================== */}
           <TabsContent value="hero" className="space-y-4 mt-4">
@@ -1106,6 +1549,98 @@ const AdminProjetoEditor = () => {
               Adicionar Pergunta
             </Button>
           </TabsContent>
+
+          {/* ==================== TAB PROTOCOLOS ==================== */}
+          <TabsContent value="protocolos" className="space-y-4 mt-4">
+            <Card className="border-0 shadow-lg overflow-hidden">
+              <div className="h-2 bg-gradient-to-r from-violet-500 to-purple-600" />
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-purple-600" />
+                  Catálogo de Protocolos
+                </CardTitle>
+                <CardDescription>
+                  Protocolos disponíveis para ativação no Projeto Biquíni Branco.
+                  Para ativar em um paciente, acesse o perfil dele → aba Projeto.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {protocolsLoading ? (
+                  <div className="flex items-center gap-3 py-8 justify-center text-gray-400">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Carregando protocolos...</span>
+                  </div>
+                ) : protocols.length === 0 ? (
+                  <div className="text-center py-10 border border-dashed border-purple-200 rounded-xl bg-purple-50">
+                    <Zap className="w-10 h-10 text-purple-300 mx-auto mb-3" />
+                    <p className="font-semibold text-purple-700">Nenhum protocolo cadastrado.</p>
+                    <p className="text-sm text-purple-500 mt-1">Crie protocolos via painel administrativo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {protocols.map((p) => {
+                      const activeCount = protocolPatientCounts[p.id] || 0;
+                      return (
+                        <div key={p.id}
+                          className="flex items-center justify-between p-4 bg-gray-50 hover:bg-purple-50 rounded-xl border border-gray-200 hover:border-purple-200 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                              <PlayCircle className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900">{p.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {p.category && <span className="mr-2">{p.category}</span>}
+                                {p.default_duration_days && <span className="mr-2">⏱ {p.default_duration_days} dias</span>}
+                                {p.task_count != null && <span>📋 {p.task_count} tarefa(s)</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-2xl font-black text-purple-600">{activeCount}</p>
+                            <p className="text-[11px] text-gray-400 whitespace-nowrap">
+                              {activeCount === 1 ? 'paciente ativo' : 'pacientes ativos'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Resumo operacional */}
+            {protocols.length > 0 && (
+              <Card className="border-0 shadow-lg overflow-hidden">
+                <div className="h-2 bg-gradient-to-r from-violet-500 to-purple-600" />
+                <CardContent className="pt-5">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">{protocols.length}</p>
+                      <p className="text-xs text-purple-500 mt-1">Protocolos no catálogo</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">
+                        {Object.values(protocolPatientCounts).reduce((a, b) => a + b, 0)}
+                      </p>
+                      <p className="text-xs text-purple-500 mt-1">Ativações ativas</p>
+                    </div>
+                    <div className="p-4 bg-purple-50 rounded-xl">
+                      <p className="text-3xl font-black text-purple-700">
+                        {protocols.reduce((s, p) => s + (p.task_count || 0), 0)}
+                      </p>
+                      <p className="text-xs text-purple-500 mt-1">Tasks no catálogo</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center mt-4">
+                    Para ativar um protocolo em um paciente, acesse: <strong>Pacientes → Perfil → aba Projeto → Protocolos</strong>
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
         </Tabs>
       </div>
     </Layout>

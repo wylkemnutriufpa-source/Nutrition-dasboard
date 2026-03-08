@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getPatientStats, uploadProfilePhoto, getPatientPersonalizedTips } from '@/lib/supabase';
 import { toast } from 'sonner';
 import ChecklistSimple from '@/components/ChecklistSimple';
+import PatientActivityTimeline from '@/components/PatientActivityTimeline';
 import FirstAccessModal, { AnamneseBanner } from '@/components/FirstAccessModal';
 import MealPlanViewerModal from '@/components/MealPlanViewerModal';
 import EmergencyButton from '@/components/EmergencyButton';
@@ -333,6 +334,20 @@ const PatientDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Checklist Diário */}
           <ChecklistSimple patientId={user?.id} isPatientView={true} />
+
+          {/* Minha Atividade — Timeline Gamificada */}
+          <Card className="overflow-hidden border-purple-200 shadow-sm">
+            <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500" />
+            <CardHeader className="pb-3 pt-4">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                Minha Atividade
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pb-5">
+              <PatientActivityTimeline patientId={user?.id} />
+            </CardContent>
+          </Card>
 
           {/* Dicas Personalizadas */}
           <Card>

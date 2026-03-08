@@ -28,9 +28,10 @@ import {
 import { toast } from 'sonner';
 import { authenticatedGet } from '@/lib/apiClient';
 import EmptyState from '@/components/EmptyState';
+import PatientActivityTimeline from '@/components/PatientActivityTimeline';
 
 const PatientProjectDashboard = () => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [protocols, setProtocols] = useState([]);
   const [selectedProtocol, setSelectedProtocol] = useState(null);
@@ -53,43 +54,16 @@ const PatientProjectDashboard = () => {
   ];
 
   useEffect(() => {
-    loadProtocols();
+    loadData();
   }, []);
 
-  const loadProtocols = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       const data = await authenticatedGet('/api/patient/protocols/active');
       setProtocols(data.protocols || []);
     } catch (error) {
       console.error('Erro ao carregar protocolos:', error);
-      // Mock data para desenvolvimento
-      setProtocols([
-        {
-          id: '1',
-          name: 'Protocolo de Água',
-          category: 'hidratacao',
-          status: 'active',
-          progress_day: 3,
-          default_duration_days: 14,
-          description: 'Protocolo de hiperhidratação para acelerar metabolismo',
-          instructions: 'Beber 3 litros de água ao longo do dia. Distribuir em garrafas e registrar consumo.',
-          icon: 'Droplet',
-          color: 'blue'
-        },
-        {
-          id: '2',
-          name: 'Protocolo de Chás',
-          category: 'termogenicos',
-          status: 'active',
-          progress_day: 5,
-          default_duration_days: 30,
-          description: 'Chás termogênicos para acelerar queima de gordura',
-          instructions: 'Consumir 3 xícaras ao dia: chá verde (manhã), hibisco (tarde), gengibre (noite).',
-          icon: 'Coffee',
-          color: 'green'
-        }
-      ]);
     } finally {
       setLoading(false);
     }
@@ -335,6 +309,25 @@ const PatientProjectDashboard = () => {
               <p className="mb-2">Área de evolução em desenvolvimento</p>
               <p className="text-sm">Em breve você verá suas fotos e peso comparativos aqui</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* ── MINHA ATIVIDADE (Timeline Gamificada) ── */}
+        <Card className="overflow-hidden border-purple-200 shadow-sm">
+          <div className="h-1 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500" />
+          <CardHeader className="pb-3 pt-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle>Minha Atividade</CardTitle>
+                <p className="text-sm text-gray-600">Sua jornada dia a dia com conquistas</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <PatientActivityTimeline patientId={user?.id} />
           </CardContent>
         </Card>
 

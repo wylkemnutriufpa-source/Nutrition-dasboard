@@ -294,7 +294,7 @@ async def get_current_user_with_db_role(
         )
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 f"{supabase_url}/rest/v1/profiles",
                 headers={

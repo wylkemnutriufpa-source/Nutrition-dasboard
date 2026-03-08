@@ -381,18 +381,20 @@ export const createPatientByProfessional = async (professionalId, patientData) =
  * Extrai informações seguras de erro (evita body stream already read)
  */
 const extractSafeError = (error) => {
-  if (!error) return { message: 'Erro desconhecido' };
+  if (!error) return { message: 'Erro desconhecido', status: 0 };
   // NUNCA acessar response.text() ou response.json() - usar apenas propriedades diretas
-  const safe = { message: 'Erro ao salvar', code: '', details: '', hint: '' };
+  const safe = { message: 'Erro ao salvar', code: '', details: '', hint: '', status: 0 };
   try { safe.message = String(error.message || error || 'Erro ao salvar'); } catch (_) {}
   try { safe.code = String(error.code || ''); } catch (_) {}
   try { safe.details = String(error.details || ''); } catch (_) {}
   try { safe.hint = String(error.hint || ''); } catch (_) {}
+  try { safe.status = Number(error.status || error.statusCode || 0); } catch (_) {}
   return safe;
 };
 
 /**
  * Executa operação Supabase com retry automático (até 2 tentativas)
+ * NÃO faz retry para erros 4xx (erros de cliente são determinísticos)
  */
 const withRetry = async (fn, maxRetries = 2) => {
   let lastError = null;
@@ -400,43 +402,84 @@ const withRetry = async (fn, maxRetries = 2) => {
     try {
       const result = await fn();
       if (result.error) {
-        lastError = result.error;
-        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, extractSafeError(result.error));
+        // Extrair erro IMEDIATAMENTE antes de qualquer outra operação
+        // para evitar "body stream already read" em tentativas subsequentes
+        const safeError = extractSafeError(result.error);
+        lastError = safeError;
+        console.warn(`⚠️ Tentativa ${attempt + 1} falhou:`, safeError);
+
+        // Não retry para 4xx: são erros de cliente (coluna errada, RLS, etc.)
+        // Retry apenas para 5xx (servidor) ou erros de rede (sem status)
+        const status = result.error?.status || result.error?.statusCode || 0;
+        const isClientError = status >= 400 && status < 500;
+        if (isClientError) {
+          return { data: null, error: safeError };
+        }
+
         if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, 500 * (attempt + 1))); // Backoff
+          await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
           continue;
         }
-        return { data: null, error: extractSafeError(lastError) };
+        return { data: null, error: safeError };
       }
       return result;
     } catch (err) {
-      lastError = err;
-      console.warn(`⚠️ Exceção tentativa ${attempt + 1}:`, String(err.message || err));
+      const safeMsg = String(err.message || err);
+      lastError = { message: safeMsg, code: '', details: '', hint: '' };
+      console.warn(`⚠️ Exceção tentativa ${attempt + 1}:`, safeMsg);
       if (attempt < maxRetries) {
         await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
     }
   }
-  return { data: null, error: extractSafeError(lastError) };
+  return { data: null, error: lastError || { message: 'Erro desconhecido' } };
 };
 
 /**
- * Limpa payload da anamnese - remove campos que não pertencem à tabela anamnesis
- * e garante formato correto de arrays
+ * Colunas REAIS da tabela anamnesis no Supabase (consultadas via REST API).
+ * SOMENTE estas colunas podem ser enviadas no insert/update.
+ * id, patient_id, professional_id, created_at são gerenciados separadamente.
+ */
+const ANAMNESIS_VALID_COLUMNS = new Set([
+  'status', 'occupation', 'marital_status',
+  'medical_conditions', 'surgeries', 'allergies', 'food_intolerances',
+  'medications', 'supplements', 'family_history', 'recent_exams',
+  'smoking', 'smoking_details', 'alcohol', 'alcohol_details',
+  'sleep_hours', 'sleep_quality', 'stress_level',
+  'physical_activity_level', 'exercise_types', 'physical_limitations',
+  'meals_per_day', 'meal_times', 'water_intake',
+  'food_preferences', 'food_aversions', 'dietary_restrictions',
+  'previous_diets', 'eating_disorders_history',
+  'main_goal', 'secondary_goals', 'motivation', 'deadline',
+  'measurements', 'body_fat_percentage', 'muscle_mass',
+  'gi_symptoms', 'bowel_frequency', 'bowel_consistency',
+  'professional_notes', 'patient_notes', 'last_edited_by',
+  'updated_at',
+  'no_medical_conditions', 'other_medical_conditions', 'supplements_current',
+  'eat_out_frequency', 'food_preference', 'favorite_foods', 'disliked_foods',
+  'exercises_regularly', 'sports_modalities', 'training_frequency',
+  'training_duration', 'training_time', 'sports_goal',
+  'training_experience', 'injuries_limitations', 'sports_supplements',
+  'upcoming_events',
+]);
+
+/**
+ * Limpa payload da anamnese — abordagem WHITELIST.
+ * Só permite colunas que REALMENTE existem na tabela anamnesis.
+ * Campos do formulário que pertencem a patient_profiles (current_weight, height, etc.)
+ * ou campos de UI (_draft_saved_at) são automaticamente descartados.
  */
 const cleanAnamnesisPayload = (data) => {
-  // Campos que pertencem a patient_profiles, não a anamnesis
-  const excludeFields = ['current_weight', 'height', 'goal_weight', '_draft_saved_at'];
-  
-  const cleanData = { ...data };
-  
-  // Remover campos excluídos
-  excludeFields.forEach(field => {
-    delete cleanData[field];
-  });
-  
-  // Garantir formato de arrays
+  const cleanData = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (ANAMNESIS_VALID_COLUMNS.has(key)) {
+      cleanData[key] = value;
+    }
+  }
+
+  // Garantir formato de arrays para campos que devem ser arrays
   if (cleanData.medical_conditions && !Array.isArray(cleanData.medical_conditions)) {
     cleanData.medical_conditions = [];
   }
@@ -446,7 +489,7 @@ const cleanAnamnesisPayload = (data) => {
   if (cleanData.food_intolerances && !Array.isArray(cleanData.food_intolerances)) {
     cleanData.food_intolerances = [];
   }
-  
+
   return cleanData;
 };
 
@@ -457,7 +500,10 @@ export const createAnamnesis = async (data) => {
   }
 
   const cleanPayload = cleanAnamnesisPayload(data);
-  console.log('📤 Anamnese payload:', Object.keys(cleanPayload).length, 'campos');
+  // Garantir que patient_id e professional_id estão no insert (foram filtrados pelo whitelist)
+  cleanPayload.patient_id = data.patient_id;
+  cleanPayload.professional_id = data.professional_id;
+  console.log('📤 Anamnese payload (create):', Object.keys(cleanPayload).length, 'campos');
 
   try {
     // Verificar se já existe (upsert)
@@ -492,25 +538,51 @@ export const createAnamnesis = async (data) => {
 export const updateAnamnesis = async (anamnesisId, updates) => {
   const cleanUpdates = cleanAnamnesisPayload(updates);
   
-  // Remover campos que não devem estar no update
+  // Defesa em profundidade: nunca enviar PK ou FKs no payload de update
+  delete cleanUpdates.id;
   delete cleanUpdates.patient_id;
   delete cleanUpdates.professional_id;
   delete cleanUpdates.created_at;
 
-  console.log('🔄 Atualizando anamnese:', anamnesisId, '| Campos:', Object.keys(cleanUpdates).length);
+  console.log('🔄 Atualizando anamnese:', anamnesisId, '| Campos:', Object.keys(cleanUpdates).length, '| Keys:', Object.keys(cleanUpdates).join(', '));
 
-  return await withRetry(async () => {
+  const doUpdate = async (payload) => {
     const { data, error } = await supabase
       .from('anamnesis')
-      .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
+      .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', anamnesisId)
-      .select()
-      .maybeSingle();
+      .select();
 
     if (error) return { data: null, error };
+
+    if (!data || data.length === 0) {
+      console.warn('⚠️ updateAnamnesis: 0 linhas atualizadas (RLS ou id inválido)', { anamnesisId });
+      return {
+        data: null,
+        error: {
+          message: 'Sem permissão para atualizar. Verifique as políticas RLS da tabela anamnesis.',
+          code: 'RLS_BLOCKED',
+          details: `anamnesisId: ${anamnesisId}`,
+          hint: 'A policy anamnesis_update deve incluir patient_id = auth.uid().',
+        },
+      };
+    }
     console.log('✅ Anamnese atualizada com sucesso');
-    return { data, error: null };
-  });
+    return { data: data[0], error: null };
+  };
+
+  // Tentativa 1: payload completo
+  const result = await withRetry(() => doUpdate(cleanUpdates));
+
+  // Tentativa 2 (fallback): se 400 por coluna desconhecida, tentar sem last_edited_by
+  if (result.error?.status === 400 || result.error?.code === '42703') {
+    console.warn('⚠️ Fallback: removendo last_edited_by e tentando novamente...');
+    const fallbackPayload = { ...cleanUpdates };
+    delete fallbackPayload.last_edited_by;
+    return await withRetry(() => doUpdate(fallbackPayload));
+  }
+
+  return result;
 };
 
 export const saveAnamnesisDraft = async (patientId, professionalId, updates) => {

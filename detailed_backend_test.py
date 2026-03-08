@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 
 # Configuration
-BACKEND_URL = "https://timeline-sync-3.preview.emergentagent.com/api"
+BACKEND_URL = "https://xenodochial-satoshi-2.preview.emergentagent.com/api"
 SUPABASE_URL = "https://safovouvjiikaickutvi.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZm92b3V2amlpa2FpY2t1dHZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NjgzODAsImV4cCI6MjA4NzU0NDM4MH0.Joq1e2DR6hb3XGh8pXg3c-eZ-vXiGGmxmzy-ibf3oIE"
 SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNhZm92b3V2amlpa2FpY2t1dHZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTk2ODM4MCwiZXhwIjoyMDg3NTQ0MzgwfQ.1mQSmHPNfzqx6cbi3tCYnrScH6-MZhbJsHZvM7t-GFg"

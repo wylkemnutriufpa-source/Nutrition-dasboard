@@ -273,6 +273,48 @@ async def get_patient_timeline(
                     "color": "green",
                 })
 
+        # 9. Protocol timeline events (explicit, from patient_timeline_events)
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/patient_timeline_events",
+            headers=h,
+            params={
+                "patient_id": f"eq.{patient_id}",
+                "select": "event_type,payload,created_at",
+                "order": "created_at.desc",
+                "limit": "20",
+            },
+        )
+        if resp.status_code == 200:
+            _event_map = {
+                "protocol_scheduled": {
+                    "icon": "calendar",
+                    "color": "amber",
+                    "title_fn": lambda p: f"Protocolo programado: {p.get('protocol_name', '?')} (início: {p.get('start_date', '?')})",
+                },
+                "protocol_activated": {
+                    "icon": "target",
+                    "color": "orange",
+                    "title_fn": lambda p: f"Protocolo ativado: {p.get('protocol_name', '?')}",
+                },
+                "protocol_tasks_synced": {
+                    "icon": "list-checks",
+                    "color": "purple",
+                    "title_fn": lambda p: f"{p.get('tasks_injected', '?')} tarefa(s) adicionada(s) ao checklist ({p.get('protocol_name', '?')})",
+                },
+            }
+            for ev in resp.json():
+                et = ev.get("event_type", "")
+                cfg = _event_map.get(et)
+                if cfg:
+                    pl = ev.get("payload") or {}
+                    events.append({
+                        "type": et,
+                        "icon": cfg["icon"],
+                        "title": cfg["title_fn"](pl),
+                        "timestamp": ev.get("created_at"),
+                        "color": cfg["color"],
+                    })
+
     # Sort by timestamp desc, limit
     def sort_key(e):
         ts = e.get("timestamp")
