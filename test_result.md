@@ -1775,22 +1775,68 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "2.0"
-  test_sequence: 16
+  test_sequence: 17
   run_ui: false
 
 test_plan:
   current_focus:
-    - "Protocolos - Catálogo editável (GET/POST/PUT/DELETE /api/professional/protocols)"
-    - "Timeline - eventos de protocolo enriquecidos (nome, status distintos, tasks)"
-    - "Frontend - PatientProfile.js protocolos com API real + CRUD editável"
-    - "Frontend - PatientTimeline.js novos ícones e cores"
+    - "P0 - protocol_tasks CRUD no catálogo (GET/POST/DELETE /api/professional/protocols/{id}/catalog-tasks)"
+    - "P0 - ProfessionalProjectDashboard.js painel de tasks expansível por protocolo"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
-  - agent: "testing"
-    message: "🎯 DIAGNÓSTICO COMPLETO E2E - CAUSAS RAIZ IDENTIFICADAS: (1) LIMITE TRIAL de 3 pacientes causa 403 após atingir limite - usuários veem como 'falha inconsistente'. (2) BUG SUBSCRIPTION faltando professional_id gera warnings nos logs mas não impede funcionamento. (3) Login de pacientes FUNCIONA perfeitamente. (4) Frontend form issue JÁ CORRIGIDO. RECOMENDAÇÃO: Corrigir subscription bug (linha 273-279) e implementar melhor feedback sobre limite trial no frontend."
+  - agent: "main"
+    message: |
+      SESSÃO P0: Gerenciamento de protocol_tasks — Catálogo → Checklist
+
+      DIAGNÓSTICO:
+      O sistema de sync já estava implementado e funcionando. O verdadeiro gap era:
+      - Os protocolos de Chás e Jejum não tinham protocol_tasks cadastradas
+      - Não havia interface para cadastrar tasks nos protocolos do catálogo
+
+      O que foi implementado:
+
+      BACKEND (protocol_checklist.py — 3 novos endpoints):
+      - GET /api/professional/protocols/{protocol_id}/catalog-tasks
+        → Lista tasks do protocolo no catálogo (para exibir no painel)
+      - POST /api/professional/protocols/{protocol_id}/catalog-tasks
+        → Adiciona task ao protocolo (título, descrição, frequência, order_index)
+        → auto-incrementa order_index
+      - DELETE /api/professional/protocols/{protocol_id}/catalog-tasks/{task_id}
+        → Remove task do catálogo (não afeta tasks já injetadas em pacientes)
+      Todos os 3 retornam 401 sem auth. Lint: aprovado.
+
+      FRONTEND (ProfessionalProjectDashboard.js):
+      - Cada card de protocolo no catálogo tem seção expansível "Tasks do protocolo"
+      - Clique na seta carrega tasks via GET /catalog-tasks (lazy load)
+      - Lista tasks com badge de contagem, botão remover (hover)
+      - Form inline para adicionar task (título + Enter ou botão +)
+      - Mensagem "Nenhuma task — adicione abaixo..." quando vazio
+      - Hint "💡 Tasks serão injetadas no checklist ao ativar"
+      - Estado local atualizado imediatamente após add/delete (sem reload)
+      Lint: aprovado.
+
+      FLUXO COMPLETO (P0 fechado):
+      1. Profissional abre protocolo no catálogo → expande Tasks
+      2. Adiciona tasks: "Beber 2L de água hoje", "Tomar chá termogênico"...
+      3. Clica "Ativar" no protocolo → backend chama sync automaticamente
+      4. Tasks aparecem no checklist do paciente com marcador "[🎯 NomeProtocolo]"
+      5. Paciente vê e pode marcar as tasks
+
+      ANTI-DUPLICAÇÃO:
+      - Camada 1: protocol_task_id único no checklist_tasks
+      - Camada 2: título marcado "[🎯 NomeProtocolo] Título"
+      - Camada 3: on conflict ignore-duplicates no Supabase
+
+      TESTAR:
+      1. GET /api/professional/protocols/test-id/catalog-tasks → 401 sem auth ✅ (verificado)
+      2. POST /api/professional/protocols/test-id/catalog-tasks → 401 sem auth ✅ (verificado)
+      3. DELETE /api/professional/protocols/test-id/catalog-tasks/task-id → 401 sem auth ✅ (verificado)
+      4. Verificar código: protocol_checklist.py tem list_catalog_tasks, add_catalog_task, delete_catalog_task
+      5. Verificar código: ProfessionalProjectDashboard.js tem toggleCatalogTasks, handleAddCatalogTask, handleDeleteCatalogTask
+      6. Verificar código: seção expansível com form de task no JSX do catálogo
 
   - agent: "testing"
     message: |

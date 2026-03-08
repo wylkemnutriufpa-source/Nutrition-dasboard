@@ -28,6 +28,8 @@ Anti-duplicação:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional
 import os
 import httpx
 import logging
@@ -39,6 +41,14 @@ from utils.structured_logger import log_operation
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["protocol-checklist"])
+
+
+class ProtocolTaskRequest(BaseModel):
+    title: str
+    description: Optional[str] = None
+    frequency: Optional[str] = "daily"
+    order_index: Optional[int] = None
+    active: Optional[bool] = True
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -738,3 +748,165 @@ async def patient_auto_sync_protocols(
         "synced_protocols": synced_protocols,
         "message": f"OK ({total_injected} sincronizadas, {total_skipped} já existiam, {total_promoted} promovidas)",
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GERENCIAMENTO DE protocol_tasks (catálogo)
+# Garante que o profissional possa sempre adicionar/remover tasks dos protocolos
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/professional/protocols/{protocol_id}/catalog-tasks")
+async def list_catalog_tasks(
+    protocol_id: str,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
+    """
+    Lista as tasks de um protocolo do catálogo.
+    Requer: role=professional ou admin
+    """
+    _require_professional_or_admin(current_user)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Verificar que o protocolo existe
+        p_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/protocols",
+            headers=_h(),
+            params={"id": f"eq.{protocol_id}", "select": "id,name"},
+        )
+        if p_resp.status_code != 200 or not p_resp.json():
+            raise HTTPException(status_code=404, detail="Protocolo não encontrado")
+
+        protocol_name = p_resp.json()[0].get("name", "")
+
+        # Buscar tasks
+        t_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+            headers=_h(),
+            params={
+                "protocol_id": f"eq.{protocol_id}",
+                "select": "id,title,description,frequency,order_index,active",
+                "order": "order_index.asc,created_at.asc",
+            },
+        )
+        if t_resp.status_code != 200:
+            raise HTTPException(status_code=500, detail="Erro ao buscar tasks")
+
+        tasks = t_resp.json()
+
+    return {
+        "protocol_id": protocol_id,
+        "protocol_name": protocol_name,
+        "tasks": tasks,
+        "total": len(tasks),
+    }
+
+
+@router.post("/professional/protocols/{protocol_id}/catalog-tasks")
+async def add_catalog_task(
+    protocol_id: str,
+    request: ProtocolTaskRequest,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
+    """
+    Adiciona uma task ao protocolo no catálogo.
+    A task será injetada no checklist de todos os pacientes que ativarem este protocolo.
+    Requer: role=professional ou admin
+    """
+    _require_professional_or_admin(current_user)
+
+    if not request.title or not request.title.strip():
+        raise HTTPException(status_code=400, detail="Título da task é obrigatório")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Verificar protocolo
+        p_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/protocols",
+            headers=_h(),
+            params={"id": f"eq.{protocol_id}", "select": "id,name"},
+        )
+        if p_resp.status_code != 200 or not p_resp.json():
+            raise HTTPException(status_code=404, detail="Protocolo não encontrado")
+
+        # Calcular próximo order_index
+        order_resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+            headers=_h(),
+            params={
+                "protocol_id": f"eq.{protocol_id}",
+                "select": "order_index",
+                "order": "order_index.desc",
+                "limit": "1",
+            },
+        )
+        max_order = 0
+        if order_resp.status_code == 200 and order_resp.json():
+            max_order = order_resp.json()[0].get("order_index") or 0
+
+        payload = {
+            "protocol_id": protocol_id,
+            "title": request.title.strip(),
+            "description": request.description,
+            "frequency": request.frequency or "daily",
+            "order_index": request.order_index if request.order_index is not None else max_order + 1,
+            "active": True,
+        }
+
+        ins_resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+            headers={**_h(), "Prefer": "return=representation"},
+            json=payload,
+        )
+
+        if ins_resp.status_code not in (200, 201):
+            detail = ins_resp.json() if ins_resp.content else "Erro ao criar task"
+            raise HTTPException(status_code=400, detail=str(detail))
+
+        created = ins_resp.json()
+        task = created[0] if isinstance(created, list) else created
+
+        log_operation(
+            action="add_catalog_task",
+            status="success",
+            actor_user_id=current_user.user_id,
+            route=f"/api/professional/protocols/{protocol_id}/catalog-tasks",
+            extra_data={"task_title": request.title, "protocol_id": protocol_id},
+        )
+
+    return {"success": True, "task": task}
+
+
+@router.delete("/professional/protocols/{protocol_id}/catalog-tasks/{task_id}")
+async def delete_catalog_task(
+    protocol_id: str,
+    task_id: str,
+    current_user: CurrentUser = Depends(get_current_user_with_db_role),
+):
+    """
+    Remove uma task do protocolo no catálogo.
+    Não remove tasks já injetadas no checklist de pacientes — apenas impede futuras injeções.
+    Requer: role=professional ou admin
+    """
+    _require_professional_or_admin(current_user)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        del_resp = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+            headers=_h(),
+            params={
+                "id": f"eq.{task_id}",
+                "protocol_id": f"eq.{protocol_id}",  # garante que pertence ao protocolo
+            },
+        )
+        if del_resp.status_code not in (200, 204):
+            raise HTTPException(status_code=400, detail="Erro ao remover task")
+
+        log_operation(
+            action="delete_catalog_task",
+            status="success",
+            actor_user_id=current_user.user_id,
+            route=f"/api/professional/protocols/{protocol_id}/catalog-tasks/{task_id}",
+            extra_data={"task_id": task_id, "protocol_id": protocol_id},
+        )
+
+    return {"success": True, "message": "Task removida do protocolo"}
+

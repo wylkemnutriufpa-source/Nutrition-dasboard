@@ -26,7 +26,8 @@ import {
   CheckCircle2, Circle, Loader2, ChevronDown, ChevronUp, ListChecks,
   Clock, Bell, Edit2, Save, X, Plus, RefreshCw, Sparkles,
   AlertTriangle, MessageSquare, PlayCircle, Pause, BarChart3,
-  ArrowRight, Trophy, Flame, Heart, Send, FileText, Camera, Users
+  ArrowRight, Trophy, Flame, Heart, Send, FileText, Camera, Users,
+  ChevronRight, List, Trash2, CheckSquare
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PatientTimeline from '@/components/PatientTimeline';
@@ -276,6 +277,12 @@ const ProtocolsSection = ({ patientId }) => {
   const [editingProtocol, setEditingProtocol] = useState(null);
   const [protocolForm, setProtocolForm] = useState({ name: '', category: '', description: '', instructions: '', default_duration_days: 30 });
   const [savingProtocol, setSavingProtocol] = useState(false);
+  // ── Tasks do catálogo (gerenciar protocol_tasks)
+  const [expandedCatalogTasks, setExpandedCatalogTasks] = useState({}); // { [protocol_id]: bool }
+  const [catalogTasksByProtocol, setCatalogTasksByProtocol] = useState({}); // { [protocol_id]: [] }
+  const [loadingCatalogTasks, setLoadingCatalogTasks] = useState({}); // { [protocol_id]: bool }
+  const [newTaskForm, setNewTaskForm] = useState({}); // { [protocol_id]: { title, description } }
+  const [savingTask, setSavingTask] = useState(null); // protocol_id
 
   const openNewProtocolForm = () => {
     setProtocolForm({ name: '', category: '', description: '', instructions: '', default_duration_days: 30 });
@@ -324,6 +331,83 @@ const ProtocolsSection = ({ patientId }) => {
       if (!resp.ok) throw new Error('Erro ao excluir');
       toast.success('Protocolo removido do catálogo'); load(true);
     } catch (err) { toast.error('Erro ao remover protocolo'); }
+  };
+
+  const toggleCatalogTasks = async (protocolId) => {
+    const isOpen = expandedCatalogTasks[protocolId];
+    setExpandedCatalogTasks(prev => ({ ...prev, [protocolId]: !isOpen }));
+    // Carregar tasks se abrindo e ainda não carregadas
+    if (!isOpen && !catalogTasksByProtocol[protocolId]) {
+      setLoadingCatalogTasks(prev => ({ ...prev, [protocolId]: true }));
+      try {
+        const backendUrl = process.env.REACT_APP_BACKEND_URL;
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const resp = await fetch(
+          `${backendUrl}/api/professional/protocols/${protocolId}/catalog-tasks`,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+        const data = await resp.json();
+        setCatalogTasksByProtocol(prev => ({ ...prev, [protocolId]: data.tasks || [] }));
+      } catch (err) {
+        toast.error('Erro ao carregar tasks do protocolo');
+      } finally {
+        setLoadingCatalogTasks(prev => ({ ...prev, [protocolId]: false }));
+      }
+    }
+  };
+
+  const handleAddCatalogTask = async (protocolId) => {
+    const form = newTaskForm[protocolId] || {};
+    if (!form.title?.trim()) { toast.error('Título obrigatório'); return; }
+    setSavingTask(protocolId);
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(
+        `${backendUrl}/api/professional/protocols/${protocolId}/catalog-tasks`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ title: form.title.trim(), description: form.description || '', frequency: 'daily' }),
+        }
+      );
+      if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.detail || 'Erro ao adicionar'); }
+      const result = await resp.json();
+      // Atualizar lista local
+      setCatalogTasksByProtocol(prev => ({
+        ...prev,
+        [protocolId]: [...(prev[protocolId] || []), result.task],
+      }));
+      setNewTaskForm(prev => ({ ...prev, [protocolId]: { title: '', description: '' } }));
+      toast.success('Task adicionada ao protocolo!');
+      load(true); // atualiza task_count no catálogo
+    } catch (err) { toast.error(err.message || 'Erro ao adicionar task'); }
+    finally { setSavingTask(null); }
+  };
+
+  const handleDeleteCatalogTask = async (protocolId, taskId, taskTitle) => {
+    if (!window.confirm(`Remover "${taskTitle}" do protocolo? Não afeta tasks já injetadas em pacientes.`)) return;
+    try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch(
+        `${backendUrl}/api/professional/protocols/${protocolId}/catalog-tasks/${taskId}`,
+        { method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (!resp.ok) throw new Error('Erro ao remover');
+      setCatalogTasksByProtocol(prev => ({
+        ...prev,
+        [protocolId]: (prev[protocolId] || []).filter(t => t.id !== taskId),
+      }));
+      toast.success('Task removida do protocolo');
+      load(true);
+    } catch (err) { toast.error('Erro ao remover task'); }
   };
 
   const load = useCallback(async (silent = false) => {
@@ -674,6 +758,88 @@ const ProtocolsSection = ({ patientId }) => {
                       </div>
                     </div>
                   )}
+
+                  {/* ── Tasks do protocolo (expansível) ── */}
+                  <div className="border-t border-gray-100">
+                    <button
+                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50 transition-colors"
+                      onClick={() => toggleCatalogTasks(p.id)}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <List size={11} />
+                        Tasks do protocolo
+                        {catalogTasksByProtocol[p.id]?.length > 0 && (
+                          <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                            {catalogTasksByProtocol[p.id].length}
+                          </span>
+                        )}
+                        {p.task_count != null && !catalogTasksByProtocol[p.id] && (
+                          <span className="text-gray-400 text-[10px]">({p.task_count} cadastrada{p.task_count !== 1 ? 's' : ''})</span>
+                        )}
+                      </span>
+                      {expandedCatalogTasks[p.id] ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                    </button>
+
+                    {expandedCatalogTasks[p.id] && (
+                      <div className="px-3 pb-3 space-y-2">
+                        {loadingCatalogTasks[p.id] ? (
+                          <p className="text-xs text-gray-400 py-1">Carregando...</p>
+                        ) : (
+                          <>
+                            {/* Lista de tasks existentes */}
+                            {(catalogTasksByProtocol[p.id] || []).length === 0 ? (
+                              <p className="text-xs text-gray-400 italic py-1">
+                                Nenhuma task cadastrada. Adicione abaixo para que apareçam no checklist do paciente ao ativar.
+                              </p>
+                            ) : (
+                              <div className="space-y-1">
+                                {(catalogTasksByProtocol[p.id] || []).map(t => (
+                                  <div key={t.id} className="flex items-center justify-between py-1 px-2 bg-gray-50 rounded group">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <CheckSquare size={11} className="text-purple-400 flex-shrink-0" />
+                                      <span className="text-xs text-gray-700 truncate">{t.title}</span>
+                                      {t.frequency && t.frequency !== 'daily' && (
+                                        <span className="text-[10px] text-gray-400 flex-shrink-0">{t.frequency}</span>
+                                      )}
+                                    </div>
+                                    <Button
+                                      size="sm" variant="ghost"
+                                      className="h-5 w-5 p-0 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                                      onClick={() => handleDeleteCatalogTask(p.id, t.id, t.title)}
+                                    >
+                                      <Trash2 size={10} />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Form para adicionar nova task */}
+                            <div className="flex gap-1.5 pt-1">
+                              <Input
+                                placeholder="Ex: Beber 2L de água hoje..."
+                                value={(newTaskForm[p.id] || {}).title || ''}
+                                onChange={e => setNewTaskForm(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), title: e.target.value } }))}
+                                onKeyDown={e => e.key === 'Enter' && handleAddCatalogTask(p.id)}
+                                className="h-7 text-xs flex-1"
+                              />
+                              <Button
+                                size="sm"
+                                disabled={savingTask === p.id}
+                                className="h-7 px-2 bg-purple-600 hover:bg-purple-700 text-white text-xs flex-shrink-0"
+                                onClick={() => handleAddCatalogTask(p.id)}
+                              >
+                                {savingTask === p.id ? '...' : <Plus size={12} />}
+                              </Button>
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                              💡 Tasks serão injetadas no checklist do paciente quando o protocolo for ativado
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
