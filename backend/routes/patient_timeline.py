@@ -141,26 +141,96 @@ async def get_patient_timeline(
                     "color": "teal",
                 })
 
-        # 6. Protocols activated
+        # 6. Protocols — scheduled, activated (promoted) and tasks synced
         resp = await client.get(
             f"{SUPABASE_URL}/rest/v1/patient_protocols",
             headers=h,
             params={
                 "patient_id": f"eq.{patient_id}",
-                "select": "id,status,created_at,protocol_id",
+                "select": "id,status,created_at,updated_at,protocol_id,protocols(id,name,category,default_duration_days)",
                 "order": "created_at.desc",
-                "limit": "5",
+                "limit": "10",
             },
         )
         if resp.status_code == 200:
             for pr in resp.json():
-                events.append({
-                    "type": "protocolo",
-                    "icon": "target",
-                    "title": f"Protocolo {'ativado' if pr.get('status') == 'active' else 'atualizado'}",
-                    "timestamp": pr.get("created_at"),
-                    "color": "amber",
-                })
+                protocol_info = pr.get("protocols") or {}
+                protocol_name = protocol_info.get("name") or f"Protocolo #{pr.get('protocol_id', '?')[:6]}"
+                status = pr.get("status", "")
+                created_at = pr.get("created_at")
+                updated_at = pr.get("updated_at")
+
+                # Determine if it was promoted (updated_at differs from created_at)
+                was_promoted = (
+                    updated_at
+                    and created_at
+                    and updated_at[:19] != created_at[:19]
+                )
+
+                if status == "scheduled":
+                    events.append({
+                        "type": "protocolo_programado",
+                        "icon": "calendar",
+                        "title": f"Protocolo programado: {protocol_name}",
+                        "timestamp": created_at,
+                        "color": "orange",
+                    })
+                elif status == "active":
+                    if was_promoted:
+                        # Promoção: usar updated_at como momento da ativação
+                        events.append({
+                            "type": "protocolo_ativado",
+                            "icon": "target",
+                            "title": f"Protocolo ativado: {protocol_name}",
+                            "timestamp": updated_at,
+                            "color": "emerald",
+                        })
+                    else:
+                        # Criado direto como active
+                        events.append({
+                            "type": "protocolo_ativado",
+                            "icon": "target",
+                            "title": f"Protocolo iniciado: {protocol_name}",
+                            "timestamp": created_at,
+                            "color": "emerald",
+                        })
+
+                    # Buscar tasks do protocolo e registrar evento de sincronização
+                    tasks_resp = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/protocol_tasks",
+                        headers=h,
+                        params={
+                            "protocol_id": f"eq.{pr.get('protocol_id')}",
+                            "select": "id",
+                        },
+                    )
+                    if tasks_resp.status_code == 200:
+                        task_count = len(tasks_resp.json())
+                        if task_count > 0:
+                            events.append({
+                                "type": "protocolo_tasks",
+                                "icon": "list",
+                                "title": f"{task_count} {'tarefa' if task_count == 1 else 'tarefas'} do protocolo '{protocol_name}' disponíveis",
+                                "timestamp": updated_at or created_at,
+                                "color": "teal",
+                            })
+
+                elif status == "paused":
+                    events.append({
+                        "type": "protocolo_pausado",
+                        "icon": "pause",
+                        "title": f"Protocolo pausado: {protocol_name}",
+                        "timestamp": updated_at or created_at,
+                        "color": "gray",
+                    })
+                elif status == "completed":
+                    events.append({
+                        "type": "protocolo_concluido",
+                        "icon": "check",
+                        "title": f"Protocolo concluído: {protocol_name}",
+                        "timestamp": updated_at or created_at,
+                        "color": "blue",
+                    })
 
         # 7. Notifications (as system events)
         resp = await client.get(

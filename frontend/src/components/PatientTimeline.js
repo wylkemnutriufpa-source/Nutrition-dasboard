@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2, FileText, Scale, MessageSquare, Image, Target, Bell, UserPlus, Loader2, Clock } from 'lucide-react';
+import { CheckCircle2, FileText, Scale, MessageSquare, Image, Target, Bell, UserPlus, Loader2, Clock, List, Calendar, Pause } from 'lucide-react';
 import { authenticatedGet } from '@/lib/apiClient';
 import EmptyState from '@/components/EmptyState';
 
@@ -17,6 +17,9 @@ const iconMap = {
   target: Target,
   bell: Bell,
   user: UserPlus,
+  list: List,
+  calendar: Calendar,
+  pause: Pause,
 };
 
 const colorMap = {
@@ -26,6 +29,7 @@ const colorMap = {
   violet: { dot: 'bg-violet-500', bg: 'bg-violet-50', text: 'text-violet-700' },
   teal: { dot: 'bg-teal-500', bg: 'bg-teal-50', text: 'text-teal-700' },
   amber: { dot: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700' },
+  orange: { dot: 'bg-orange-500', bg: 'bg-orange-50', text: 'text-orange-700' },
   gray: { dot: 'bg-gray-400', bg: 'bg-gray-50', text: 'text-gray-600' },
   green: { dot: 'bg-green-500', bg: 'bg-green-50', text: 'text-green-700' },
 };

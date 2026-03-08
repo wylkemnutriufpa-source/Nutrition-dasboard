@@ -789,31 +789,136 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
     }
   };
 
-  // 🎯 PROTOCOLOS - Controle do Profissional
-  const [availableProtocols] = useState([
-    { id: 'agua', name: 'Protocolo de Água', category: 'hidratacao', duration: 14 },
-    { id: 'chas', name: 'Protocolo de Chás', category: 'termogenicos', duration: 30 },
-    { id: 'jejum', name: 'Protocolo de Jejum', category: 'alimentacao', duration: 21 }
-  ]);
-  const [activatingProtocol, setActivatingProtocol] = useState(false);
+  // 🎯 PROTOCOLOS — Catálogo editável + ativação real
+  const [availableProtocols, setAvailableProtocols] = useState([]);
+  const [patientProtocols, setPatientProtocols] = useState([]);
+  const [loadingProtocols, setLoadingProtocols] = useState(false);
+  const [activatingProtocol, setActivatingProtocol] = useState(null); // id do que está sendo ativado
+  const [showNewProtocolForm, setShowNewProtocolForm] = useState(false);
+  const [editingProtocol, setEditingProtocol] = useState(null); // objeto a editar
+  const [protocolForm, setProtocolForm] = useState({
+    name: '', category: '', description: '', instructions: '', default_duration_days: 30
+  });
+  const [savingProtocol, setSavingProtocol] = useState(false);
+
+  const loadProtocols = async () => {
+    setLoadingProtocols(true);
+    try {
+      const { authenticatedGet, authenticatedPost } = await import('@/lib/apiClient');
+      const [catalogData, patientData] = await Promise.all([
+        authenticatedGet('/api/professional/protocols').catch(() => ({ protocols: [] })),
+        authenticatedGet(`/api/professional/patients/${patientId}/protocols`).catch(() => ({ patient_protocols: [] })),
+      ]);
+      setAvailableProtocols(catalogData.protocols || []);
+      setPatientProtocols(patientData.patient_protocols || []);
+    } catch (err) {
+      console.error('Erro ao carregar protocolos:', err);
+    } finally {
+      setLoadingProtocols(false);
+    }
+  };
+
+  useEffect(() => {
+    if (patientId) loadProtocols();
+  }, [patientId]);
 
   const handleActivateProtocol = async (protocolId) => {
-    setActivatingProtocol(true);
+    setActivatingProtocol(protocolId);
     try {
-      // TODO: Chamar API real quando tabelas estiverem criadas
-      // const { authenticatedPost } = await import('@/lib/apiClient');
-      // await authenticatedPost('/api/professional/protocols/activate', {
-      //   patient_id: patientId,
-      //   protocol_id: protocolId
-      // });
-      
-      toast.success('Protocolo ativado! (Mock - aguardando criação das tabelas SQL)');
-      console.log('🎯 Protocolo ativado:', protocolId, 'para paciente:', patientId);
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      await authenticatedPost('/api/professional/protocols/activate', {
+        patient_id: patientId,
+        protocol_id: protocolId,
+      });
+      toast.success('Protocolo ativado com sucesso!');
+      loadProtocols();
     } catch (error) {
       console.error('Erro ao ativar protocolo:', error);
-      toast.error('Erro ao ativar protocolo');
+      toast.error(error?.message || error?.detail || 'Erro ao ativar protocolo');
     } finally {
-      setActivatingProtocol(false);
+      setActivatingProtocol(null);
+    }
+  };
+
+  const handleDeactivateProtocol = async (patientProtocolId) => {
+    try {
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      await authenticatedPost(`/api/professional/protocols/deactivate/${patientProtocolId}`, {});
+      toast.success('Protocolo pausado');
+      loadProtocols();
+    } catch (error) {
+      toast.error('Erro ao pausar protocolo');
+    }
+  };
+
+  const openNewProtocolForm = () => {
+    setProtocolForm({ name: '', category: '', description: '', instructions: '', default_duration_days: 30 });
+    setEditingProtocol(null);
+    setShowNewProtocolForm(true);
+  };
+
+  const openEditProtocolForm = (protocol) => {
+    setProtocolForm({
+      name: protocol.name || '',
+      category: protocol.category || '',
+      description: protocol.description || '',
+      instructions: protocol.instructions || '',
+      default_duration_days: protocol.default_duration_days || 30,
+    });
+    setEditingProtocol(protocol);
+    setShowNewProtocolForm(true);
+  };
+
+  const handleSaveProtocol = async () => {
+    if (!protocolForm.name.trim()) { toast.error('Nome obrigatório'); return; }
+    setSavingProtocol(true);
+    try {
+      const { authenticatedPost } = await import('@/lib/apiClient');
+      const method = editingProtocol ? 'PUT' : 'POST';
+      const url = editingProtocol
+        ? `/api/professional/protocols/${editingProtocol.id}`
+        : '/api/professional/protocols';
+      // authenticatedPost does POST; for PUT we import authenticatedPut or call fetch directly
+      const { default: axios } = await import('axios').catch(() => ({ default: null }));
+      const token = (await import('@/lib/supabase').then(m => m.supabase?.auth?.getSession()))?.data?.session?.access_token;
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const resp = await fetch(`${backendUrl}${url}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(protocolForm),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || 'Erro ao salvar');
+      }
+      toast.success(editingProtocol ? 'Protocolo atualizado!' : 'Protocolo criado!');
+      setShowNewProtocolForm(false);
+      setEditingProtocol(null);
+      loadProtocols();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao salvar protocolo');
+    } finally {
+      setSavingProtocol(false);
+    }
+  };
+
+  const handleDeleteProtocol = async (protocolId) => {
+    if (!window.confirm('Remover protocolo do catálogo? Isso não afeta ativações existentes.')) return;
+    try {
+      const token = (await import('@/lib/supabase').then(m => m.supabase?.auth?.getSession()))?.data?.session?.access_token;
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const resp = await fetch(`${backendUrl}/api/professional/protocols/${protocolId}`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!resp.ok) throw new Error('Erro ao excluir');
+      toast.success('Protocolo removido do catálogo');
+      loadProtocols();
+    } catch (err) {
+      toast.error('Erro ao remover protocolo');
     }
   };
 
@@ -961,52 +1066,212 @@ const ProjetoTab = ({ patientId, professionalId, patient }) => {
       {/* 🎯 SEÇÃO: PROTOCOLOS ATIVOS - CONTROLE DO PROFISSIONAL */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-purple-600" />
-            Protocolos do Programa
-          </CardTitle>
-          <p className="text-sm text-gray-600 mt-1">
-            Ative protocolos para guiar a jornada do paciente no Projeto Biquíni Branco
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-600" />
+                Protocolos do Programa
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Catálogo editável — adicione e ative protocolos a qualquer momento
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={openNewProtocolForm}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Novo Protocolo
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {availableProtocols.map((protocol) => (
-              <div 
-                key={protocol.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">{protocol.name}</p>
-                  <p className="text-sm text-gray-600">
-                    {protocol.category} • {protocol.duration} dias
-                  </p>
+        <CardContent className="space-y-4">
+
+          {/* Modal / Form inline para criar/editar */}
+          {showNewProtocolForm && (
+            <div className="border border-purple-200 rounded-lg p-4 bg-purple-50 space-y-3">
+              <p className="font-semibold text-purple-800 text-sm">
+                {editingProtocol ? `Editar: ${editingProtocol.name}` : 'Novo Protocolo no Catálogo'}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label className="text-xs">Nome *</Label>
+                  <Input
+                    value={protocolForm.name}
+                    onChange={e => setProtocolForm({ ...protocolForm, name: e.target.value })}
+                    placeholder="Ex: Protocolo de Hidratação"
+                    className="h-8 text-sm"
+                  />
                 </div>
-                <Button 
-                  onClick={() => handleActivateProtocol(protocol.id)}
-                  disabled={activatingProtocol}
+                <div>
+                  <Label className="text-xs">Categoria</Label>
+                  <Input
+                    value={protocolForm.category}
+                    onChange={e => setProtocolForm({ ...protocolForm, category: e.target.value })}
+                    placeholder="hidratacao, alimentacao..."
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Duração (dias)</Label>
+                  <Input
+                    type="number"
+                    value={protocolForm.default_duration_days}
+                    onChange={e => setProtocolForm({ ...protocolForm, default_duration_days: parseInt(e.target.value) || 30 })}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Descrição</Label>
+                  <Textarea
+                    value={protocolForm.description}
+                    onChange={e => setProtocolForm({ ...protocolForm, description: e.target.value })}
+                    placeholder="Descreva o objetivo do protocolo..."
+                    className="text-sm h-16 resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
                   size="sm"
+                  variant="outline"
+                  onClick={() => { setShowNewProtocolForm(false); setEditingProtocol(null); }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={savingProtocol}
+                  onClick={handleSaveProtocol}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
-                  {activatingProtocol ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Ativando...
-                    </>
-                  ) : (
-                    <>
-                      <PlayCircle className="w-4 h-4 mr-2" />
-                      Ativar
-                    </>
-                  )}
+                  {savingProtocol ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingProtocol ? 'Salvar' : 'Criar')}
                 </Button>
               </div>
-            ))}
-          </div>
-          
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>💡 Dica:</strong> Os protocolos ativados aparecerão automaticamente no dashboard do paciente em <strong>"Meu Projeto"</strong>.
+            </div>
+          )}
+
+          {/* Lista de protocolos ativos do paciente */}
+          {patientProtocols.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ativados para este paciente</p>
+              {patientProtocols.map(pp => {
+                const p = pp.protocols || {};
+                const statusColors = {
+                  active: 'bg-emerald-100 text-emerald-700',
+                  scheduled: 'bg-orange-100 text-orange-700',
+                  paused: 'bg-gray-100 text-gray-600',
+                  completed: 'bg-blue-100 text-blue-700',
+                };
+                return (
+                  <div
+                    key={pp.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">{p.name || 'Protocolo'}</p>
+                      <p className="text-xs text-gray-500">
+                        {p.category && `${p.category} • `}{pp.start_date && `Início: ${pp.start_date}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${statusColors[pp.status] || statusColors.paused}`}>
+                        {pp.status === 'active' ? 'Ativo' : pp.status === 'scheduled' ? 'Agendado' : pp.status === 'paused' ? 'Pausado' : 'Concluído'}
+                      </span>
+                      {pp.status === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs text-gray-500 hover:text-orange-600"
+                          onClick={() => handleDeactivateProtocol(pp.id)}
+                        >
+                          Pausar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Catálogo de protocolos disponíveis */}
+          {loadingProtocols ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
+            </div>
+          ) : availableProtocols.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              <Zap className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+              <p>Nenhum protocolo no catálogo ainda.</p>
+              <p className="text-xs mt-1">Clique em "Novo Protocolo" para criar o primeiro.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Catálogo de protocolos</p>
+              {availableProtocols.map(protocol => {
+                const alreadyActive = patientProtocols.some(
+                  pp => pp.protocol_id === protocol.id && ['active', 'scheduled'].includes(pp.status)
+                );
+                return (
+                  <div
+                    key={protocol.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-gray-900 text-sm">{protocol.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {protocol.category && `${protocol.category} • `}{protocol.default_duration_days} dias
+                        {protocol.description && ` — ${protocol.description.slice(0, 60)}${protocol.description.length > 60 ? '…' : ''}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-3">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-gray-400 hover:text-blue-600"
+                        title="Editar protocolo"
+                        onClick={() => openEditProtocolForm(protocol)}
+                      >
+                        <Edit size={13} />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                        title="Remover do catálogo"
+                        onClick={() => handleDeleteProtocol(protocol.id)}
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                      <Button
+                        onClick={() => handleActivateProtocol(protocol.id)}
+                        disabled={activatingProtocol === protocol.id || alreadyActive}
+                        size="sm"
+                        className={`h-7 text-xs ${alreadyActive ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
+                      >
+                        {activatingProtocol === protocol.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : alreadyActive ? (
+                          'Ativo'
+                        ) : (
+                          <>
+                            <PlayCircle className="w-3 h-3 mr-1" />
+                            Ativar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-800">
+              <strong>💡 Dica:</strong> Vários protocolos podem estar ativos simultaneamente. Os protocolos ativados aparecem no dashboard do paciente em <strong>"Meu Projeto"</strong>.
             </p>
           </div>
         </CardContent>
