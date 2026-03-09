@@ -19,7 +19,7 @@ Consolidação de dois projetos:
 - **IA**: Emergent LLM Key (gpt-4o via emergentintegrations)
 
 ## URLs
-- **Preview**: https://fitjourney-merge.preview.emergentagent.com
+- **Preview**: https://frontend-refactor-22.preview.emergentagent.com
 - **Supabase**: https://ifuiiycfrehjnmlzletw.supabase.co
 
 ## Arquitetura
@@ -51,7 +51,7 @@ Consolidação de dois projetos:
 - ✅ RECUPERAÇÃO: Protocolos, Programas, Receitas, Planos, Check-ins, Chat, Financeiro, Suplementação, Dicas - todos visíveis no menu admin
 - ✅ RECUPERAÇÃO: Refresh loop corrigido (removida dupla inicialização auth - getSession + onAuthStateChange)
 - ✅ Sidebar sem duplicatas (Configurações única, Automação única)
-- ✅ Frontend rodando em https://fitjourney-merge.preview.emergentagent.com
+- ✅ Frontend rodando em https://frontend-refactor-22.preview.emergentagent.com
 
 ## Roadmap (5 Fases)
 
