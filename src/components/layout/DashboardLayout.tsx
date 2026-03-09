@@ -220,7 +220,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const links = isAdmin ? adminLinks : isNutritionist ? nutritionistLinks : patientLinks;
+  // Admin sees all clinical tools + admin-specific tools
+  const links = isAdmin
+    ? [
+        ...adminLinks,
+        { to: "/checkin-panel", icon: ClipboardCheck, label: "Check-ins" },
+        { to: "/chat", icon: MessageSquare, label: "Chat" },
+        { to: "/weekly-goals", icon: Target, label: "Metas" },
+        { to: "/protocols", icon: FileText, label: "Protocolos" },
+        { to: "/programs", icon: Rocket, label: "Programas" },
+        { to: "/meal-plans", icon: UtensilsCrossed, label: "Planos" },
+        { to: "/diet-templates", icon: ClipboardCheck, label: "Templates" },
+        { to: "/recipes", icon: ChefHat, label: "Receitas" },
+        { to: "/financial", icon: DollarSign, label: "Financeiro" },
+        { to: "/supplements", icon: Pill, label: "Suplementação" },
+        { to: "/global-tips", icon: Lightbulb, label: "Dicas" },
+      ]
+    : isNutritionist
+    ? nutritionistLinks
+    : patientLinks;
 
   const toggleDark = () => {
     const newDark = !dark;

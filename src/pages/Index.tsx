@@ -612,7 +612,7 @@ function generateLocalInsights(patients: any[]) {
 }
 
 export default function Index() {
-  const { isNutritionist, loading } = useAuth();
+  const { isNutritionist, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -626,7 +626,7 @@ export default function Index() {
 
   return (
     <DashboardLayout>
-      {isNutritionist ? <NutritionistDashboardContent /> : <PatientDashboardContent />}
+      {(isNutritionist || isAdmin) ? <NutritionistDashboardContent /> : <PatientDashboardContent />}
     </DashboardLayout>
   );
 }
