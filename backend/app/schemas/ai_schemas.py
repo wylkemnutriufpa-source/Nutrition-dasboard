@@ -54,3 +54,28 @@ class BodyAnalysisResponse(BaseModel):
     bmi: float
     analysis: str
     recommendations: list[str] = []
+
+
+class AnamnesisAnalysisRequest(BaseModel):
+    anamnesis_id: str = Field(..., min_length=1, max_length=100)
+
+
+class AnamnesisAnalysisResponse(BaseModel):
+    summary: str
+    risk_level: str  # "low" | "medium" | "high"
+    tips_count: int
+    recommendations_count: int
+    tips: list[str] = []
+    recommendations: list[str] = []
+    initial_focus: list[str] = []
+
+
+class GenerateRecipeRequest(BaseModel):
+    prompt: str = Field(..., min_length=3, max_length=500)
+    nutritionist_id: str = Field(..., min_length=1, max_length=100)
+
+
+class GenerateRecipeResponse(BaseModel):
+    recipe_id: str
+    title: str
+    message: str

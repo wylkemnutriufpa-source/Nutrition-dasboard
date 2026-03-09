@@ -612,15 +612,20 @@ export default function Anamnesis() {
     setSubmitting(false);
     setAnalyzing(true);
 
-    // Trigger AI analysis
+    // Trigger AI analysis via backend
     try {
-      const { data: aiData, error: aiError } = await supabase.functions.invoke("analyze-anamnesis", {
-        body: { anamnesis_id: anamData.id },
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch("/api/analyze-anamnesis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ anamnesis_id: anamData.id }),
       });
-
-      if (aiError) throw aiError;
-      if (aiData?.error) throw new Error(aiData.error);
-
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const aiData = await res.json();
       setAiResult(aiData);
       toast.success(`Análise concluída! ${aiData.tips_count} dicas e ${aiData.recommendations_count} recomendações geradas! ✨`);
     } catch (e: any) {
