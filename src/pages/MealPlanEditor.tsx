@@ -20,6 +20,7 @@ import PlanScheduler from "@/components/plans/PlanScheduler";
 import FoodAutocomplete, { type FoodItem } from "@/components/meals/FoodAutocomplete";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import type { Database } from "@/integrations/supabase/types";
+import { api } from "@/lib/api";
 
 type MealPlan = Tables<"meal_plans">;
 type MealPlanItem = Tables<"meal_plan_items">;
@@ -432,11 +433,7 @@ export default function MealPlanEditor() {
                 if (!plan) return;
                 setGenerating(true);
                 try {
-                  const { data, error } = await supabase.functions.invoke("generate-meal-plan", {
-                    body: { patient_id: plan.patient_id, meal_plan_id: plan.id },
-                  });
-                  if (error) throw error;
-                  if (data?.error) throw new Error(data.error);
+                  const data = await api.generateMealPlan(plan.patient_id, plan.id);
                   toast.success(`AI Plan gerou ${data.items_count} itens e ${data.tips_count} dicas! 🤖`);
                   fetchData();
                 } catch (e: any) {

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { FileText, Download, Loader2, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export default function Reports() {
   const { user } = useAuth();
