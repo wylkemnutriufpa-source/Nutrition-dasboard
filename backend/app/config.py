@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str  # service_role — NUNCA expor no frontend
     SUPABASE_JWT_SECRET: str
 
-    # OpenAI
-    OPENAI_API_KEY: str
+    # AI
+    EMERGENT_LLM_KEY: str
 
     # App
     APP_ENV: str = "development"

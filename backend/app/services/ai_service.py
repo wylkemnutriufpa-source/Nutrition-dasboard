@@ -1,14 +1,14 @@
 """
-Serviço de chamadas à API de IA.
+Serviço de chamadas à API de IA via emergentintegrations.
 Inclui timeout, tratamento de erro e sanitização de resposta.
 """
 
-import asyncio
 import re
+import uuid
 import logging
 
-import httpx
 from fastapi import HTTPException
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from app.config import get_settings
 
@@ -26,44 +26,20 @@ def sanitize_ai_response(text: str) -> str:
 
 async def call_openai(prompt: str, system_prompt: str = "") -> str:
     """
-    Chama a API da OpenAI com timeout explícito.
+    Chama a API de IA via Emergent LLM Key.
     Retorna texto sanitizado.
     """
-    timeout = settings.AI_TIMEOUT_SECONDS
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": prompt})
-
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await asyncio.wait_for(
-                client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    json={
-                        "model": "gpt-4",
-                        "messages": messages,
-                        "max_tokens": 1000,
-                        "temperature": 0.3,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                ),
-                timeout=timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            raw_text = data["choices"][0]["message"]["content"]
-            return sanitize_ai_response(raw_text)
+        chat = LlmChat(
+            api_key=settings.EMERGENT_LLM_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message=system_prompt or "Você é um nutricionista especializado. Responda sempre em português.",
+        ).with_model("openai", "gpt-4o")
 
-    except (httpx.TimeoutException, asyncio.TimeoutError):
-        logger.warning("OpenAI timeout após %ds", timeout)
-        raise HTTPException(504, "Serviço de IA indisponível — tente novamente")
-    except httpx.HTTPStatusError as e:
-        logger.error("OpenAI HTTP error: %d", e.response.status_code)
-        raise HTTPException(502, f"Erro no serviço de IA: {e.response.status_code}")
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        return sanitize_ai_response(response)
+
     except Exception as e:
-        logger.exception("Erro inesperado na chamada de IA")
-        raise HTTPException(500, "Erro interno ao processar análise")
+        logger.exception("Erro na chamada de IA: %s", e)
+        raise HTTPException(500, "Erro interno ao processar análise de IA")
