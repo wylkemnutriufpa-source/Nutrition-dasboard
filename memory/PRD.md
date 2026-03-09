@@ -40,17 +40,17 @@ Consolidação de dois projetos:
 
 ## O Que Foi Implementado
 
-### Fase 0 — Infraestrutura (Concluído 2026-03-09)
+### Fase 0 — Infraestrutura + Recuperação de Módulos (Concluído 2026-03-09)
 - ✅ Configuração completa do ambiente Emergent
-- ✅ `/app/backend/server.py` bridge para FastAPI
-- ✅ `/app/frontend/package.json` bridge para Vite
-- ✅ `/app/backend/.env` com Supabase + Emergent LLM Key
 - ✅ 34 migrations SQL aplicadas no novo banco Supabase `ifuiiycfrehjnmlzletw`
-- ✅ `vite.config.ts` atualizado com `allowedHosts: true`
-- ✅ `ai_service.py` migrado para emergentintegrations (gpt-4o)
+- ✅ ai_service.py migrado para emergentintegrations (gpt-4o)
 - ✅ Landing page na raiz `/` para usuários não autenticados
 - ✅ Usuário admin criado: wylkem.nutri.ufpa@gmail.com (roles: admin + nutritionist)
 - ✅ Google login corrigido (Lovable OAuth → Supabase OAuth padrão)
+- ✅ RECUPERAÇÃO: Clinical Dashboard restaurado para admin
+- ✅ RECUPERAÇÃO: Protocolos, Programas, Receitas, Planos, Check-ins, Chat, Financeiro, Suplementação, Dicas - todos visíveis no menu admin
+- ✅ RECUPERAÇÃO: Refresh loop corrigido (removida dupla inicialização auth - getSession + onAuthStateChange)
+- ✅ Sidebar sem duplicatas (Configurações única, Automação única)
 - ✅ Frontend rodando em https://fitjourney-merge.preview.emergentagent.com
 
 ## Roadmap (5 Fases)
