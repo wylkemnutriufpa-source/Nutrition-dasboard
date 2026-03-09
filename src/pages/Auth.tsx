@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,11 +55,14 @@ export default function Auth() {
   const handleSocialLogin = async (provider: "google" | "apple") => {
     setSocialLoading(provider);
     try {
-      const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
       });
-      if (result && 'error' in result && result.error) {
-        toast.error(`Erro ao entrar com ${provider === "google" ? "Google" : "Apple"}`);
+      if (error) {
+        toast.error(`Erro ao entrar com ${provider === "google" ? "Google" : "Apple"}: ${error.message}`);
       }
     } catch {
       toast.error("Erro na autenticação social");

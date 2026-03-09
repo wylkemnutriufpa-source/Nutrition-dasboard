@@ -45,10 +45,12 @@ Consolidação de dois projetos:
 - ✅ `/app/backend/server.py` bridge para FastAPI
 - ✅ `/app/frontend/package.json` bridge para Vite
 - ✅ `/app/backend/.env` com Supabase + Emergent LLM Key
-- ✅ `/app/.env` atualizado para novo projeto Supabase
-- ✅ 34 migrations SQL aplicadas no novo banco
+- ✅ 34 migrations SQL aplicadas no novo banco Supabase `ifuiiycfrehjnmlzletw`
 - ✅ `vite.config.ts` atualizado com `allowedHosts: true`
-- ✅ `ai_service.py` migrado de OpenAI httpx para emergentintegrations
+- ✅ `ai_service.py` migrado para emergentintegrations (gpt-4o)
+- ✅ Landing page na raiz `/` para usuários não autenticados
+- ✅ Usuário admin criado: wylkem.nutri.ufpa@gmail.com (roles: admin + nutritionist)
+- ✅ Google login corrigido (Lovable OAuth → Supabase OAuth padrão)
 - ✅ Frontend rodando em https://fitjourney-merge.preview.emergentagent.com
 
 ## Roadmap (5 Fases)
